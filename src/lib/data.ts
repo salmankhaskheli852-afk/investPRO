@@ -45,6 +45,13 @@ export type Transaction = {
   date: string;
 };
 
+export type AdminWallet = {
+    id: string;
+    walletName: string;
+    name: string;
+    number: string;
+}
+
 const findImage = (id: string) => PlaceHolderImages.find(img => img.id === id);
 
 export const planCategories: PlanCategory[] = [
@@ -157,8 +164,17 @@ export const transactions: Transaction[] = [
     { id: 'txn-4', userId: 'user-3', type: 'withdrawal', amount: 200, status: 'pending', date: '2023-10-04' },
 ];
 
-export const adminWalletDetails = {
-    walletName: "USDT (TRC20)",
-    name: "InvesPro Holdings",
-    number: "TXYZ123ABC789..."
-};
+export const adminWallets: AdminWallet[] = [
+    {
+        id: 'wallet-1',
+        walletName: "Easypaisa",
+        name: "you",
+        number: "03087554721"
+    },
+    {
+        id: 'wallet-2',
+        walletName: "JazzCash",
+        name: "salman shop",
+        number: "03433273391"
+    }
+];

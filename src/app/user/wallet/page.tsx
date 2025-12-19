@@ -4,9 +4,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { adminWalletDetails } from '@/lib/data';
-import { ArrowDownToLine, ArrowUpFromLine, Copy } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { adminWallets } from '@/lib/data';
+import { ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import React from 'react';
 
 export default function UserWalletPage() {
@@ -26,15 +35,64 @@ export default function UserWalletPage() {
         </CardHeader>
         <CardContent>
             <div className="grid grid-cols-2 gap-4">
-                <Button 
-                    size="lg" 
-                    onClick={() => setActiveTab('deposit')}
-                    className={activeTab === 'deposit' ? 'bg-primary hover:bg-primary/90' : ''}
-                    variant={activeTab === 'deposit' ? 'default' : 'outline'}
-                >
-                    <ArrowDownToLine className="mr-2 h-4 w-4" />
-                    Deposit
-                </Button>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button 
+                        size="lg"
+                        variant={activeTab === 'deposit' ? 'default' : 'outline'}
+                        onClick={() => setActiveTab('deposit')}
+                        className={activeTab === 'deposit' ? 'bg-primary hover:bg-primary/90' : ''}
+                    >
+                        <ArrowDownToLine className="mr-2 h-4 w-4" />
+                        Deposit
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Deposit Funds</DialogTitle>
+                      <DialogDescription>
+                        Send funds to an account below and enter the details to verify.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <Label>Select Admin Account</Label>
+                        <RadioGroup defaultValue={adminWallets[0].id}>
+                            {adminWallets.map((wallet) => (
+                                <Label key={wallet.id} htmlFor={wallet.id} className="flex flex-col space-y-1 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                                    <div className="flex items-center gap-3">
+                                        <RadioGroupItem value={wallet.id} id={wallet.id} />
+                                        <div className="font-medium">{wallet.walletName}</div>
+                                    </div>
+                                    <div className="pl-8 text-sm">
+                                        <div>Name: {wallet.name}</div>
+                                        <div>Number: {wallet.number}</div>
+                                    </div>
+                                </Label>
+                            ))}
+                        </RadioGroup>
+                        <div className="space-y-2">
+                            <Label htmlFor="account-holder-name">Your Account Holder Name</Label>
+                            <Input id="account-holder-name" placeholder="Your Name" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="account-number">Your Account Number</Label>
+                            <Input id="account-number" placeholder="03xxxxxxxx" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="amount">Amount (PKR)</Label>
+                            <Input id="amount" type="number" placeholder="500" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="tid">Transaction ID (TID)</Label>
+                            <Input id="tid" placeholder="e.g., 1234567890" />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                      <Button type="submit" className="w-full bg-primary hover:bg-primary/90">Submit Request</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
                 <Button 
                     size="lg" 
                     onClick={() => setActiveTab('withdraw')}
@@ -48,41 +106,6 @@ export default function UserWalletPage() {
         </CardContent>
       </Card>
         
-      {activeTab === 'deposit' && (
-          <Card className="max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle>Deposit Funds</CardTitle>
-              <CardDescription>
-                To deposit funds, please send the amount to the following wallet address. Your balance will be updated upon confirmation.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1">
-                <Label>Wallet</Label>
-                <p className="font-semibold text-primary">{adminWalletDetails.walletName}</p>
-              </div>
-               <div className="space-y-1">
-                <Label>Recipient Name</Label>
-                <p className="font-semibold">{adminWalletDetails.name}</p>
-              </div>
-              <div className="space-y-1">
-                <Label>Wallet Address</Label>
-                <div className="flex items-center gap-2">
-                  <Input readOnly value={adminWalletDetails.number} className="bg-muted" />
-                  <Button variant="outline" size="icon">
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-                <p className="text-xs text-muted-foreground">
-                    Important: Only send {adminWalletDetails.walletName} to this address. Sending any other currency may result in the loss of your deposit.
-                </p>
-            </CardFooter>
-          </Card>
-      )}
-
       {activeTab === 'withdraw' && (
           <Card className="max-w-2xl mx-auto">
             <CardHeader>
