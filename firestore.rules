@@ -41,6 +41,12 @@ service cloud.firestore {
         // Any authenticated user can view the investment plans.
         allow read: if isUserAuthenticated();
     }
+
+    // Rules for 'plan_categories' for non-admins
+    match /plan_categories/{categoryId} {
+        // Any authenticated user can view the investment plan categories.
+        allow read: if isUserAuthenticated();
+    }
     
     // This rule gives a user full read/write access to their own wallet document.
     match /users/{userId}/wallets/{walletId} {
@@ -62,9 +68,10 @@ service cloud.firestore {
         allow read: if isUserAuthenticated();
     }
 
-    // Allow any authenticated user to read chat settings for the WhatsApp widget
+    // Allow ANYONE (authenticated or not) to read chat settings.
+    // This is safe because it's public contact info.
     match /app_config/chat_settings {
-      allow get: if isUserAuthenticated();
+      allow get: if true;
     }
   }
 }
