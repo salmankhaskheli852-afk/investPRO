@@ -24,7 +24,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { adminWallets, type Wallet } from '@/lib/data';
+import { adminWallets } from '@/lib/data';
+import type { Wallet, Transaction, AdminWallet } from '@/lib/data';
 import { ArrowDownToLine, ArrowUpFromLine, Banknote, Landmark } from 'lucide-react';
 import {
   Select,
@@ -34,11 +35,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, serverTimestamp, doc, writeBatch, addDoc } from 'firebase/firestore';
+import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { collection, serverTimestamp, doc, writeBatch, addDoc, query, where } from 'firebase/firestore';
 
 export default function UserWalletPage() {
-  const [selectedWallet, setSelectedWallet] = React.useState(adminWallets.find(w => !w.isBank)?.id || '');
+  const [selectedWallet, setSelectedWallet] = React.useState('');
   const [showBankDetails, setShowBankDetails] = React.useState(false);
   const [depositAmount, setDepositAmount] = React.useState('');
   const [depositTid, setDepositTid] = React.useState('');
@@ -51,6 +52,7 @@ export default function UserWalletPage() {
   const [withdrawMethod, setWithdrawMethod] = React.useState('jazzcash');
 
   const [showInsufficientFunds, setShowInsufficientFunds] = React.useState(false);
+  const [showEmptyFields, setShowEmptyFields] = React.useState(false);
 
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -61,6 +63,19 @@ export default function UserWalletPage() {
     [firestore, user]
   );
   const { data: walletData } = useDoc<Wallet>(walletRef);
+  
+  const adminWalletsQuery = useMemoFirebase(
+    () => firestore ? collection(firestore, 'admin_wallets') : null,
+    [firestore]
+  );
+  const { data: adminWalletsData } = useCollection<AdminWallet>(adminWalletsQuery);
+
+  React.useEffect(() => {
+    if (adminWalletsData && adminWalletsData.length > 0) {
+      setSelectedWallet(adminWalletsData.find(w => !w.isBank)?.id || adminWalletsData[0].id);
+    }
+  }, [adminWalletsData]);
+
 
   const handleDepositSubmit = async () => {
     if (!user || !firestore) {
@@ -73,7 +88,9 @@ export default function UserWalletPage() {
     }
 
     try {
-        await addDoc(collection(firestore, 'transactions'), {
+        const depositTransactionRef = doc(collection(firestore, 'transactions'));
+        await addDoc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'), {
+          id: depositTransactionRef.id,
           type: 'deposit',
           amount: parseFloat(depositAmount),
           status: 'pending',
@@ -100,7 +117,7 @@ export default function UserWalletPage() {
       return;
     }
     if (!withdrawAmount || !withdrawHolderName || !withdrawAccountNumber) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please fill all withdrawal fields.' });
+      setShowEmptyFields(true);
       return;
     }
 
@@ -111,13 +128,15 @@ export default function UserWalletPage() {
     }
 
     const userWalletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
+    const transactionCollectionRef = collection(firestore, 'transactions');
+    const userTransactionCollectionRef = collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions');
 
     try {
         const batch = writeBatch(firestore);
 
         // 1. Create the withdrawal transaction record in the top-level 'transactions' collection
-        const newTransactionRef = doc(collection(firestore, 'transactions'));
-        batch.set(newTransactionRef, {
+        const newTransactionRef = doc(transactionCollectionRef);
+        const transactionData = {
           id: newTransactionRef.id,
           type: 'withdrawal',
           amount: amountToWithdraw,
@@ -132,9 +151,14 @@ export default function UserWalletPage() {
             userName: user.displayName,
             userEmail: user.email,
           }
-        });
+        };
+        batch.set(newTransactionRef, transactionData);
 
-        // 2. Optimistically deduct the balance from the user's wallet
+        // 2. Also add it to the user's subcollection for their history
+        const userNewTransactionRef = doc(userTransactionCollectionRef, newTransactionRef.id);
+        batch.set(userNewTransactionRef, transactionData);
+
+        // 3. Optimistically deduct the balance from the user's wallet
         const newBalance = walletData.balance - amountToWithdraw;
         batch.update(userWalletRef, { balance: newBalance });
 
@@ -158,7 +182,7 @@ export default function UserWalletPage() {
   const [bankEnabled, setBankEnabled] = React.useState(true);
 
 
-  const selectedWalletDetails = adminWallets.find(w => w.id === selectedWallet);
+  const selectedWalletDetails = adminWalletsData?.find(w => w.id === selectedWallet);
 
   const handleWithdrawalMethodChange = (value: string) => {
     setWithdrawMethod(value);
@@ -168,7 +192,7 @@ export default function UserWalletPage() {
   return (
     <>
       <AlertDialog open={showInsufficientFunds} onOpenChange={setShowInsufficientFunds}>
-        <AlertDialogContent className="sm:max-w-xs">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Insufficient Funds</AlertDialogTitle>
             <AlertDialogDescription>
@@ -180,6 +204,21 @@ export default function UserWalletPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <AlertDialog open={showEmptyFields} onOpenChange={setShowEmptyFields}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Missing Information</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please fill out all the required fields for the withdrawal request.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowEmptyFields(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       <div className="space-y-8">
         <div>
@@ -203,7 +242,7 @@ export default function UserWalletPage() {
                           Deposit
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-xs">
+                    <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Deposit Funds</DialogTitle>
                         <DialogDescription>
@@ -213,7 +252,7 @@ export default function UserWalletPage() {
                       <div className="grid gap-4 py-4">
                           <Label>Select Admin Account</Label>
                           <RadioGroup value={selectedWallet} onValueChange={setSelectedWallet}>
-                              {adminWallets.map((wallet) => (
+                              {adminWalletsData?.map((wallet) => (
                                   <Label key={wallet.id} htmlFor={wallet.id} className="flex items-center space-x-3 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
                                       <RadioGroupItem value={wallet.id} id={wallet.id} />
                                       {wallet.isBank ? <Landmark className="h-5 w-5" /> : <Banknote className="h-5 w-5" />}
@@ -277,7 +316,7 @@ export default function UserWalletPage() {
                               Withdraw
                           </Button>
                       </DialogTrigger>
-                      <DialogContent className="sm:max-w-xs">
+                      <DialogContent>
                           <DialogHeader>
                               <DialogTitle>Withdraw Funds</DialogTitle>
                               <DialogDescription>
