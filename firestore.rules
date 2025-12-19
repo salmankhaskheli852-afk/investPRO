@@ -55,11 +55,10 @@ service cloud.firestore {
     }
 
     /**
-     * Checks if the authenticated user has admin privileges.
-     * Admin status is granted by the existence of a document in the /roles_admin collection.
+     * Checks if the authenticated user has admin privileges based on their email.
      */
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      return isSignedIn() && request.auth.token.email == 'salmankhaskheli885@gmail.com';
     }
 
     /**
@@ -127,6 +126,30 @@ service cloud.firestore {
       allow create: if canCreateUser(userId);
       allow update: if canUpdateUser(userId);
       allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description A user's wallets are private. Only the authenticated owner of the
+       *              user document can access their own wallets. Admins have full access.
+       * @path        /users/{userId}/wallets/{walletId}
+       * @allow       User 'user123' can (list) all documents under `/users/user123/wallets`. Admin can read/write.
+       * @deny        User 'user456' trying to (get) a document at `/users/user123/wallets/walletABC`.
+       * @principle   Restricts access to a user's own private data tree (Path-based ownership) with admin override.
+       */
+      match /wallets/{walletId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+
+        /**
+         * @description Transactions are private and nested under a user's wallet. Access is
+         *              restricted to the owner of the parent wallet. Admins have full access.
+         * @path        /users/{userId}/wallets/{walletId}/transactions/{transactionId}
+         * @allow       User 'user123' can (create) a new transaction under their own wallet path. Admin can read/write.
+         * @deny        A non-owner user trying to (list) transactions for `/users/user123/wallets/walletABC`.
+         * @principle   Strict data privacy using inherited path-based ownership with admin override.
+         */
+        match /transactions/{transactionId} {
+          allow read, write: if isOwner(userId) || isAdmin();
+        }
+      }
     }
 
     /**
@@ -138,11 +161,8 @@ service cloud.firestore {
      * @principle   Public read access with role-based write restrictions.
      */
     match /investment_plans/{planId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow read: if true;
+      allow write: if isAdmin();
     }
     
     /**
@@ -157,38 +177,6 @@ service cloud.firestore {
         allow read: if true;
         allow write: if isAdmin();
     }
-
-    /**
-     * @description A user's wallets are private. Only the authenticated owner of the
-     *              user document can access their own wallets.
-     * @path        /users/{userId}/wallets/{walletId}
-     * @allow       User 'user123' can (list) all documents under `/users/user123/wallets`.
-     * @deny        User 'user456' trying to (get) a document at `/users/user123/wallets/walletABC`.
-     * @principle   Restricts access to a user's own private data tree (Path-based ownership).
-     */
-    match /users/{userId}/wallets/{walletId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if canCreateWallet(userId);
-      allow update: if canUpdateWallet(userId);
-      allow delete: if isExistingOwner(userId);
-
-      /**
-       * @description Transactions are private and nested under a user's wallet. Access is
-       *              restricted to the owner of the parent wallet.
-       * @path        /users/{userId}/wallets/{walletId}/transactions/{transactionId}
-       * @allow       User 'user123' can (create) a new transaction under their own wallet path.
-       * @deny        An admin trying to (list) transactions for `/users/user123/wallets/walletABC`.
-       * @principle   Strict data privacy using inherited path-based ownership.
-       */
-      match /transactions/{transactionId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow create: if canCreateTransaction(userId, walletId);
-        allow update: if canUpdateTransaction(userId);
-        allow delete: if isExistingOwner(userId);
-      }
-    }
     
     /**
      * @description Top-level transactions collection for admin processing. Users can create
@@ -200,12 +188,9 @@ service cloud.firestore {
      * @principle   Allows user-initiated requests into a central queue, with admin-only read/write access.
      */
     match /transactions/{transactionId} {
-      allow get: if isAdmin();
-      allow list: if isAdmin();
+      allow read, write: if isAdmin();
       // Allow user to create if it is a withdrawal request they own
       allow create: if isSignedIn() && request.resource.data.details.userId == request.auth.uid;
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
     }
 
     /**
@@ -218,11 +203,9 @@ service cloud.firestore {
      * @principle   Prevents client-side privilege escalation by making role documents immutable from the client.
      */
     match /roles_admin/{userId} {
-      allow read: if false;
-      allow list: if false;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow read, write: if false;
     }
   }
 }
+
+    
