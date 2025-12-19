@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Transaction } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, getDoc, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X } from 'lucide-react';
@@ -129,7 +129,7 @@ export default function AdminWithdrawalsPage() {
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
   const withdrawalsQuery = useMemoFirebase(
-    () => firestore ? query(collectionGroup(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null,
+    () => firestore ? query(collection(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null,
     [firestore]
   );
   const { data: withdrawalRequests, isLoading: isLoadingWithdrawals } = useCollection<Transaction>(withdrawalsQuery);
