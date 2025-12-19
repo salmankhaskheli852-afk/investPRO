@@ -36,11 +36,11 @@ export default function AdminDashboardPage() {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const usersQuery = useMemoFirebase(
+  const allUsersQuery = useMemoFirebase(
     () => firestore && user ? collection(firestore, 'users') : null,
     [firestore, user]
   );
-  const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(allUsersQuery);
 
   const agentsQuery = useMemoFirebase(
     () => firestore && user ? query(collection(firestore, 'users'), where('role', '==', 'agent')) : null,
@@ -68,20 +68,20 @@ export default function AdminDashboardPage() {
   
   // This is a simplified calculation. A real-world scenario would use aggregated data.
   const totalInvestment = React.useMemo(() => {
-    if (!users || !investmentPlans) return 0;
-    return users.reduce((acc, user) => {
+    if (!allUsers || !investmentPlans) return 0;
+    return allUsers.reduce((acc, user) => {
         const userInvestments = user.investments?.reduce((sum, planId) => {
             const plan = investmentPlans.find(p => p.id === planId);
             return sum + (plan?.price || 0);
         }, 0) || 0;
         return acc + userInvestments;
     }, 0);
-  }, [users, investmentPlans]);
+  }, [allUsers, investmentPlans]);
 
 
   const getTransactionUser = (tx: Transaction) => {
-    if (!users || !tx.details?.userId) return null;
-    return users.find(u => u.id === tx.details.userId);
+    if (!allUsers || !tx.details?.userId) return null;
+    return allUsers.find(u => u.id === tx.details.userId);
   };
   
   const getStatusBadge = (status: string) => {
@@ -113,7 +113,7 @@ export default function AdminDashboardPage() {
         />
         <DashboardStatsCard
           title="Total Users"
-          value={isLoadingUsers ? '...' : (users?.length || 0).toString()}
+          value={isLoadingUsers ? '...' : (allUsers?.length || 0).toString()}
           description="Number of registered users"
           Icon={UsersIcon}
           chartData={mockUsersData}
