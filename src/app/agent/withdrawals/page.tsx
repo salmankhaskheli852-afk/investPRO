@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -13,7 +12,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Transaction } from '@/lib/data';
 import { collection, query, where, doc, writeBatch, getDoc, collectionGroup } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -29,7 +28,9 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
     if (!firestore || !user) return;
     setIsProcessing(true);
     
+    // This is the reference to the transaction in the top-level /transactions collection
     const globalTransactionRef = doc(firestore, 'transactions', tx.id);
+    // This is the reference to the transaction in the user's subcollection
     const userTransactionRef = doc(firestore, 'users', user.id, 'wallets', 'main', 'transactions', tx.id);
     const walletRef = doc(firestore, 'users', user.id, 'wallets', 'main');
 
@@ -43,6 +44,7 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
         batch.update(walletRef, { balance: currentBalance + tx.amount });
       }
 
+      // Update both transaction documents
       batch.update(globalTransactionRef, { status: newStatus });
       batch.update(userTransactionRef, { status: newStatus });
 
@@ -116,7 +118,6 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
 }
 
 export default function AgentWithdrawalsPage() {
-  const { user: agentUser } = useUser();
   const firestore = useFirestore();
 
   const allUsersQuery = useMemoFirebase(
@@ -176,7 +177,7 @@ export default function AgentWithdrawalsPage() {
                   </TableCell>
                 </TableRow>
               )}
-            </TableBody>
+            </Body>
           </Table>
         </CardContent>
       </Card>
