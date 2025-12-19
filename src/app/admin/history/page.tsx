@@ -15,8 +15,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Transaction } from '@/lib/data';
-import { collection, query, orderBy, where, limit } from 'firebase/firestore';
-import { format } from 'date-fns';
+import { collection, query, orderBy, where, Timestamp } from 'firebase/firestore';
+import { format, subDays } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function TransactionRow({ tx, user }: { tx: Transaction, user: User | undefined }) {
@@ -76,14 +76,19 @@ function TransactionsTable({ status }: { status: 'completed' | 'pending' | 'fail
     const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
     
     const transactionsQuery = useMemoFirebase(
-        () => firestore 
-            ? query(
+        () => {
+            if (!firestore) return null;
+            // Calculate the date 7 days ago from now.
+            const sevenDaysAgo = subDays(new Date(), 7);
+            const sevenDaysAgoTimestamp = Timestamp.fromDate(sevenDaysAgo);
+
+            return query(
                 collection(firestore, 'transactions'), 
                 where('status', '==', status), 
-                orderBy('date', 'desc'),
-                limit(50) // Limit to last 50 for performance
-            ) 
-            : null,
+                where('date', '>=', sevenDaysAgoTimestamp), // Only get transactions from the last 7 days.
+                orderBy('date', 'desc')
+            );
+        },
         [firestore, status]
     );
     const { data: transactions, isLoading: isLoadingTxs } = useCollection<Transaction>(transactionsQuery);
@@ -123,7 +128,7 @@ function TransactionsTable({ status }: { status: 'completed' | 'pending' | 'fail
                 ) : (
                     <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
-                        No {status} transactions found.
+                        No {status} transactions found in the last 7 days.
                     </TableCell>
                     </TableRow>
                 )}
@@ -139,7 +144,7 @@ export default function AdminHistoryPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-headline">Transaction History</h1>
-        <p className="text-muted-foreground">A record of all financial activities across the platform.</p>
+        <p className="text-muted-foreground">A record of all financial activities across the platform from the last 7 days.</p>
       </div>
 
       <Tabs defaultValue="completed" className="w-full">
