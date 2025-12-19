@@ -4,7 +4,7 @@
 import React from 'react';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
 import { investmentPlans } from '@/lib/data';
-import { DollarSign, TrendingUp } from 'lucide-react';
+import { DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { useUser } from '@/firebase';
@@ -20,12 +20,20 @@ const mockWalletData = [
 ];
 
 const mockInvestmentData = [
-  { name: 'Jan', investment: 500 },
-  { name: 'Feb', investment: 600 },
-  { name: 'Mar', investment: 800 },
-  { name: 'Apr', investment: 700 },
-  { name: 'May', investment: 900 },
-  { name: 'Jun', investment: 1100 },
+  { name: 'Jan', value: 500 },
+  { name: 'Feb', value: 600 },
+  { name: 'Mar', value: 800 },
+  { name: 'Apr', value: 700 },
+  { name: 'May', value: 900 },
+  { name: 'Jun', value: 1100 },
+];
+const mockIncomeData = [
+    { name: 'Jan', value: 150 },
+    { name: 'Feb', value: 180 },
+    { name: 'Mar', value: 220 },
+    { name: 'Apr', value: 200 },
+    { name: 'May', value: 250 },
+    { name: 'Jun', value: 280 },
 ];
 
 
@@ -38,6 +46,9 @@ export default function UserDashboardPage() {
       name: user?.displayName || 'User',
       walletBalance: 1250.75,
       investments: ['plan-1'],
+      totalDeposit: 5000,
+      totalWithdraw: 1500,
+      totalIncome: 750,
   };
 
   const activePlans = mockUser.investments.map(planId => investmentPlans.find(p => p.id === planId)).filter(Boolean);
@@ -73,11 +84,11 @@ export default function UserDashboardPage() {
     <div className="space-y-8">
       <h1 className="text-3xl font-bold font-headline">Welcome back, {mockUser.name.split(' ')[0]}!</h1>
       
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <DashboardStatsCard
           title="Wallet Balance"
           value={`${walletBalance.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 2 })}`}
-          description="Available funds for investment or withdrawal"
+          description="Available funds"
           Icon={DollarSign}
           chartData={mockWalletData}
           chartKey="balance"
@@ -88,9 +99,36 @@ export default function UserDashboardPage() {
           description={`${activePlans.length} active plans`}
           Icon={TrendingUp}
           chartData={mockInvestmentData}
-          chartKey="investment"
+          chartKey="value"
+        />
+        <DashboardStatsCard
+          title="Total Income"
+          value={`${mockUser.totalIncome.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 2 })}`}
+          description="From investments"
+          Icon={PiggyBank}
+          chartData={mockIncomeData}
+          chartKey="value"
         />
       </div>
+       <div className="grid gap-4 md:grid-cols-2">
+         <DashboardStatsCard
+          title="Total Deposit"
+          value={`${mockUser.totalDeposit.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 })}`}
+          description="Funds added"
+          Icon={ArrowDownToLine}
+          chartData={mockInvestmentData}
+          chartKey="value"
+        />
+        <DashboardStatsCard
+          title="Total Withdraw"
+          value={`${mockUser.totalWithdraw.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 })}`}
+          description="Funds taken out"
+          Icon={ArrowUpFromLine}
+          chartData={mockIncomeData}
+          chartKey="value"
+        />
+      </div>
+
 
       <Card>
         <CardHeader>
