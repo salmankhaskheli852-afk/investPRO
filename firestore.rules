@@ -4,17 +4,22 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if the user is the designated admin or a super-agent.
-    function isAdmin() {
+    // Helper function to check if the user is an admin or an agent.
+    // This grants them full access.
+    function isAdminOrAgent() {
+      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
       return request.auth != null && 
-             (request.auth.token.email == 'salmankhaskheli885@gmail.com' ||
-              request.auth.token.email == 'salmankhaskheli852@gmail.com');
+             (
+                request.auth.token.email == 'salmankhaskheli885@gmail.com' ||
+                request.auth.token.email == 'salmankhaskheli852@gmail.com' ||
+                (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (userRole == 'admin' || userRole == 'agent'))
+             );
     }
 
-    // Grant ADMIN total and complete access to ALL documents in the database.
+    // Grant ADMINS and AGENTS total and complete access to ALL documents in the database.
     // This rule is placed first to ensure it's evaluated before more specific rules.
     match /{document=**} {
-      allow read, write, list: if isAdmin();
+      allow read, write, list: if isAdminOrAgent();
     }
     
     // Helper function to check if the user is authenticated.
@@ -27,7 +32,7 @@ service cloud.firestore {
       return isUserAuthenticated() && request.auth.uid == userId;
     }
     
-    // Rules for non-admin users below
+    // Rules for non-admin/non-agent users below
 
     // Rules for the 'users' collection
     match /users/{userId} {
