@@ -51,6 +51,11 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
+    // Allow any authenticated user to see available withdrawal methods
+    match /withdrawal_methods/{methodId} {
+      allow read: if isUserAuthenticated();
+    }
+
     // Allow any authenticated user to read chat settings for the WhatsApp widget
     match /app_config/chat_settings {
       allow get: if isUserAuthenticated();
