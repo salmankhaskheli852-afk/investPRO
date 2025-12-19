@@ -31,6 +31,7 @@ export type AgentPermissions = {
   canManageDepositRequests: boolean;
   canManageWithdrawalRequests: boolean;
   canAccessLiveChat: boolean;
+  canViewAllUsers?: boolean;
 }
 
 export type UserInvestment = {

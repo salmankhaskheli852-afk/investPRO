@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Edit, Trash2, MoreHorizontal, Eye, ShieldCheck, UserPlus } from 'lucide-react';
+import { Edit, Trash2, MoreHorizontal, Eye, ShieldCheck, UserPlus, Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
@@ -29,6 +29,7 @@ import {
 import Link from 'next/link';
 import { EditUserRoleDialog } from './edit-user-role-dialog';
 import { AssignAgentDialog } from './assign-agent-dialog';
+import { Input } from '@/components/ui/input';
 
 function UserRow({ 
   user, 
@@ -120,6 +121,11 @@ function UserRow({
 export default function AdminUsersPage() {
   const firestore = useFirestore();
   
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [isRoleDialogOpen, setIsRoleDialogOpen] = React.useState(false);
+  const [isAssignAgentDialogOpen, setIsAssignAgentDialogOpen] = React.useState(false);
+  const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
+
   const usersQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'users') : null,
     [firestore]
@@ -132,10 +138,6 @@ export default function AdminUsersPage() {
   );
   const { data: agents, isLoading: isLoadingAgents } = useCollection<User>(agentsQuery);
 
-  const [isRoleDialogOpen, setIsRoleDialogOpen] = React.useState(false);
-  const [isAssignAgentDialogOpen, setIsAssignAgentDialogOpen] = React.useState(false);
-  const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
-
   const handleEditRoleClick = (user: User) => {
     setSelectedUser(user);
     setIsRoleDialogOpen(true);
@@ -146,14 +148,34 @@ export default function AdminUsersPage() {
     setIsAssignAgentDialogOpen(true);
   }
 
+  const filteredUsers = React.useMemo(() => {
+    if (!users) return [];
+    if (!searchQuery) return users;
+    return users.filter(user => 
+      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [users, searchQuery]);
+
   const isLoading = isLoadingUsers || isLoadingAgents;
 
   return (
     <>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold font-headline">Manage Users</h1>
-          <p className="text-muted-foreground">View and manage user accounts and roles.</p>
+        <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold font-headline">Manage Users</h1>
+              <p className="text-muted-foreground">View and manage user accounts and roles.</p>
+            </div>
+            <div className="w-full max-w-sm">
+                <Input
+                    placeholder="Search by name or email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                    icon={<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />}
+                />
+            </div>
         </div>
         <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card>
@@ -177,14 +199,14 @@ export default function AdminUsersPage() {
                     </TableCell>
                   </TableRow>
                 )}
-                {!isLoading && users?.length === 0 && (
+                {!isLoading && filteredUsers.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
                       No users found.
                     </TableCell>
                   </TableRow>
                 )}
-                {users?.map((user) => <UserRow key={user.id} user={user} agents={agents || []} onEditRole={handleEditRoleClick} onAssignAgent={handleAssignAgentClick} />)}
+                {filteredUsers?.map((user) => <UserRow key={user.id} user={user} agents={agents || []} onEditRole={handleEditRoleClick} onAssignAgent={handleAssignAgentClick} />)}
               </TableBody>
             </Table>
           </CardContent>

@@ -18,7 +18,8 @@ import type { User, Transaction } from '@/lib/data';
 import { collection, query, where, doc, writeBatch, getDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X } from 'lucide-react';
+import { Check, X, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | undefined }) {
   const firestore = useFirestore();
@@ -120,6 +121,7 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
 
 export default function AgentWithdrawalsPage() {
   const firestore = useFirestore();
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   const allUsersQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'users') : null,
@@ -134,6 +136,20 @@ export default function AgentWithdrawalsPage() {
   const { data: withdrawalRequests, isLoading: isLoadingWithdrawals } = useCollection<Transaction>(withdrawalsQuery);
   
   const findUserForTx = (tx: Transaction) => allUsers?.find(u => u.id === tx.details?.userId);
+  
+  const filteredRequests = React.useMemo(() => {
+    if (!withdrawalRequests) return [];
+    if (!searchQuery) return withdrawalRequests;
+    return withdrawalRequests.filter(tx => {
+        const user = findUserForTx(tx);
+        return (
+            user?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            user?.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            tx.details?.receiverName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            tx.details?.receiverAccount?.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    });
+  }, [withdrawalRequests, searchQuery, allUsers]);
 
   const isLoading = isLoadingUsers || isLoadingWithdrawals;
   
@@ -148,7 +164,18 @@ export default function AgentWithdrawalsPage() {
       <Card>
         <CardHeader>
             <CardTitle>Pending Requests</CardTitle>
-            <CardDescription>Review the following withdrawal requests.</CardDescription>
+            <div className="flex justify-between items-center">
+                <CardDescription>Review the following withdrawal requests.</CardDescription>
+                <div className="w-full max-w-sm">
+                    <Input
+                        placeholder="Search by name, email, or account..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                        icon={<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />}
+                    />
+                </div>
+            </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -168,8 +195,8 @@ export default function AgentWithdrawalsPage() {
                     Loading requests...
                   </TableCell>
                 </TableRow>
-              ) : withdrawalRequests && withdrawalRequests.length > 0 ? (
-                withdrawalRequests.map((tx) => (
+              ) : filteredRequests && filteredRequests.length > 0 ? (
+                filteredRequests.map((tx) => (
                   <WithdrawalRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} />
                 ))
               ) : (

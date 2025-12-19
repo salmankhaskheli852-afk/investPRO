@@ -18,7 +18,8 @@ import type { User, Transaction, AppSettings } from '@/lib/data';
 import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X } from 'lucide-react';
+import { Check, X, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User | undefined, onUpdate: () => void }) {
   const firestore = useFirestore();
@@ -160,6 +161,7 @@ function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User
 
 export default function AdminDepositsPage() {
   const firestore = useFirestore();
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   const usersQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'users') : null,
@@ -175,6 +177,19 @@ export default function AdminDepositsPage() {
   
   const findUserForTx = (tx: Transaction) => users?.find(u => u.id === tx.details?.userId);
 
+  const filteredRequests = React.useMemo(() => {
+    if (!depositRequests) return [];
+    if (!searchQuery) return depositRequests;
+    return depositRequests.filter(tx => {
+        const user = findUserForTx(tx);
+        return (
+            user?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            user?.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            tx.details?.tid?.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    });
+  }, [depositRequests, searchQuery, users]);
+
   const isLoading = isLoadingUsers || isLoadingDeposits;
 
   return (
@@ -188,7 +203,18 @@ export default function AdminDepositsPage() {
       <Card>
         <CardHeader>
             <CardTitle>Pending Requests</CardTitle>
-            <CardDescription>Review the following deposit requests.</CardDescription>
+            <div className="flex justify-between items-center">
+                <CardDescription>Review the following deposit requests.</CardDescription>
+                 <div className="w-full max-w-sm">
+                    <Input
+                        placeholder="Search by name, email, or TID..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                        icon={<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />}
+                    />
+                </div>
+            </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -208,8 +234,8 @@ export default function AdminDepositsPage() {
                     Loading requests...
                   </TableCell>
                 </TableRow>
-              ) : depositRequests && depositRequests.length > 0 ? (
-                depositRequests.map((tx) => (
+              ) : filteredRequests && filteredRequests.length > 0 ? (
+                filteredRequests.map((tx) => (
                   <DepositRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} onUpdate={forceRefetch} />
                 ))
               ) : (

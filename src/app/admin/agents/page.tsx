@@ -25,9 +25,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Settings, History } from 'lucide-react';
+import { MoreHorizontal, Settings, History, Search } from 'lucide-react';
 import { ManageAgentAccountsDialog } from './manage-agent-accounts-dialog';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 function AgentRow({
   agent,
@@ -102,6 +103,7 @@ export default function AdminAgentsPage() {
 
   const [isManageDialogOpen, setIsManageDialogOpen] = React.useState(false);
   const [selectedAgent, setSelectedAgent] = React.useState<User | null>(null);
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   const agentsQuery = useMemoFirebase(
     () => firestore ? query(collection(firestore, 'users'), where('role', '==', 'agent')) : null,
@@ -120,6 +122,15 @@ export default function AdminAgentsPage() {
     setIsManageDialogOpen(true);
   };
   
+  const filteredAgents = React.useMemo(() => {
+    if (!agents) return [];
+    if (!searchQuery) return agents;
+    return agents.filter(agent =>
+      agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      agent.email.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [agents, searchQuery]);
+
   const isLoading = isLoadingAgents || isLoadingWallets;
 
   return (
@@ -134,7 +145,18 @@ export default function AdminAgentsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Agents</CardTitle>
-            <CardDescription>A list of all registered agents and their assigned accounts.</CardDescription>
+            <div className="flex justify-between items-center">
+                <CardDescription>A list of all registered agents and their assigned accounts.</CardDescription>
+                <div className="w-full max-w-sm">
+                    <Input
+                        placeholder="Search agents..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                        icon={<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />}
+                    />
+                </div>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -153,14 +175,14 @@ export default function AdminAgentsPage() {
                     </TableCell>
                   </TableRow>
                 )}
-                {!isLoading && agents?.length === 0 && (
+                {!isLoading && filteredAgents.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={3} className="h-24 text-center">
                       No agents found.
                     </TableCell>
                   </TableRow>
                 )}
-                {agents?.map((agent) => (
+                {filteredAgents?.map((agent) => (
                   <AgentRow 
                     key={agent.id} 
                     agent={agent} 

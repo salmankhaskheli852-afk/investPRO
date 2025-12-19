@@ -32,6 +32,7 @@ const defaultPermissions: AgentPermissions = {
   canManageDepositRequests: false,
   canManageWithdrawalRequests: false,
   canAccessLiveChat: false,
+  canViewAllUsers: false,
 };
 
 export function ManageAgentAccountsDialog({
@@ -130,23 +131,16 @@ export function ManageAgentAccountsDialog({
                 <h3 className="mb-4 text-lg font-medium">Agent Permissions</h3>
                 <div className="space-y-4">
                     <div className="flex items-center justify-between rounded-lg border p-3">
-                        <Label htmlFor="perm-deposit-history" className="flex flex-col space-y-1">
-                        <span>View Deposit History</span>
+                        <Label htmlFor="perm-view-all-users" className="flex flex-col space-y-1">
+                          <span>View All Users</span>
+                          <span className="font-normal leading-snug text-muted-foreground">
+                            Allows agent to see all users, not just their assigned ones.
+                          </span>
                         </Label>
                         <Switch
-                        id="perm-deposit-history"
-                        checked={permissions.canViewDepositHistory}
-                        onCheckedChange={(checked) => handlePermissionToggle('canViewDepositHistory', checked)}
-                        />
-                    </div>
-                    <div className="flex items-center justify-between rounded-lg border p-3">
-                        <Label htmlFor="perm-withdrawal-history" className="flex flex-col space-y-1">
-                        <span>View Withdrawal History</span>
-                        </Label>
-                        <Switch
-                        id="perm-withdrawal-history"
-                        checked={permissions.canViewWithdrawalHistory}
-                        onCheckedChange={(checked) => handlePermissionToggle('canViewWithdrawalHistory', checked)}
+                          id="perm-view-all-users"
+                          checked={permissions.canViewAllUsers}
+                          onCheckedChange={(checked) => handlePermissionToggle('canViewAllUsers', checked)}
                         />
                     </div>
                     <div className="flex items-center justify-between rounded-lg border p-3">
@@ -167,6 +161,26 @@ export function ManageAgentAccountsDialog({
                         id="perm-withdrawal-reqs"
                         checked={permissions.canManageWithdrawalRequests}
                         onCheckedChange={(checked) => handlePermissionToggle('canManageWithdrawalRequests', checked)}
+                        />
+                    </div>
+                     <div className="flex items-center justify-between rounded-lg border p-3">
+                        <Label htmlFor="perm-deposit-history" className="flex flex-col space-y-1">
+                        <span>View Deposit History</span>
+                        </Label>
+                        <Switch
+                        id="perm-deposit-history"
+                        checked={permissions.canViewDepositHistory}
+                        onCheckedChange={(checked) => handlePermissionToggle('canViewDepositHistory', checked)}
+                        />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                        <Label htmlFor="perm-withdrawal-history" className="flex flex-col space-y-1">
+                        <span>View Withdrawal History</span>
+                        </Label>
+                        <Switch
+                        id="perm-withdrawal-history"
+                        checked={permissions.canViewWithdrawalHistory}
+                        onCheckedChange={(checked) => handlePermissionToggle('canViewWithdrawalHistory', checked)}
                         />
                     </div>
                 </div>

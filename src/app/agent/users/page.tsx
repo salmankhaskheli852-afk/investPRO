@@ -13,9 +13,11 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
 import type { User, Wallet, InvestmentPlan } from '@/lib/data';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, doc } from 'firebase/firestore';
+import { Input } from '@/components/ui/input';
+import { Search } from 'lucide-react';
 
 
 function ManagedUserRow({ user }: { user: User }) {
@@ -36,8 +38,8 @@ function ManagedUserRow({ user }: { user: User }) {
     
     const totalInvested = React.useMemo(() => {
         if (!user.investments || !allPlans) return 0;
-        return user.investments.reduce((sum, planId) => {
-            const plan = allPlans.find(p => p.id === planId);
+        return user.investments.reduce((sum, investment) => {
+            const plan = allPlans.find(p => p.id === investment.planId);
             return sum + (plan?.price || 0);
         }, 0);
     }, [user.investments, allPlans]);
@@ -74,19 +76,58 @@ function ManagedUserRow({ user }: { user: User }) {
 export default function AgentUsersPage() {
   const { user: agentUser } = useUser();
   const firestore = useFirestore();
+  const [searchQuery, setSearchQuery] = React.useState('');
+
+  const agentDocRef = useMemoFirebase(
+      () => agentUser ? doc(firestore, 'users', agentUser.uid) : null,
+      [firestore, agentUser]
+  );
+  const { data: agentData, isLoading: isLoadingAgent } = useDoc<User>(agentDocRef);
 
   const managedUsersQuery = useMemoFirebase(
-    () => (firestore && agentUser ? query(collection(firestore, 'users'), where('agentId', '==', agentUser.uid)) : null),
-    [firestore, agentUser]
+    () => {
+        if (!firestore || !agentUser || !agentData) return null;
+
+        if (agentData.permissions?.canViewAllUsers) {
+            // Permission to view all users, fetch everyone except other agents/admins
+             return query(collection(firestore, 'users'), where('role', '==', 'user'));
+        }
+        // Default: fetch only users assigned to this agent
+        return query(collection(firestore, 'users'), where('agentId', '==', agentUser.uid))
+    },
+    [firestore, agentUser, agentData]
   );
   const { data: managedUsers, isLoading: isLoadingUsers } = useCollection<User>(managedUsersQuery);
 
+  const filteredUsers = React.useMemo(() => {
+    if (!managedUsers) return [];
+    if (!searchQuery) return managedUsers;
+    return managedUsers.filter(user => 
+      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [managedUsers, searchQuery]);
+
+  const isLoading = isLoadingUsers || isLoadingAgent;
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold font-headline">My Managed Users</h1>
-        <p className="text-muted-foreground">An overview of all users assigned to you.</p>
+      <div className="flex justify-between items-center">
+        <div>
+            <h1 className="text-3xl font-bold font-headline">My Managed Users</h1>
+            <p className="text-muted-foreground">An overview of all users assigned to you.</p>
+        </div>
+        <div className="w-full max-w-sm">
+            <Input
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+                icon={<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />}
+            />
+        </div>
       </div>
+
 
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card>
@@ -101,15 +142,15 @@ export default function AgentUsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoadingUsers ? (
+              {isLoading ? (
                 <TableRow>
                     <TableCell colSpan={4} className="h-24 text-center">Loading users...</TableCell>
                 </TableRow>
-              ) : managedUsers && managedUsers.length > 0 ? (
-                managedUsers.map((user) => <ManagedUserRow key={user.id} user={user} />)
+              ) : filteredUsers && filteredUsers.length > 0 ? (
+                filteredUsers.map((user) => <ManagedUserRow key={user.id} user={user} />)
               ) : (
                 <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">No users assigned to you.</TableCell>
+                    <TableCell colSpan={4} className="h-24 text-center">No users found.</TableCell>
                 </TableRow>
               )}
             </TableBody>
