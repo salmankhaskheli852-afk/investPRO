@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -120,7 +121,7 @@ export default function AdminUsersPage() {
   const firestore = useFirestore();
   
   const usersQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'users'), where('role', '==', 'user')) : null,
+    () => firestore ? collection(firestore, 'users') : null,
     [firestore]
   );
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
