@@ -218,7 +218,7 @@ service cloud.firestore {
      * @principle   Prevents client-side privilege escalation by making role documents immutable from the client.
      */
     match /roles_admin/{userId} {
-      allow get: if false;
+      allow read: if false;
       allow list: if false;
       allow create: if false;
       allow update: if false;
