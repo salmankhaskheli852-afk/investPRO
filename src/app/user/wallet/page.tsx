@@ -62,6 +62,7 @@ export default function UserWalletPage() {
       amount: parseFloat(depositAmount),
       status: 'pending',
       date: serverTimestamp(),
+      walletId: 'main',
       details: {
         tid: depositTid,
         senderName: depositHolderName,
@@ -90,6 +91,7 @@ export default function UserWalletPage() {
       amount: parseFloat(withdrawAmount),
       status: 'pending',
       date: serverTimestamp(),
+      walletId: 'main',
       details: {
         method: withdrawMethod,
         receiverName: withdrawHolderName,
@@ -122,7 +124,7 @@ export default function UserWalletPage() {
         <p className="text-muted-foreground">Manage your funds, deposit, and withdraw.</p>
       </div>
 
-      <Card className="max-w-2xl mx-auto">
+      <Card className="max-w-md mx-auto">
         <CardHeader className="text-center">
             <CardTitle>Quick Actions</CardTitle>
         </CardHeader>

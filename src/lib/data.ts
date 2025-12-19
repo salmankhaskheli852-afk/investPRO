@@ -26,6 +26,7 @@ export type User = {
   avatarUrl: string;
   investments: string[]; // array of plan IDs
   agentId?: string;
+  role: 'user' | 'agent' | 'admin';
 };
 
 export type Wallet = {
@@ -36,6 +37,7 @@ export type Wallet = {
 
 export type Transaction = {
   id: string;
+  walletId: string;
   type: 'deposit' | 'withdrawal' | 'investment' | 'income';
   amount: number;
   status: 'pending' | 'completed' | 'failed';
