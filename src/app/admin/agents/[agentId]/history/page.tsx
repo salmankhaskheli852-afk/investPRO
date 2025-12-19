@@ -1,3 +1,4 @@
+
 import {
   Table,
   TableBody,
@@ -15,8 +16,9 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export default function AgentHistoryPage({ params }: { params: { agentId: string } }) {
-  const agent = agents.find(a => a.id === params.agentId);
-  const managedUsers = users.filter(u => u.agentId === params.agentId);
+  const { agentId } = params;
+  const agent = agents.find(a => a.id === agentId);
+  const managedUsers = users.filter(u => u.agentId === agentId);
   const withdrawalTransactions = transactions.filter(tx => tx.type === 'withdrawal' && managedUsers.some(u => u.id === tx.userId));
 
   if (!agent) {
