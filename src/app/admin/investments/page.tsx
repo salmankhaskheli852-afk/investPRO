@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -88,8 +89,8 @@ export default function AdminInvestmentsPage() {
                 <Input id="price" type="number" defaultValue="1000" className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="daily" className="text-right">Daily Income (Rs)</Label>
-                <Input id="daily" type="number" defaultValue="65" className="col-span-3" />
+                <Label htmlFor="daily-percentage" className="text-right">Daily Income (%)</Label>
+                <Input id="daily-percentage" type="number" defaultValue="5" className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="period" className="text-right">Income Period</Label>

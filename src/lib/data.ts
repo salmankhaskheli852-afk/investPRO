@@ -1,3 +1,4 @@
+
 import { PlaceHolderImages } from "./placeholder-images";
 import { Timestamp } from "firebase/firestore";
 
@@ -10,7 +11,7 @@ export type InvestmentPlan = {
   id: string;
   name: string;
   price: number;
-  dailyIncome: number;
+  dailyIncomePercentage: number;
   incomePeriod: number;
   totalIncome: number;
   imageUrl: string;
@@ -66,9 +67,9 @@ export const investmentPlans: InvestmentPlan[] = [
     id: 'plan-1',
     name: 'Starter Pack',
     price: 1580,
-    dailyIncome: 65,
+    dailyIncomePercentage: 4.11,
     incomePeriod: 60,
-    totalIncome: 65 * 60,
+    totalIncome: (1580 * 4.11 / 100) * 60,
     imageUrl: findImage('plan-starter')?.imageUrl || '',
     imageHint: findImage('plan-starter')?.imageHint || '',
     color: 'from-blue-500 to-blue-600',
@@ -78,9 +79,9 @@ export const investmentPlans: InvestmentPlan[] = [
     id: 'plan-2',
     name: 'Growth Engine',
     price: 3160,
-    dailyIncome: 190,
+    dailyIncomePercentage: 6.01,
     incomePeriod: 62,
-    totalIncome: 190 * 62,
+    totalIncome: (3160 * 6.01 / 100) * 62,
     imageUrl: findImage('plan-standard')?.imageUrl || '',
     imageHint: findImage('plan-standard')?.imageHint || '',
     color: 'from-green-500 to-green-600',
@@ -90,9 +91,9 @@ export const investmentPlans: InvestmentPlan[] = [
     id: 'plan-3',
     name: 'Premium Yield',
     price: 11800,
-    dailyIncome: 850,
+    dailyIncomePercentage: 7.2,
     incomePeriod: 57,
-    totalIncome: 850 * 57,
+    totalIncome: (11800 * 7.2 / 100) * 57,
     imageUrl: findImage('plan-premium')?.imageUrl || '',
     imageHint: findImage('plan-premium')?.imageHint || '',
     color: 'from-purple-500 to-purple-600',
@@ -102,9 +103,9 @@ export const investmentPlans: InvestmentPlan[] = [
     id: 'plan-4',
     name: 'VIP Portfolio',
     price: 31800,
-    dailyIncome: 2353,
+    dailyIncomePercentage: 7.4,
     incomePeriod: 60,
-    totalIncome: 2353 * 60,
+    totalIncome: (31800 * 7.4 / 100) * 60,
     imageUrl: findImage('plan-vip')?.imageUrl || '',
     imageHint: findImage('plan-vip')?.imageHint || '',
     color: 'from-amber-500 to-amber-600',

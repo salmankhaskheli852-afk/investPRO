@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -108,7 +109,7 @@ export default function UserDashboardPage() {
 
   // Daily income simulation
   React.useEffect(() => {
-    const dailyGains = activePlans.reduce((total, plan) => total + (plan?.dailyIncome || 0), 0);
+    const dailyGains = activePlans.reduce((total, plan) => total + (plan.price * (plan.dailyIncomePercentage / 100)), 0);
     if (dailyGains > 0) {
       const incomeInterval = setInterval(() => {
         // In a real app, this would be a server-side function.
@@ -126,7 +127,7 @@ export default function UserDashboardPage() {
       </div>
     );
   }
-
+  
   // After auth is checked, if there's no user, we don't need to render anything
   // as the useEffect above will trigger a redirect.
   if (!user) {

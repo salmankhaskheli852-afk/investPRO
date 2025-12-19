@@ -1,3 +1,4 @@
+
 'use client';
 
 import Image from 'next/image';
@@ -18,8 +19,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { CheckCircle, Info, Wallet } from 'lucide-react';
-import { useFirestore, useUser, updateDocumentNonBlocking } from '@/firebase';
-import { doc, arrayUnion, writeBatch } from 'firebase/firestore';
+import { useFirestore, useUser } from '@/firebase';
+import { doc, arrayUnion, writeBatch, collection, serverTimestamp } from 'firebase/firestore';
 
 interface InvestmentPlanCardProps {
   plan: InvestmentPlan;
@@ -110,7 +111,8 @@ export function InvestmentPlanCard({
 
   };
 
-  const totalIncome = plan.dailyIncome * plan.incomePeriod;
+  const dailyIncome = plan.price * (plan.dailyIncomePercentage / 100);
+  const totalIncome = dailyIncome * plan.incomePeriod;
 
   const renderPurchaseButton = () => {
     // This button is for the dashboard view where progress is shown.
@@ -222,7 +224,7 @@ export function InvestmentPlanCard({
         
         <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground flex-1">
             <div className="flex flex-col"><span>Product price</span> <span className="font-medium text-foreground text-base">{plan.price.toLocaleString()} Rs</span></div>
-            <div className="flex flex-col text-right"><span>Daily income</span> <span className="font-medium text-foreground text-base">{plan.dailyIncome.toLocaleString()} Rs</span></div>
+            <div className="flex flex-col text-right"><span>Daily income</span> <span className="font-medium text-foreground text-base">{dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span></div>
             <div className="flex flex-col"><span>Period</span> <span className="font-medium text-foreground text-base">{plan.incomePeriod} days</span></div>
             <div className="flex flex-col text-right"><span>Total income</span> <span className="font-medium text-foreground text-base">{totalIncome.toLocaleString()} Rs</span></div>
         </div>
