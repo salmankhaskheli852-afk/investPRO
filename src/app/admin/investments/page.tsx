@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,15 +36,87 @@ import {
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { InvestmentPlan } from '@/lib/data';
-import { collection } from 'firebase/firestore';
+import { collection, addDoc, doc, writeBatch } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminInvestmentsPage() {
   const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+
+  // Form state
+  const [name, setName] = React.useState('New Plan');
+  const [categoryId, setCategoryId] = React.useState('');
+  const [price, setPrice] = React.useState(1000);
+  const [dailyPercentage, setDailyPercentage] = React.useState(5);
+  const [period, setPeriod] = React.useState(60);
+  const [imageUrl, setImageUrl] = React.useState('https://picsum.photos/seed/105/600/400');
+  const [isSaving, setIsSaving] = React.useState(false);
+
+
   const plansQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'investment_plans') : null,
     [firestore]
   );
   const { data: investmentPlans, isLoading } = useCollection<InvestmentPlan>(plansQuery);
+  
+  const resetForm = () => {
+    setName('New Plan');
+    setCategoryId('');
+    setPrice(1000);
+    setDailyPercentage(5);
+    setPeriod(60);
+    setImageUrl('https://picsum.photos/seed/105/600/400');
+  }
+
+  const handleAddPlan = async () => {
+    if (!firestore) return;
+    if (!name || !categoryId || !price || !dailyPercentage || !period || !imageUrl) {
+        toast({
+            variant: 'destructive',
+            title: 'Missing Fields',
+            description: 'Please fill out all the fields to create a plan.',
+        });
+        return;
+    }
+    
+    setIsSaving(true);
+    try {
+        const newPlanRef = doc(collection(firestore, 'investment_plans'));
+        const dailyIncome = price * (dailyPercentage / 100);
+        const totalIncome = dailyIncome * period;
+
+        await addDoc(collection(firestore, 'investment_plans'), {
+            id: newPlanRef.id,
+            name,
+            categoryId,
+            price,
+            dailyIncomePercentage,
+            incomePeriod: period,
+            imageUrl,
+            totalIncome: totalIncome,
+            imageHint: "investment growth", // default hint
+        });
+
+        toast({
+            title: 'Plan Created!',
+            description: `${name} has been added to the investment plans.`,
+        });
+        
+        resetForm();
+        setIsDialogOpen(false);
+    } catch(e: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error Creating Plan',
+            description: e.message || 'There was an error saving the plan.',
+        });
+    } finally {
+        setIsSaving(false);
+    }
+  }
+
 
   return (
     <div className="space-y-8">
@@ -52,7 +125,7 @@ export default function AdminInvestmentsPage() {
           <h1 className="text-3xl font-bold font-headline">Manage Investments</h1>
           <p className="text-muted-foreground">Add, edit, or remove investment plans and categories.</p>
         </div>
-        <Dialog>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-accent hover:bg-accent/90">
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -69,11 +142,11 @@ export default function AdminInvestmentsPage() {
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">Name</Label>
-                <Input id="name" defaultValue="New Plan" className="col-span-3" />
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="category" className="text-right">Category</Label>
-                <Select>
+                <Select value={categoryId} onValueChange={setCategoryId}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
@@ -86,23 +159,28 @@ export default function AdminInvestmentsPage() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="price" className="text-right">Product Price (Rs)</Label>
-                <Input id="price" type="number" defaultValue="1000" className="col-span-3" />
+                <Input id="price" type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="daily-percentage" className="text-right">Daily Income (%)</Label>
-                <Input id="daily-percentage" type="number" defaultValue="5" className="col-span-3" />
+                <Input id="daily-percentage" type="number" value={dailyPercentage} onChange={(e) => setDailyPercentage(Number(e.target.value))} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="period" className="text-right">Income Period</Label>
-                <Input id="period" type="number" defaultValue="60" className="col-span-3" />
+                <Input id="period" type="number" value={period} onChange={(e) => setPeriod(Number(e.target.value))} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="image" className="text-right">Image URL</Label>
-                <Input id="image" defaultValue="https://picsum.photos/seed/105/600/400" className="col-span-3" />
+                <Input id="image" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="col-span-3" />
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit">Save changes</Button>
+               <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button type="submit" onClick={handleAddPlan} disabled={isSaving}>
+                {isSaving ? 'Saving...' : 'Save changes'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
