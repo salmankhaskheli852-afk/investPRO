@@ -41,9 +41,11 @@ export default function Home() {
           <CardDescription className="pt-2">Your trusted partner in modern investments.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button className="w-full" size="lg">
-            <GoogleIcon className="mr-2" />
-            Sign in with Google
+          <Button className="w-full" size="lg" asChild>
+            <Link href="/user">
+              <GoogleIcon className="mr-2" />
+              Sign in with Google
+            </Link>
           </Button>
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
@@ -55,12 +57,9 @@ export default function Home() {
               </span>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Button asChild variant="outline">
               <Link href="/admin">Admin</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/user">User</Link>
             </Button>
             <Button asChild variant="outline">
               <Link href="/agent">Agent</Link>
