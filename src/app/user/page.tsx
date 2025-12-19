@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { collection, doc, query, where, getDocs, collectionGroup } from 'firebase/firestore';
+import { collection, doc, query, where, getDocs, collectionGroup, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
 import type { InvestmentPlan, User, Wallet, Transaction } from '@/lib/data';
 
 const mockWalletData = [
@@ -43,29 +43,24 @@ export default function UserDashboardPage() {
   const router = useRouter();
   const firestore = useFirestore();
 
-  // Fetch user profile
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
     [firestore, user]
   );
   const { data: userData, isLoading: isUserDocLoading } = useDoc<User>(userDocRef);
 
-  // Fetch user wallet
   const walletRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid, 'wallets', 'main') : null),
     [firestore, user]
   );
   const { data: walletData, isLoading: isWalletLoading } = useDoc<Wallet>(walletRef);
-  const [walletBalance, setWalletBalance] = React.useState(0);
-
-  // Fetch user transactions
+  
   const transactionsQuery = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions') : null),
     [firestore, user]
   );
   const { data: transactions } = useCollection<Transaction>(transactionsQuery);
 
-  // Fetch all investment plans to filter against user's plans
   const plansQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'investment_plans') : null,
     [firestore]
@@ -101,26 +96,67 @@ export default function UserDashboardPage() {
     }
   }, [user, isUserLoading, router]);
 
-   React.useEffect(() => {
-    if (walletData) {
-      setWalletBalance(walletData.balance);
-    }
-  }, [walletData]);
-
-  // Daily income simulation
+  // Client-side daily income simulation
   React.useEffect(() => {
-    const dailyGains = activePlans.reduce((total, plan) => total + (plan.price * (plan.dailyIncomePercentage / 100)), 0);
-    if (dailyGains > 0) {
-      const incomeInterval = setInterval(() => {
-        // In a real app, this would be a server-side function.
-        // For simulation, we'll just update the local state.
-        setWalletBalance(prevBalance => prevBalance + dailyGains);
-      }, 24 * 60 * 60 * 1000); 
-      return () => clearInterval(incomeInterval);
-    }
-  }, [activePlans]);
+    if (!firestore || !user || !walletData || activePlans.length === 0) return;
 
-  if (isUserLoading) {
+    const processDailyIncome = async () => {
+        const now = new Date();
+        const lastIncomeKey = `lastIncome_${user.uid}`;
+        const lastIncomeDateStr = localStorage.getItem(lastIncomeKey);
+        
+        let shouldProcess = true;
+        if (lastIncomeDateStr) {
+            const lastIncomeDate = new Date(lastIncomeDateStr);
+            // Check if it's been at least 24 hours
+            if (now.getTime() - lastIncomeDate.getTime() < 24 * 60 * 60 * 1000) {
+                shouldProcess = false;
+            }
+        }
+        
+        if (!shouldProcess) return;
+        
+        const totalDailyIncome = activePlans.reduce((total, plan) => {
+            return total + (plan.price * (plan.dailyIncomePercentage / 100));
+        }, 0);
+
+        if (totalDailyIncome > 0) {
+            const batch = writeBatch(firestore);
+            const userWalletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
+            const newBalance = walletData.balance + totalDailyIncome;
+            batch.update(userWalletRef, { balance: newBalance });
+
+            const txRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'));
+            batch.set(txRef, {
+                id: txRef.id,
+                walletId: 'main',
+                type: 'income',
+                amount: totalDailyIncome,
+                status: 'completed',
+                date: serverTimestamp(),
+                details: { reason: 'Daily investment profit' }
+            });
+            
+            try {
+                await batch.commit();
+                localStorage.setItem(lastIncomeKey, now.toISOString());
+            } catch(e) {
+                console.error("Failed to process daily income:", e);
+            }
+        }
+    };
+
+    processDailyIncome();
+    
+    // Set up an interval to check every hour, in case the app is left open
+    const intervalId = setInterval(processDailyIncome, 60 * 60 * 1000); 
+
+    return () => clearInterval(intervalId);
+
+  }, [firestore, user, walletData, activePlans]);
+
+
+  if (isUserLoading || isUserDocLoading || isWalletLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <p>Loading...</p>
@@ -128,30 +164,11 @@ export default function UserDashboardPage() {
     );
   }
   
-  // After auth is checked, if there's no user, we don't need to render anything
-  // as the useEffect above will trigger a redirect.
-  if (!user) {
-    return null;
-  }
-  
-  // Now, if we have a user, we wait for their document.
-  if (isUserDocLoading) {
-     return (
-      <div className="flex min-h-screen flex-col items-center justify-center">
-        <p>Loading user profile...</p>
-      </div>
-    );
+  if (!user || !userData) {
+      // This case should be handled by the useEffect redirect, but it's a good fallback
+      return null;
   }
 
-  // If loading is finished but there's no userData, it might still be creating.
-  // Or there was an error. We give it a moment, then show an error if it persists.
-  if (!userData) {
-      return (
-        <div className="flex min-h-screen flex-col items-center justify-center">
-            <p>Creating profile... If this takes too long, please refresh.</p>
-        </div>
-      )
-  }
 
   return (
     <div className="space-y-8">
@@ -160,7 +177,7 @@ export default function UserDashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <DashboardStatsCard
           title="Wallet Balance"
-          value={`${walletBalance.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 2 })}`}
+          value={`${(walletData?.balance || 0).toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 2 })}`}
           description="Available funds"
           Icon={DollarSign}
           chartData={mockWalletData}
@@ -218,7 +235,7 @@ export default function UserDashboardPage() {
                     key={plan.id} 
                     plan={plan} 
                     isPurchased={true}
-                    userWalletBalance={walletBalance}
+                    userWalletBalance={walletData?.balance}
                     showPurchaseButton={false}
                   />
                 );

@@ -18,6 +18,9 @@ export type InvestmentPlan = {
   imageHint: string;
   color: string;
   categoryId: string;
+  isOfferEnabled?: boolean;
+  offerEndTime?: Timestamp | null;
+  createdAt: Timestamp;
 };
 
 export type AgentPermissions = {
@@ -89,53 +92,4 @@ export const planCategories: PlanCategory[] = [
 ];
 
 // This is now seed data for Firestore, not used directly in the app.
-export const investmentPlans: InvestmentPlan[] = [
-  {
-    id: 'plan-1',
-    name: 'Starter Pack',
-    price: 1580,
-    dailyIncomePercentage: 4.11,
-    incomePeriod: 60,
-    totalIncome: (1580 * 4.11 / 100) * 60,
-    imageUrl: findImage('plan-starter')?.imageUrl || '',
-    imageHint: findImage('plan-starter')?.imageHint || '',
-    color: 'from-blue-500 to-blue-600',
-    categoryId: 'cat-1',
-  },
-  {
-    id: 'plan-2',
-    name: 'Growth Engine',
-    price: 3160,
-    dailyIncomePercentage: 6.01,
-    incomePeriod: 62,
-    totalIncome: (3160 * 6.01 / 100) * 62,
-    imageUrl: findImage('plan-standard')?.imageUrl || '',
-    imageHint: findImage('plan-standard')?.imageHint || '',
-    color: 'from-green-500 to-green-600',
-    categoryId: 'cat-1',
-  },
-  {
-    id: 'plan-3',
-    name: 'Premium Yield',
-    price: 11800,
-    dailyIncomePercentage: 7.2,
-    incomePeriod: 57,
-    totalIncome: (11800 * 7.2 / 100) * 57,
-    imageUrl: findImage('plan-premium')?.imageUrl || '',
-    imageHint: findImage('plan-premium')?.imageHint || '',
-    color: 'from-purple-500 to-purple-600',
-    categoryId: 'cat-2',
-  },
-  {
-    id: 'plan-4',
-    name: 'VIP Portfolio',
-    price: 31800,
-    dailyIncomePercentage: 7.4,
-    incomePeriod: 60,
-    totalIncome: (31800 * 7.4 / 100) * 60,
-    imageUrl: findImage('plan-vip')?.imageUrl || '',
-    imageHint: findImage('plan-vip')?.imageHint || '',
-    color: 'from-amber-500 to-amber-600',
-    categoryId: 'cat-2',
-  },
-];
+export const investmentPlans: InvestmentPlan[] = [];

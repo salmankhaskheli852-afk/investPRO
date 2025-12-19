@@ -5,7 +5,7 @@ import Image from 'next/image';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import type { InvestmentPlan, OfferConfig } from '@/lib/data';
+import type { InvestmentPlan } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -18,9 +18,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { CheckCircle, Info, Wallet, Timer } from 'lucide-react';
+import { CheckCircle, Info, Wallet, Timer, XCircle } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
-import { doc, arrayUnion, writeBatch, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, arrayUnion, writeBatch, collection, serverTimestamp, Timestamp } from 'firebase/firestore';
 
 interface InvestmentPlanCardProps {
   plan: InvestmentPlan;
@@ -28,7 +28,6 @@ interface InvestmentPlanCardProps {
   userWalletBalance?: number;
   showAsPurchased?: boolean;
   showPurchaseButton?: boolean;
-  offerConfig?: OfferConfig | null;
 }
 
 function CountdownTimer({ endTime }: { endTime: { seconds: number; nanoseconds: number } }) {
@@ -83,7 +82,6 @@ export function InvestmentPlanCard({
   userWalletBalance = 0,
   showAsPurchased = false,
   showPurchaseButton = true,
-  offerConfig,
 }: InvestmentPlanCardProps) {
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
@@ -91,6 +89,8 @@ export function InvestmentPlanCard({
   const firestore = useFirestore();
 
   const canAfford = userWalletBalance >= plan.price;
+  const isOfferActive = plan.isOfferEnabled && plan.offerEndTime && plan.offerEndTime.toMillis() > Date.now();
+  const isOfferExpired = plan.isOfferEnabled && plan.offerEndTime && plan.offerEndTime.toMillis() <= Date.now();
 
   // Simulate plan progress
   const [progress, setProgress] = React.useState(0);
@@ -138,7 +138,9 @@ export function InvestmentPlanCard({
             details: {
                 planId: plan.id,
                 planName: plan.name
-            }
+            },
+            id: transactionRef.id,
+            walletId: 'main'
         });
 
         await batch.commit();
@@ -187,9 +189,9 @@ export function InvestmentPlanCard({
           <Button 
             size="lg" 
             className="w-full bg-primary hover:bg-primary/90"
-            disabled={isPurchased && showAsPurchased}
+            disabled={(isPurchased && showAsPurchased) || isOfferExpired}
           >
-            {isPurchased && showAsPurchased ? 'Purchased' : 'Purchase Plan'}
+            {isPurchased && showAsPurchased ? 'Purchased' : (isOfferExpired ? 'Plan Closed' : 'Purchase Plan')}
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-sm">
@@ -244,12 +246,11 @@ export function InvestmentPlanCard({
     );
   }
 
-  const isOfferActive = offerConfig?.isEnabled && offerConfig.endTime && offerConfig.endTime.seconds * 1000 > Date.now();
 
   return (
-    <Card className={cn("w-full overflow-hidden flex flex-col transition-all duration-300 hover:scale-[1.02] hover:shadow-xl shadow-lg border-2 border-transparent", `hover:border-primary`)}>
+    <Card className={cn("w-full overflow-hidden flex flex-col transition-all duration-300 hover:scale-[1.02] hover:shadow-xl shadow-lg border-2 border-transparent", `hover:border-primary`, isOfferExpired && 'opacity-60')}>
       <div className="relative aspect-[4/3] w-full">
-        {isOfferActive && <CountdownTimer endTime={offerConfig.endTime!} />}
+        {isOfferActive && plan.offerEndTime && <CountdownTimer endTime={plan.offerEndTime} />}
         <Image
           src={plan.imageUrl}
           alt={plan.name}
@@ -269,6 +270,12 @@ export function InvestmentPlanCard({
             <span>Active</span>
           </div>
         )}
+        {isOfferExpired && (
+            <div className="absolute top-2 right-2 bg-destructive/80 backdrop-blur-sm text-destructive-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <XCircle className="w-3 h-3" />
+                <span>Closed</span>
+            </div>
+         )}
       </div>
       <CardContent className="p-4 space-y-4 flex flex-col flex-1">
         <h3 className="font-headline font-bold text-xl text-foreground">{plan.name}</h3>

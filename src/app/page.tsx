@@ -12,7 +12,8 @@ import { signInWithGoogle } from '@/firebase/auth/sign-in';
 import { useAuth, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
-import type { User, AdminWallet, WithdrawalMethod } from '@/lib/data';
+import type { User, AdminWallet, WithdrawalMethod, InvestmentPlan } from '@/lib/data';
+import { planCategories, investmentPlans as seedPlans } from '@/lib/data';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -68,37 +69,36 @@ export default function Home() {
     if (!firestore) return;
     const batch = writeBatch(firestore);
 
-    const adminWallets: AdminWallet[] = [
-      { id: 'easypaisa', walletName: "Easypaisa", name: "you", number: "03087554721", isEnabled: true },
-      { id: 'jazzcash', walletName: "JazzCash", name: "salman shop", number: "03433273391", isEnabled: true },
-      { id: 'bank', walletName: 'Bank', name: 'Meezan Bank', number: '0308237554721', isBank: true, isEnabled: true }
+    const adminWallets: Omit<AdminWallet, 'id'>[] = [
+      { walletName: "Easypaisa", name: "you", number: "03087554721", isEnabled: true },
+      { walletName: "JazzCash", name: "salman shop", number: "03433273391", isEnabled: true },
+      { walletName: 'Bank', name: 'Meezan Bank', number: '0308237554721', isBank: true, isEnabled: true }
     ];
 
-    const withdrawalMethods: WithdrawalMethod[] = [
-      { id: 'jazzcash', name: 'JazzCash', isEnabled: true },
-      { id: 'easypaisa', name: 'Easypaisa', isEnabled: true },
-      { id: 'bank', name: 'Bank Transfer', isEnabled: true },
+    const withdrawalMethods: Omit<WithdrawalMethod, 'id'>[] = [
+      { name: 'JazzCash', isEnabled: true },
+      { name: 'Easypaisa', isEnabled: true },
+      { name: 'Bank Transfer', isEnabled: true },
     ];
 
-    // Seed admin wallets
     const adminWalletsCollection = collection(firestore, 'admin_wallets');
-    const adminWalletsSnapshot = await getDoc(doc(adminWalletsCollection, adminWallets[0].id));
-    if (!adminWalletsSnapshot.exists()) {
-        adminWallets.forEach(wallet => {
-            const docRef = doc(adminWalletsCollection, wallet.id);
-            batch.set(docRef, wallet);
-        });
-    }
+    adminWallets.forEach(wallet => {
+        const docRef = doc(adminWalletsCollection);
+        batch.set(docRef, {...wallet, id: docRef.id});
+    });
 
-    // Seed withdrawal methods
     const withdrawalMethodsCollection = collection(firestore, 'withdrawal_methods');
-    const withdrawalMethodsSnapshot = await getDoc(doc(withdrawalMethodsCollection, withdrawalMethods[0].id));
-    if (!withdrawalMethodsSnapshot.exists()) {
-        withdrawalMethods.forEach(method => {
-            const docRef = doc(withdrawalMethodsCollection, method.id);
-            batch.set(docRef, method);
-        });
-    }
+     withdrawalMethods.forEach(method => {
+        const docRef = doc(withdrawalMethodsCollection);
+        batch.set(docRef, {...method, id: docRef.id});
+    });
+    
+    // Seed investment plans
+    const investmentPlansCollection = collection(firestore, 'investment_plans');
+    seedPlans.forEach(plan => {
+        const docRef = doc(investmentPlansCollection);
+        batch.set(docRef, {...plan, id: docRef.id, createdAt: serverTimestamp() });
+    });
 
     await batch.commit();
   };
@@ -109,10 +109,13 @@ export default function Home() {
     const userDoc = await getDoc(userRef);
 
     if (!userDoc.exists()) {
-      // Seed initial data if it's the first time for an admin
       const role = firebaseUser.email === ADMIN_EMAIL ? 'admin' : 'user';
       if (role === 'admin') {
-          await seedInitialData();
+          // Check if seeding is needed
+          const adminWalletsSnapshot = await getDocs(collection(firestore, 'admin_wallets'));
+          if(adminWalletsSnapshot.empty) {
+            await seedInitialData();
+          }
       }
 
       // Create user profile
