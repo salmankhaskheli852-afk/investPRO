@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -74,6 +75,7 @@ const PlanFormDialog = ({
     const [period, setPeriod] = React.useState(60);
     const [imageUrl, setImageUrl] = React.useState('https://picsum.photos/seed/105/600/400');
     const [imageHint, setImageHint] = React.useState('investment growth');
+    const [purchaseLimit, setPurchaseLimit] = React.useState(0);
 
     // Offer state
     const [offerEnabled, setOfferEnabled] = React.useState(false);
@@ -93,6 +95,7 @@ const PlanFormDialog = ({
             setImageUrl(planToEdit.imageUrl);
             setImageHint(planToEdit.imageHint || 'investment growth');
             setOfferEnabled(planToEdit.isOfferEnabled || false);
+            setPurchaseLimit(planToEdit.purchaseLimit || 0);
             // Don't prefill offer hours, admin should set it if they want to update it
         } else {
             resetForm();
@@ -109,6 +112,7 @@ const PlanFormDialog = ({
         setImageHint('investment growth');
         setOfferEnabled(false);
         setOfferHours(24);
+        setPurchaseLimit(0);
     };
 
     const handleSavePlan = async () => {
@@ -134,7 +138,7 @@ const PlanFormDialog = ({
                 offerEndTime = Timestamp.fromDate(now);
             }
 
-            const planData = {
+            const planData: Partial<InvestmentPlan> = {
                 name,
                 categoryId,
                 price,
@@ -145,7 +149,7 @@ const PlanFormDialog = ({
                 totalIncome: totalIncome,
                 isOfferEnabled: offerEnabled,
                 offerEndTime: offerEndTime,
-                createdAt: planToEdit?.createdAt || serverTimestamp(),
+                purchaseLimit: purchaseLimit,
             };
 
             if (isEditMode && planToEdit) {
@@ -157,7 +161,12 @@ const PlanFormDialog = ({
                 });
             } else {
                  const newDocRef = doc(collection(firestore, 'investment_plans'));
-                 await setDoc(newDocRef, { ...planData, id: newDocRef.id });
+                 await setDoc(newDocRef, { 
+                     ...planData, 
+                     id: newDocRef.id,
+                     purchaseCount: 0,
+                     createdAt: serverTimestamp() 
+                    });
 
                 toast({
                     title: 'Plan Created!',
@@ -221,6 +230,11 @@ const PlanFormDialog = ({
                         <Label htmlFor="period" className="text-right">Income Period</Label>
                         <Input id="period" type="number" value={period} onChange={(e) => setPeriod(Number(e.target.value))} className="col-span-3" />
                     </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="purchase-limit" className="text-right">Purchase Limit</Label>
+                        <Input id="purchase-limit" type="number" value={purchaseLimit} onChange={(e) => setPurchaseLimit(Number(e.target.value))} className="col-span-3" />
+                    </div>
+                     <p className="text-xs text-muted-foreground text-center col-span-4 -mt-2">Set to 0 for unlimited purchases.</p>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="image" className="text-right">Image URL</Label>
                         <Input id="image" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="col-span-3" />

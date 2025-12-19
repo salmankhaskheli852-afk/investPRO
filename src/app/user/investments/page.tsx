@@ -79,7 +79,7 @@ export default function UserInvestmentsPage() {
                       key={plan.id} 
                       plan={plan} 
                       userWalletBalance={walletData?.balance}
-                      isPurchased={userData?.investments?.includes(plan.id)}
+                      isPurchased={userData?.investments?.some(inv => inv.planId === plan.id)}
                       showAsPurchased
                     />
                   ))

@@ -21,6 +21,8 @@ export type InvestmentPlan = {
   isOfferEnabled?: boolean;
   offerEndTime?: Timestamp | null;
   createdAt: Timestamp;
+  purchaseLimit?: number; // 0 or undefined for unlimited
+  purchaseCount?: number;
 };
 
 export type AgentPermissions = {
@@ -31,12 +33,17 @@ export type AgentPermissions = {
   canAccessLiveChat: boolean;
 }
 
+export type UserInvestment = {
+    planId: string;
+    purchaseDate: Timestamp;
+}
+
 export type User = {
   id: string;
   name: string;
   email: string;
   avatarUrl: string;
-  investments: string[]; // array of plan IDs
+  investments: UserInvestment[]; // array of user investment objects
   agentId: string | null; // Can be null if no agent is assigned
   role: 'user' | 'agent' | 'admin';
   assignedWallets?: string[]; // array of admin wallet IDs
@@ -108,4 +115,3 @@ export const planCategories: PlanCategory[] = [
     { id: 'long-term', name: 'Long Term' },
     { id: 'vip', name: 'VIP' },
   ];
-

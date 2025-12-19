@@ -9,7 +9,7 @@ import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { collection, doc, query, where, getDocs, collectionGroup, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
-import type { InvestmentPlan, User, Wallet, Transaction } from '@/lib/data';
+import type { InvestmentPlan, User, Wallet, Transaction, UserInvestment } from '@/lib/data';
 
 const mockWalletData = [
   { name: 'Jan', balance: 1000 },
@@ -70,7 +70,10 @@ export default function UserDashboardPage() {
 
   const activePlans = React.useMemo(() => {
     if (!userData?.investments || !allPlans) return [];
-    return allPlans.filter(plan => userData.investments.includes(plan.id));
+    return userData.investments.map(userInv => {
+        const planDetails = allPlans.find(plan => plan.id === userInv.planId);
+        return planDetails ? { ...planDetails, userInvestment: userInv } : null;
+    }).filter(Boolean) as (InvestmentPlan & { userInvestment: UserInvestment })[];
   }, [userData?.investments, allPlans]);
 
   const totalInvestment = React.useMemo(() => {
@@ -99,60 +102,74 @@ export default function UserDashboardPage() {
   // Client-side daily income simulation
   React.useEffect(() => {
     if (!firestore || !user || !walletData || activePlans.length === 0) return;
-
+  
     const processDailyIncome = async () => {
+      const batch = writeBatch(firestore);
+      let totalIncomeToCredit = 0;
+      let incomeProcessed = false;
+  
+      for (const activePlan of activePlans) {
+        if (!activePlan.userInvestment?.purchaseDate) continue;
+  
+        const planPurchaseDate = activePlan.userInvestment.purchaseDate.toDate();
         const now = new Date();
-        const lastIncomeKey = `lastIncome_${user.uid}`;
+  
+        const lastIncomeKey = `lastIncome_${user.uid}_${activePlan.id}`;
         const lastIncomeDateStr = localStorage.getItem(lastIncomeKey);
+        const lastIncomeDate = lastIncomeDateStr ? new Date(lastIncomeDateStr) : planPurchaseDate;
         
-        let shouldProcess = true;
-        if (lastIncomeDateStr) {
-            const lastIncomeDate = new Date(lastIncomeDateStr);
-            // Check if it's been at least 24 hours
-            if (now.getTime() - lastIncomeDate.getTime() < 24 * 60 * 60 * 1000) {
-                shouldProcess = false;
-            }
-        }
-        
-        if (!shouldProcess) return;
-        
-        const totalDailyIncome = activePlans.reduce((total, plan) => {
-            return total + (plan.price * (plan.dailyIncomePercentage / 100));
-        }, 0);
-
-        if (totalDailyIncome > 0) {
-            const batch = writeBatch(firestore);
-            const userWalletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
-            const newBalance = walletData.balance + totalDailyIncome;
-            batch.update(userWalletRef, { balance: newBalance });
-
+        const timeSinceLastIncome = now.getTime() - lastIncomeDate.getTime();
+        const twentyFourHours = 24 * 60 * 60 * 1000;
+  
+        // Check if 24 hours have passed since the last income was given
+        if (timeSinceLastIncome >= twentyFourHours) {
+          const planEndDate = new Date(planPurchaseDate.getTime() + activePlan.incomePeriod * twentyFourHours);
+          
+          // Check if the plan is still active
+          if (now < planEndDate) {
+            const dailyIncome = activePlan.price * (activePlan.dailyIncomePercentage / 100);
+            totalIncomeToCredit += dailyIncome;
+            incomeProcessed = true;
+  
+            // Update the last income date in local storage for this plan
+            localStorage.setItem(lastIncomeKey, now.toISOString());
+  
+            // Create a transaction record for this income
             const txRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'));
             batch.set(txRef, {
-                id: txRef.id,
-                walletId: 'main',
-                type: 'income',
-                amount: totalDailyIncome,
-                status: 'completed',
-                date: serverTimestamp(),
-                details: { reason: 'Daily investment profit' }
+              id: txRef.id,
+              walletId: 'main',
+              type: 'income',
+              amount: dailyIncome,
+              status: 'completed',
+              date: serverTimestamp(),
+              details: { 
+                reason: `Daily profit from ${activePlan.name}`,
+                planId: activePlan.id,
+              }
             });
-            
-            try {
-                await batch.commit();
-                localStorage.setItem(lastIncomeKey, now.toISOString());
-            } catch(e) {
-                console.error("Failed to process daily income:", e);
-            }
+          }
         }
+      }
+  
+      if (incomeProcessed && totalIncomeToCredit > 0) {
+        try {
+          const userWalletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
+          const newBalance = walletData.balance + totalIncomeToCredit;
+          batch.update(userWalletRef, { balance: newBalance });
+  
+          await batch.commit();
+        } catch (e) {
+          console.error("Failed to process daily income batch:", e);
+        }
+      }
     };
-
+  
+    // Run once on mount and then set an interval
     processDailyIncome();
-    
-    // Set up an interval to check every hour, in case the app is left open
-    const intervalId = setInterval(processDailyIncome, 60 * 60 * 1000); 
-
+    const intervalId = setInterval(processDailyIncome, 60 * 60 * 1000); // Check every hour
+  
     return () => clearInterval(intervalId);
-
   }, [firestore, user, walletData, activePlans]);
 
 

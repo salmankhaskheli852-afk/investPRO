@@ -18,9 +18,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { CheckCircle, Info, Wallet, Timer, XCircle } from 'lucide-react';
+import { CheckCircle, Info, Wallet, Timer, XCircle, PackageX } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
-import { doc, arrayUnion, writeBatch, collection, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, arrayUnion, writeBatch, collection, serverTimestamp, Timestamp, increment, runTransaction } from 'firebase/firestore';
 
 interface InvestmentPlanCardProps {
   plan: InvestmentPlan;
@@ -91,6 +91,7 @@ export function InvestmentPlanCard({
   const canAfford = userWalletBalance >= plan.price;
   const isOfferActive = plan.isOfferEnabled && plan.offerEndTime && plan.offerEndTime.toMillis() > Date.now();
   const isOfferExpired = plan.isOfferEnabled && plan.offerEndTime && plan.offerEndTime.toMillis() <= Date.now();
+  const isSoldOut = plan.purchaseLimit && (plan.purchaseCount || 0) >= plan.purchaseLimit;
 
   // Simulate plan progress
   const [progress, setProgress] = React.useState(0);
@@ -113,37 +114,59 @@ export function InvestmentPlanCard({
     
     const userRef = doc(firestore, 'users', user.uid);
     const walletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
+    const planRef = doc(firestore, 'investment_plans', plan.id);
     
     try {
-        const batch = writeBatch(firestore);
+        await runTransaction(firestore, async (transaction) => {
+            const planDoc = await transaction.get(planRef);
+            if (!planDoc.exists()) {
+                throw new Error("Plan does not exist.");
+            }
+            const currentPlanData = planDoc.data() as InvestmentPlan;
 
-        // 1. Add investment to user's profile
-        batch.update(userRef, {
-            investments: arrayUnion(plan.id)
+            // Check purchase limit again within the transaction
+            if (currentPlanData.purchaseLimit && (currentPlanData.purchaseCount || 0) >= currentPlanData.purchaseLimit) {
+                throw new Error("This plan is sold out.");
+            }
+
+            // 1. Update purchase count on plan
+            transaction.update(planRef, { purchaseCount: increment(1) });
+            
+            // 2. Add investment to user's profile with purchase date
+            transaction.update(userRef, {
+                investments: arrayUnion({
+                    planId: plan.id,
+                    purchaseDate: serverTimestamp()
+                })
+            });
+
+            // 3. Deduct price from wallet
+            const walletDoc = await transaction.get(walletRef);
+            if (!walletDoc.exists()) {
+                throw new Error("User wallet not found.");
+            }
+            const currentBalance = walletDoc.data().balance;
+            if (currentBalance < plan.price) {
+                throw new Error("Insufficient funds.");
+            }
+            const newBalance = currentBalance - plan.price;
+            transaction.update(walletRef, { balance: newBalance });
+
+            // 4. Add an investment transaction
+            const transactionRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'));
+            transaction.set(transactionRef, {
+                type: 'investment',
+                amount: plan.price,
+                status: 'completed',
+                date: serverTimestamp(),
+                details: {
+                    planId: plan.id,
+                    planName: plan.name
+                },
+                id: transactionRef.id,
+                walletId: 'main'
+            });
         });
-
-        // 2. Deduct price from wallet
-        const newBalance = userWalletBalance - plan.price;
-        batch.update(walletRef, {
-            balance: newBalance
-        });
-
-        // 3. Add an investment transaction
-        const transactionRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'));
-        batch.set(transactionRef, {
-            type: 'investment',
-            amount: plan.price,
-            status: 'completed',
-            date: serverTimestamp(),
-            details: {
-                planId: plan.id,
-                planName: plan.name
-            },
-            id: transactionRef.id,
-            walletId: 'main'
-        });
-
-        await batch.commit();
 
         toast({
             title: 'Purchase Successful!',
@@ -158,7 +181,6 @@ export function InvestmentPlanCard({
             description: e.message || "Could not purchase plan.",
         });
     }
-
   };
 
   const dailyIncome = plan.price * (plan.dailyIncomePercentage / 100);
@@ -189,9 +211,9 @@ export function InvestmentPlanCard({
           <Button 
             size="lg" 
             className="w-full bg-primary hover:bg-primary/90"
-            disabled={(isPurchased && showAsPurchased) || isOfferExpired}
+            disabled={(isPurchased && showAsPurchased) || isOfferExpired || isSoldOut}
           >
-            {isPurchased && showAsPurchased ? 'Purchased' : (isOfferExpired ? 'Plan Closed' : 'Purchase Plan')}
+            {isPurchased && showAsPurchased ? 'Purchased' : isSoldOut ? 'Sold Out' : (isOfferExpired ? 'Plan Closed' : 'Purchase Plan')}
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-sm">
@@ -248,7 +270,7 @@ export function InvestmentPlanCard({
 
 
   return (
-    <Card className={cn("w-full overflow-hidden flex flex-col transition-all duration-300 hover:scale-[1.02] hover:shadow-xl shadow-lg border-2 border-transparent", `hover:border-primary`, isOfferExpired && 'opacity-60')}>
+    <Card className={cn("w-full overflow-hidden flex flex-col transition-all duration-300 hover:scale-[1.02] hover:shadow-xl shadow-lg border-2 border-transparent", `hover:border-primary`, (isOfferExpired || isSoldOut) && 'opacity-60')}>
       <div className="relative aspect-[4/3] w-full">
         {isOfferActive && plan.offerEndTime && <CountdownTimer endTime={plan.offerEndTime} />}
         <Image
@@ -270,10 +292,16 @@ export function InvestmentPlanCard({
             <span>Active</span>
           </div>
         )}
-        {isOfferExpired && (
+        {isOfferExpired && !isSoldOut && (
             <div className="absolute top-2 right-2 bg-destructive/80 backdrop-blur-sm text-destructive-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                 <XCircle className="w-3 h-3" />
                 <span>Closed</span>
+            </div>
+         )}
+         {isSoldOut && (
+            <div className="absolute top-2 right-2 bg-slate-500/80 backdrop-blur-sm text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <PackageX className="w-3 h-3" />
+                <span>Sold Out</span>
             </div>
          )}
       </div>
