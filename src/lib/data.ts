@@ -28,6 +28,7 @@ export type User = {
   investments: string[]; // array of plan IDs
   agentId?: string;
   role: 'user' | 'agent' | 'admin';
+  assignedWallets?: string[]; // array of admin wallet IDs
 };
 
 export type Wallet = {
