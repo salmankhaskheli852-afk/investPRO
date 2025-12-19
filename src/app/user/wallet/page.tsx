@@ -24,10 +24,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Switch } from '@/components/ui/switch';
 
 export default function UserWalletPage() {
   const [selectedWallet, setSelectedWallet] = React.useState(adminWallets.find(w => !w.isBank)?.id || '');
   const [showBankDetails, setShowBankDetails] = React.useState(false);
+
+  // Mock states for withdrawal method toggles from admin
+  const [jazzcashEnabled, setJazzcashEnabled] = React.useState(true);
+  const [easypaisaEnabled, setEasypaisaEnabled] = React.useState(true);
+  const [bankEnabled, setBankEnabled] = React.useState(true);
+
 
   const selectedWalletDetails = adminWallets.find(w => w.id === selectedWallet);
 
@@ -58,7 +65,7 @@ export default function UserWalletPage() {
                         Deposit
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
+                  <DialogContent className="sm:max-w-xs">
                     <DialogHeader>
                       <DialogTitle>Deposit Funds</DialogTitle>
                       <DialogDescription>
@@ -83,6 +90,10 @@ export default function UserWalletPage() {
                                     <CardTitle className="text-base">Account Details</CardTitle>
                                 </CardHeader>
                                 <CardContent className="text-sm space-y-2">
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Bank Name:' : 'Account Name:'}</span>
+                                        <span className="font-medium">{selectedWalletDetails.isBank ? selectedWalletDetails.walletName : selectedWalletDetails.name}</span>
+                                    </div>
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Account Holder:' : 'Account Name:'}</span>
                                         <span className="font-medium">{selectedWalletDetails.name}</span>
@@ -139,18 +150,18 @@ export default function UserWalletPage() {
                             <div className="space-y-2">
                                 <Label>Select Method</Label>
                                 <RadioGroup onValueChange={handleWithdrawalMethodChange} defaultValue="jazzcash" className="flex">
-                                    <Label htmlFor="jazzcash" className="flex items-center space-x-2 cursor-pointer">
+                                    {jazzcashEnabled && <Label htmlFor="jazzcash" className="flex items-center space-x-2 cursor-pointer">
                                         <RadioGroupItem value="jazzcash" id="jazzcash" />
                                         <span>JazzCash</span>
-                                    </Label>
-                                    <Label htmlFor="easypaisa" className="flex items-center space-x-2 cursor-pointer">
+                                    </Label>}
+                                    {easypaisaEnabled && <Label htmlFor="easypaisa" className="flex items-center space-x-2 cursor-pointer">
                                         <RadioGroupItem value="easypaisa" id="easypaisa" />
                                         <span>Easypaisa</span>
-                                    </Label>
-                                    <Label htmlFor="bank" className="flex items-center space-x-2 cursor-pointer">
+                                    </Label>}
+                                    {bankEnabled && <Label htmlFor="bank" className="flex items-center space-x-2 cursor-pointer">
                                         <RadioGroupItem value="bank" id="bank" />
                                         <span>Bank</span>
-                                    </Label>
+                                    </Label>}
                                 </RadioGroup>
                             </div>
 
