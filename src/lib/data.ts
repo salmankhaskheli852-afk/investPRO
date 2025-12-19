@@ -50,6 +50,7 @@ export type AdminWallet = {
     walletName: string;
     name: string;
     number: string;
+    isBank?: boolean;
 }
 
 const findImage = (id: string) => PlaceHolderImages.find(img => img.id === id);
@@ -176,5 +177,12 @@ export const adminWallets: AdminWallet[] = [
         walletName: "JazzCash",
         name: "salman shop",
         number: "03433273391"
+    },
+    {
+      id: 'wallet-3',
+      walletName: 'Bank',
+      name: 'Meezan Bank',
+      number: '0308237554721',
+      isBank: true
     }
 ];

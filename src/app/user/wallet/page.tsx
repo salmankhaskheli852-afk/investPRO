@@ -15,11 +15,15 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { adminWallets } from '@/lib/data';
-import { ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Banknote, Landmark } from 'lucide-react';
 import React from 'react';
 
 export default function UserWalletPage() {
   const [activeTab, setActiveTab] = React.useState('deposit');
+  const [selectedWallet, setSelectedWallet] = React.useState(adminWallets[0]?.id || '');
+
+  const selectedWalletDetails = adminWallets.find(w => w.id === selectedWallet);
+
 
   return (
     <div className="space-y-8">
@@ -56,21 +60,35 @@ export default function UserWalletPage() {
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <Label>Select Admin Account</Label>
-                        <RadioGroup defaultValue={adminWallets[0].id}>
+                        <RadioGroup value={selectedWallet} onValueChange={setSelectedWallet}>
                             {adminWallets.map((wallet) => (
-                                <Label key={wallet.id} htmlFor={wallet.id} className="flex flex-col space-y-1 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
-                                    <div className="flex items-center gap-3">
-                                        <RadioGroupItem value={wallet.id} id={wallet.id} />
-                                        <div className="font-medium">{wallet.walletName}</div>
-                                    </div>
-                                    <div className="pl-8 text-sm">
-                                        <div>Name: {wallet.name}</div>
-                                        <div>Number: {wallet.number}</div>
-                                    </div>
+                                <Label key={wallet.id} htmlFor={wallet.id} className="flex items-center space-x-3 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                                    <RadioGroupItem value={wallet.id} id={wallet.id} />
+                                    {wallet.isBank ? <Landmark className="h-5 w-5" /> : <Banknote className="h-5 w-5" />}
+                                    <span className="font-medium">{wallet.walletName}</span>
                                 </Label>
                             ))}
                         </RadioGroup>
-                        <div className="space-y-2">
+
+                        {selectedWalletDetails && (
+                             <Card className="bg-muted/50">
+                                <CardHeader>
+                                    <CardTitle className="text-base">Account Details</CardTitle>
+                                </CardHeader>
+                                <CardContent className="text-sm space-y-2">
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Bank Name:' : 'Account Name:'}</span>
+                                        <span className="font-medium">{selectedWalletDetails.name}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                         <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Account Number:' : 'Wallet Number:'}</span>
+                                        <span className="font-medium">{selectedWalletDetails.number}</span>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                        
+                        <div className="space-y-2 pt-4">
                             <Label htmlFor="account-holder-name">Your Account Holder Name</Label>
                             <Input id="account-holder-name" placeholder="Your Name" />
                         </div>
