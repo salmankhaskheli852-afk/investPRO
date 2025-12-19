@@ -26,7 +26,8 @@ interface UserDetailsPageProps {
   params: { userId: string };
 }
 
-export default function UserDetailsPage({ params: { userId } }: UserDetailsPageProps) {
+export default function UserDetailsPage({ params }: UserDetailsPageProps) {
+  const { userId } = params;
   const firestore = useFirestore();
 
   const userDocRef = useMemoFirebase(
