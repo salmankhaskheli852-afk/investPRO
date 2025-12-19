@@ -1,4 +1,6 @@
+'use client';
 
+import React from 'react';
 import {
   Table,
   TableBody,
@@ -7,21 +9,66 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { agents, users, transactions } from '@/lib/data';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import type { User, Transaction } from '@/lib/data';
+import { collection, doc, query, where, collectionGroup } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 export default function AgentHistoryPage({ params }: { params: { agentId: string } }) {
   const { agentId } = params;
-  const agent = agents.find(a => a.id === agentId);
-  const managedUsers = users.filter(u => u.agentId === agentId);
-  const withdrawalTransactions = transactions.filter(tx => tx.type === 'withdrawal' && managedUsers.some(u => u.id === tx.userId));
+  const firestore = useFirestore();
 
-  if (!agent) {
+  const agentDocRef = useMemoFirebase(
+      () => firestore ? doc(firestore, 'users', agentId) : null,
+      [firestore, agentId]
+  );
+  const { data: agent, isLoading: isLoadingAgent } = useDoc<User>(agentDocRef);
+
+  // Get users managed by this agent
+  const managedUsersQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'users'), where('agentId', '==', agentId)) : null,
+    [firestore, agentId]
+  );
+  const { data: managedUsers, isLoading: isLoadingUsers } = useCollection<User>(managedUsersQuery);
+
+  // This is a simplified query. For a large number of users, this would be inefficient.
+  // A better approach would be to denormalize the agentId onto the transaction itself.
+  const withdrawalTransactionsQuery = useMemoFirebase(
+      () => {
+          if (!firestore || !managedUsers || managedUsers.length === 0) return null;
+          const userIds = managedUsers.map(u => u.id);
+          return query(
+              collectionGroup(firestore, 'transactions'),
+              where('type', '==', 'withdrawal'),
+              where('details.userId', 'in', userIds)
+          );
+      },
+      [firestore, managedUsers]
+  );
+  const { data: withdrawalTransactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(withdrawalTransactionsQuery);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-500/20 text-green-700';
+      case 'pending':
+        return 'bg-amber-500/20 text-amber-700';
+      case 'failed':
+        return 'bg-red-500/20 text-red-700';
+      default:
+        return '';
+    }
+  };
+  
+  const isLoading = isLoadingAgent || isLoadingUsers || isLoadingTransactions;
+
+  if (!isLoading && !agent) {
     return (
       <div>
         <h1 className="text-3xl font-bold font-headline">Agent not found</h1>
@@ -41,7 +88,7 @@ export default function AgentHistoryPage({ params }: { params: { agentId: string
           </Link>
         </Button>
         <div>
-            <h1 className="text-3xl font-bold font-headline">Withdrawal History for {agent.name}</h1>
+            <h1 className="text-3xl font-bold font-headline">Withdrawal History for {agent?.name || '...'}</h1>
             <p className="text-muted-foreground">A record of all withdrawal transactions for users managed by this agent.</p>
         </div>
        </div>
@@ -58,9 +105,15 @@ export default function AgentHistoryPage({ params }: { params: { agentId: string
               </TableRow>
             </TableHeader>
             <TableBody>
-              {withdrawalTransactions.length > 0 ? (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center h-24">
+                    Loading history...
+                  </TableCell>
+                </TableRow>
+              ) : withdrawalTransactions && withdrawalTransactions.length > 0 ? (
                 withdrawalTransactions.map((tx) => {
-                  const user = users.find(u => u.id === tx.userId);
+                  const user = managedUsers?.find(u => u.id === tx.details.userId);
                   return (
                     <TableRow key={tx.id}>
                       <TableCell>
@@ -78,15 +131,13 @@ export default function AgentHistoryPage({ params }: { params: { agentId: string
                       <TableCell>{tx.amount.toLocaleString()} PKR</TableCell>
                       <TableCell>
                          <Badge
-                            variant={
-                            tx.status === 'completed' ? 'default' : tx.status === 'pending' ? 'secondary' : 'destructive'
-                            }
-                            className={tx.status === 'completed' ? 'bg-green-500/20 text-green-700' : tx.status === 'pending' ? 'bg-amber-500/20 text-amber-700' : ''}
+                            variant={tx.status === 'completed' ? 'default' : tx.status === 'pending' ? 'secondary' : 'destructive'}
+                            className={getStatusBadge(tx.status)}
                         >
                             {tx.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{tx.date}</TableCell>
+                      <TableCell>{tx.date ? format(tx.date.toDate(), 'PPpp') : 'N/A'}</TableCell>
                     </TableRow>
                   );
                 })

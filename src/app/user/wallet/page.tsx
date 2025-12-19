@@ -66,7 +66,8 @@ export default function UserWalletPage() {
         tid: depositTid,
         senderName: depositHolderName,
         senderAccount: depositAccountNumber,
-        adminWalletId: selectedWallet
+        adminWalletId: selectedWallet,
+        userId: user.uid,
       }
     });
 
@@ -93,6 +94,7 @@ export default function UserWalletPage() {
         method: withdrawMethod,
         receiverName: withdrawHolderName,
         receiverAccount: withdrawAccountNumber,
+        userId: user.uid,
       }
     });
 

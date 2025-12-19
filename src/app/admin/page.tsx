@@ -1,10 +1,16 @@
+'use client';
+
+import React from 'react';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { users, agents, investmentPlans, transactions } from '@/lib/data';
-import { DollarSign, TrendingUp, Users, UserCog, Activity } from 'lucide-react';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import type { InvestmentPlan, User, Transaction } from '@/lib/data';
+import { DollarSign, TrendingUp, Users as UsersIcon, UserCog, Activity } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { collection, collectionGroup, query, orderBy, limit } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 const mockRevenueData = [
   { name: 'Jan', revenue: 20000 },
@@ -26,15 +32,63 @@ const mockUsersData = [
 
 
 export default function AdminDashboardPage() {
-  const totalInvestment = users.reduce((acc, user) => {
-    const userInvestments = user.investments.reduce((sum, planId) => {
-      const plan = investmentPlans.find(p => p.id === planId);
-      return sum + (plan?.price || 0);
-    }, 0);
-    return acc + userInvestments;
-  }, 0);
+  const firestore = useFirestore();
 
-  const recentTransactions = transactions.slice(0, 5);
+  const usersQuery = useMemoFirebase(
+    () => firestore ? collection(firestore, 'users') : null,
+    [firestore]
+  );
+  const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+
+  const plansQuery = useMemoFirebase(
+    () => firestore ? collection(firestore, 'investment_plans') : null,
+    [firestore]
+  );
+  const { data: investmentPlans, isLoading: isLoadingPlans } = useCollection<InvestmentPlan>(plansQuery);
+  
+  const transactionsQuery = useMemoFirebase(
+    () => firestore 
+      ? query(
+          collectionGroup(firestore, 'transactions'),
+          orderBy('date', 'desc'),
+          limit(5)
+        ) 
+      : null,
+    [firestore]
+  );
+  const { data: recentTransactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(transactionsQuery);
+  
+  // This is a simplified calculation. A real-world scenario would use aggregated data.
+  const totalInvestment = React.useMemo(() => {
+    if (!users || !investmentPlans) return 0;
+    return users.reduce((acc, user) => {
+        const userInvestments = user.investments?.reduce((sum, planId) => {
+            const plan = investmentPlans.find(p => p.id === planId);
+            return sum + (plan?.price || 0);
+        }, 0) || 0;
+        return acc + userInvestments;
+    }, 0);
+  }, [users, investmentPlans]);
+
+
+  const getTransactionUser = (tx: Transaction) => {
+    if (!users || !tx.details?.userId) return null;
+    return users.find(u => u.id === tx.details.userId);
+  };
+  
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-500/20 text-green-700';
+      case 'pending':
+        return 'bg-amber-500/20 text-amber-700';
+      case 'failed':
+        return 'bg-red-500/20 text-red-700';
+      default:
+        return '';
+    }
+  };
+
 
   return (
     <div className="space-y-8">
@@ -51,15 +105,15 @@ export default function AdminDashboardPage() {
         />
         <DashboardStatsCard
           title="Total Users"
-          value={users.length.toString()}
+          value={isLoadingUsers ? '...' : (users?.length || 0).toString()}
           description="Number of registered users"
-          Icon={Users}
+          Icon={UsersIcon}
           chartData={mockUsersData}
           chartKey="users"
         />
         <DashboardStatsCard
           title="Total Agents"
-          value={agents.length.toString()}
+          value={'0'}
           description="Number of registered agents"
           Icon={UserCog}
           chartData={[{ a:1}, {a:2}]}
@@ -67,7 +121,7 @@ export default function AdminDashboardPage() {
         />
         <DashboardStatsCard
           title="Investment Plans"
-          value={investmentPlans.length.toString()}
+          value={isLoadingPlans ? '...' : (investmentPlans?.length || 0).toString()}
           description="Number of available plans"
           Icon={TrendingUp}
           chartData={[{ a:1}, {a:2}]}
@@ -95,8 +149,15 @@ export default function AdminDashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recentTransactions.map((tx) => {
-                const user = users.find(u => u.id === tx.userId);
+              {isLoadingTransactions && (
+                 <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center">
+                    Loading transactions...
+                  </TableCell>
+                </TableRow>
+              )}
+              {recentTransactions?.map((tx) => {
+                const user = getTransactionUser(tx);
                 return (
                   <TableRow key={tx.id}>
                     <TableCell>
@@ -115,15 +176,13 @@ export default function AdminDashboardPage() {
                     <TableCell className="text-right font-medium">{tx.amount.toLocaleString()} PKR</TableCell>
                     <TableCell>
                       <Badge
-                        variant={
-                          tx.status === 'completed' ? 'default' : tx.status === 'pending' ? 'secondary' : 'destructive'
-                        }
-                        className={tx.status === 'completed' ? 'bg-green-500/20 text-green-700' : tx.status === 'pending' ? 'bg-amber-500/20 text-amber-700' : ''}
+                        variant={tx.status === 'completed' ? 'default' : 'secondary'}
+                        className={getStatusBadge(tx.status)}
                       >
                         {tx.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{tx.date}</TableCell>
+                    <TableCell>{tx.date ? format(tx.date.toDate(), 'PPp') : 'N/A'}</TableCell>
                   </TableRow>
                 );
               })}

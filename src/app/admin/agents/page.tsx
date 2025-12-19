@@ -1,3 +1,6 @@
+'use client';
+
+import React from 'react';
 import {
   Table,
   TableBody,
@@ -7,13 +10,26 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { agents } from '@/lib/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import type { User } from '@/lib/data';
+import { collection, query, where } from 'firebase/firestore';
+
 
 export default function AdminAgentsPage() {
+  const firestore = useFirestore();
+
+  // In a real app, agents might be a separate collection or have a 'role' field.
+  // We'll simulate this by querying for users who are marked as agents.
+  const agentsQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'users'), where('role', '==', 'agent')) : null,
+    [firestore]
+  );
+  const { data: agents, isLoading } = useCollection<User>(agentsQuery);
+
   return (
     <div className="space-y-8">
       <div>
@@ -37,7 +53,21 @@ export default function AdminAgentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {agents.map((agent) => (
+              {isLoading && (
+                 <TableRow>
+                  <TableCell colSpan={4} className="h-24 text-center">
+                    Loading agents...
+                  </TableCell>
+                </TableRow>
+              )}
+               {!isLoading && agents?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-24 text-center">
+                    No agents found.
+                  </TableCell>
+                </TableRow>
+              )}
+              {agents?.map((agent) => (
                 <TableRow key={agent.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
