@@ -139,7 +139,7 @@ export default function AdminInvestmentsPage() {
                 <CardHeader>
                     <CardTitle>Categories</CardTitle>
                     <CardDescription>Manage investment plan categories.</CardDescription>
-                </Header>
+                </CardHeader>
                 <CardContent>
                    <div className="space-y-4">
                      <Dialog>
