@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, Edit } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -41,6 +41,7 @@ export default function AdminWalletPage() {
   const { toast } = useToast();
 
   const [isNewAccountDialogOpen, setIsNewAccountDialogOpen] = React.useState(false);
+  const [isEditAccountDialogOpen, setIsEditAccountDialogOpen] = React.useState(false);
 
   // New account form state
   const [newWalletName, setNewWalletName] = React.useState('');
@@ -48,6 +49,14 @@ export default function AdminWalletPage() {
   const [newWalletAddress, setNewWalletAddress] = React.useState('');
   const [newIsBank, setNewIsBank] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
+
+  // Edit account form state
+  const [editingWallet, setEditingWallet] = React.useState<AdminWallet | null>(null);
+  const [editWalletName, setEditWalletName] = React.useState('');
+  const [editAccountName, setEditAccountName] = React.useState('');
+  const [editWalletAddress, setEditWalletAddress] = React.useState('');
+  const [editIsBank, setEditIsBank] = React.useState(false);
+
 
   const adminWalletsQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'admin_wallets') : null,
@@ -102,6 +111,40 @@ export default function AdminWalletPage() {
       setIsSaving(false);
     }
   };
+  
+  const handleEditAccountClick = (wallet: AdminWallet) => {
+    setEditingWallet(wallet);
+    setEditWalletName(wallet.walletName);
+    setEditAccountName(wallet.name);
+    setEditWalletAddress(wallet.number);
+    setEditIsBank(wallet.isBank || false);
+    setIsEditAccountDialogOpen(true);
+  };
+
+  const handleUpdateAccount = async () => {
+    if (!firestore || !editingWallet || !editWalletName || !editAccountName || !editWalletAddress) {
+        toast({ variant: 'destructive', title: 'Missing fields' });
+        return;
+    }
+    setIsSaving(true);
+    try {
+        const walletRef = doc(firestore, 'admin_wallets', editingWallet.id);
+        await updateDoc(walletRef, {
+            walletName: editWalletName,
+            name: editAccountName,
+            number: editWalletAddress,
+            isBank: editIsBank
+        });
+        toast({ title: 'Account Updated', description: 'The account details have been saved.' });
+        setIsEditAccountDialogOpen(false);
+        setEditingWallet(null);
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Error updating account', description: e.message });
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
 
   const handleDeleteAccount = async (walletId: string) => {
     if (!firestore) return;
@@ -241,6 +284,9 @@ export default function AdminWalletPage() {
                 />
               </div>
               <div className="flex items-center justify-end gap-2">
+                 <Button variant="ghost" size="icon" onClick={() => handleEditAccountClick(wallet)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
                  <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
@@ -270,6 +316,52 @@ export default function AdminWalletPage() {
           ))}
         </CardContent>
       </Card>
+
+      {editingWallet && (
+         <Dialog open={isEditAccountDialogOpen} onOpenChange={setIsEditAccountDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Edit Deposit Account</DialogTitle>
+                <DialogDescription>
+                  Update the details for this account.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-wallet-name">Display Name</Label>
+                   <Select value={editWalletName} onValueChange={setEditWalletName}>
+                    <SelectTrigger id="edit-wallet-name">
+                        <SelectValue placeholder="Select account type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Easypaisa">Easypaisa</SelectItem>
+                        <SelectItem value="JazzCash">JazzCash</SelectItem>
+                        <SelectItem value="Bank">Bank</SelectItem>
+                    </SelectContent>
+                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-account-name">Account/Bank Name</Label>
+                  <Input id="edit-account-name" value={editAccountName} onChange={e => setEditAccountName(e.target.value)} placeholder="e.g., John Doe, Meezan Bank" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-wallet-address">Address/Number</Label>
+                  <Input id="edit-wallet-address" value={editWalletAddress} onChange={e => setEditWalletAddress(e.target.value)} placeholder="Account number or phone number" />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="edit-is-bank" checked={editIsBank} onCheckedChange={checked => setEditIsBank(Boolean(checked))} />
+                  <Label htmlFor="edit-is-bank">This is a bank account</Label>
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                <Button type="submit" onClick={handleUpdateAccount} disabled={isSaving}>
+                  {isSaving ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+         </Dialog>
+      )}
     </div>
   );
 }
