@@ -1,3 +1,5 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -5,8 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { adminWalletDetails } from '@/lib/data';
 import { ArrowDownToLine, ArrowUpFromLine, Copy } from 'lucide-react';
+import React from 'react';
 
 export default function UserWalletPage() {
+  const [activeTab, setActiveTab] = React.useState('deposit');
+
   return (
     <div className="space-y-8">
       <div>
@@ -14,20 +19,37 @@ export default function UserWalletPage() {
         <p className="text-muted-foreground">Manage your funds, deposit, and withdraw.</p>
       </div>
 
-      <Tabs defaultValue="deposit" className="w-full max-w-2xl mx-auto">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="deposit">
-            <ArrowDownToLine className="mr-2 h-4 w-4" />
-            Deposit
-          </TabsTrigger>
-          <TabsTrigger value="withdraw">
-            <ArrowUpFromLine className="mr-2 h-4 w-4" />
-            Withdraw
-          </TabsTrigger>
-        </TabsList>
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader className="text-center">
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>Select an option to manage your funds.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+                <Button 
+                    size="lg" 
+                    onClick={() => setActiveTab('deposit')}
+                    className={activeTab === 'deposit' ? 'bg-primary hover:bg-primary/90' : ''}
+                    variant={activeTab === 'deposit' ? 'default' : 'outline'}
+                >
+                    <ArrowDownToLine className="mr-2 h-4 w-4" />
+                    Deposit
+                </Button>
+                <Button 
+                    size="lg" 
+                    onClick={() => setActiveTab('withdraw')}
+                    className={activeTab === 'withdraw' ? 'bg-primary hover:bg-primary/90' : ''}
+                    variant={activeTab === 'withdraw' ? 'default' : 'outline'}
+                >
+                    <ArrowUpFromLine className="mr-2 h-4 w-4" />
+                    Withdraw
+                </Button>
+            </div>
+        </CardContent>
+      </Card>
         
-        <TabsContent value="deposit">
-          <Card>
+      {activeTab === 'deposit' && (
+          <Card className="max-w-2xl mx-auto">
             <CardHeader>
               <CardTitle>Deposit Funds</CardTitle>
               <CardDescription>
@@ -59,10 +81,10 @@ export default function UserWalletPage() {
                 </p>
             </CardFooter>
           </Card>
-        </TabsContent>
+      )}
 
-        <TabsContent value="withdraw">
-          <Card>
+      {activeTab === 'withdraw' && (
+          <Card className="max-w-2xl mx-auto">
             <CardHeader>
               <CardTitle>Withdraw Funds</CardTitle>
               <CardDescription>
@@ -87,8 +109,7 @@ export default function UserWalletPage() {
               <Button className="w-full bg-accent hover:bg-accent/90">Submit Withdrawal Request</Button>
             </CardFooter>
           </Card>
-        </TabsContent>
-      </Tabs>
+      )}
     </div>
   );
 }
