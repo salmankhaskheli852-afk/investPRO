@@ -49,5 +49,10 @@ service cloud.firestore {
       // A user can only access their own subcollections (wallets, transactions, etc.).
       allow read, write: if isOwner(userId);
     }
+
+    // Allow any authenticated user to read chat settings for the WhatsApp widget
+    match /app_config/chat_settings {
+      allow get: if isUserAuthenticated();
+    }
   }
 }
