@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Edit, Trash2, RefreshCcw, Users, GitBranch } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Transaction, Wallet, InvestmentPlan } from '@/lib/data';
-import { collection, doc, query, orderBy, writeBatch, serverTimestamp, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, query, orderBy, writeBatch, serverTimestamp, addDoc, deleteDoc, updateDoc, increment } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
 import { useParams } from 'next/navigation';
@@ -126,7 +126,7 @@ export default function UserDetailsPage() {
   };
   
   const handleSaveStatChanges = async () => {
-    if (!editingStatField || !firestore || !userId) return;
+    if (!editingStatField || !firestore || !userId || !userDocRef) return;
 
     const numericNewValue = parseFloat(newStatValue);
     if (isNaN(numericNewValue)) {
@@ -140,7 +140,7 @@ export default function UserDetailsPage() {
       if (editingStatField.field === 'balance' && walletDocRef) {
         batch.update(walletDocRef, { balance: numericNewValue });
       } else if (['referralCount', 'referralIncome'].includes(editingStatField.field)) {
-          batch.update(userDocRef!, { [editingStatField.field]: numericNewValue });
+          batch.update(userDocRef, { [editingStatField.field]: numericNewValue });
       } else {
         const transactionCollectionRef = collection(firestore, 'users', userId, 'wallets', 'main', 'transactions');
         const diff = numericNewValue - editingStatField.value;
@@ -200,18 +200,20 @@ export default function UserDetailsPage() {
         // Calculate balance adjustment based on status and type changes
         const wasCompleted = originalTx.status === 'completed';
         const isNowCompleted = editedTxStatus === 'completed';
+        
+        const oldEffect = (originalTx.type === 'deposit' || originalTx.type === 'income' || originalTx.type === 'referral_income') ? originalTx.amount : -originalTx.amount;
+        const newEffect = (editedTxType === 'deposit' || editedTxType === 'income' || editedTxType === 'referral_income') ? newAmount : -newAmount;
 
         if (wasCompleted && !isNowCompleted) { // From completed to something else
-            if (originalTx.type === 'deposit' || originalTx.type === 'income') balanceAdjustment -= originalTx.amount;
+             if (originalTx.type === 'deposit' || originalTx.type === 'income' || originalTx.type === 'referral_income') balanceAdjustment -= originalTx.amount;
             else if (originalTx.type === 'withdrawal' || originalTx.type === 'investment') balanceAdjustment += originalTx.amount;
         } else if (!wasCompleted && isNowCompleted) { // From something else to completed
-            if (editedTxType === 'deposit' || editedTxType === 'income') balanceAdjustment += newAmount;
+            if (editedTxType === 'deposit' || editedTxType === 'income' || editedTxType === 'referral_income') balanceAdjustment += newAmount;
             else if (editedTxType === 'withdrawal' || editedTxType === 'investment') balanceAdjustment -= newAmount;
         } else if (wasCompleted && isNowCompleted) { // Both completed, but amount or type might have changed
-            const oldEffect = (originalTx.type === 'deposit' || originalTx.type === 'income') ? originalTx.amount : -originalTx.amount;
-            const newEffect = (editedTxType === 'deposit' || editedTxType === 'income') ? newAmount : -newEffect;
             balanceAdjustment = newEffect - oldEffect;
         }
+
 
         const batch = writeBatch(firestore);
         
@@ -246,7 +248,7 @@ export default function UserDetailsPage() {
         // Adjust wallet balance
         let balanceAdjustment = 0;
         if(tx.status === 'completed') {
-            if (tx.type === 'deposit' || tx.type === 'income') {
+            if (tx.type === 'deposit' || tx.type === 'income' || tx.type === 'referral_income') {
                 balanceAdjustment = -tx.amount;
             } else if (tx.type === 'withdrawal' || tx.type === 'investment') {
                 balanceAdjustment = tx.amount;
@@ -451,7 +453,7 @@ export default function UserDetailsPage() {
               ) : transactions && transactions.length > 0 ? (
                 transactions.map((tx) => (
                     <TableRow key={tx.id}>
-                      <TableCell className="capitalize">{tx.type}</TableCell>
+                      <TableCell className="capitalize">{tx.type.replace('_', ' ')}</TableCell>
                       <TableCell>{tx.details?.planName || tx.details?.method || tx.details?.reason || tx.details?.tid || 'N/A'}</TableCell>
                       <TableCell>{tx.amount.toLocaleString()} PKR</TableCell>
                       <TableCell>
@@ -598,6 +600,7 @@ export default function UserDetailsPage() {
                             <SelectItem value="withdrawal">Withdrawal</SelectItem>
                             <SelectItem value="investment">Investment</SelectItem>
                             <SelectItem value="income">Income</SelectItem>
+                            <SelectItem value="referral_income">Referral Income</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

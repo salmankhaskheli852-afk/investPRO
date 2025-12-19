@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Transaction, AppSettings } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment, updateDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Search } from 'lucide-react';
@@ -61,26 +61,38 @@ function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User
 
                 if (commissionAmount > 0) {
                     const referrerRef = doc(firestore, 'users', user.referrerId);
-                    const referrerWalletRef = doc(firestore, 'users', user.referrerId, 'wallets', 'main');
                     
-                    // Add commission to referrer's wallet and income
-                    batch.update(referrerWalletRef, { balance: increment(commissionAmount) });
-                    batch.update(referrerRef, { referralIncome: increment(commissionAmount) });
-
-                    // Create a commission transaction for the referrer
-                    const referrerTxRef = doc(collection(firestore, 'users', user.referrerId, 'wallets', 'main', 'transactions'));
-                    batch.set(referrerTxRef, {
-                        id: referrerTxRef.id,
-                        type: 'referral_income',
-                        amount: commissionAmount,
-                        status: 'completed',
-                        date: serverTimestamp(),
-                        walletId: 'main',
-                        details: {
-                            referredUserId: user.id,
-                            referredUserName: user.name,
-                            originalDeposit: tx.amount,
+                    // Add commission to referrer's income and create transaction
+                    await runTransaction(firestore, async (transaction) => {
+                        const referrerDoc = await transaction.get(referrerRef);
+                        if (!referrerDoc.exists()) {
+                            throw "Referrer not found!";
                         }
+                        
+                        // Update referrer's wallet and user doc
+                        const referrerWalletRef = doc(firestore, 'users', user.referrerId!, 'wallets', 'main');
+                        const referrerWalletDoc = await transaction.get(referrerWalletRef);
+                        const newBalance = (referrerWalletDoc.data()?.balance || 0) + commissionAmount;
+                        const newIncome = (referrerDoc.data()?.referralIncome || 0) + commissionAmount;
+
+                        transaction.update(referrerWalletRef, { balance: newBalance });
+                        transaction.update(referrerRef, { referralIncome: newIncome });
+                        
+                        // Create transaction for referrer
+                        const referrerTxRef = doc(collection(firestore, 'users', user.referrerId!, 'wallets', 'main', 'transactions'));
+                        transaction.set(referrerTxRef, {
+                            id: referrerTxRef.id,
+                            type: 'referral_income',
+                            amount: commissionAmount,
+                            status: 'completed',
+                            date: serverTimestamp(),
+                            walletId: 'main',
+                            details: {
+                                referredUserId: user.id,
+                                referredUserName: user.name,
+                                originalDeposit: tx.amount,
+                            }
+                        });
                     });
                 }
             }

@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import React from 'react';
 import { signInWithGoogle } from '@/firebase/auth/sign-in';
 import { useAuth, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, getDoc, serverTimestamp, collection, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, collection, getDocs, writeBatch, updateDoc, increment } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { User, AdminWallet, WithdrawalMethod, InvestmentPlan } from '@/lib/data';
 import { planCategories, investmentPlans as seedPlans } from '@/lib/data';
@@ -148,8 +148,7 @@ export default function Home() {
           const referrerRef = doc(firestore, 'users', referrerId);
           const referrerDoc = await getDoc(referrerRef);
           if (referrerDoc.exists()) {
-              const currentCount = referrerDoc.data().referralCount || 0;
-              await setDoc(referrerRef, { referralCount: currentCount + 1 }, { merge: true });
+              await updateDoc(referrerRef, { referralCount: increment(1) });
           }
       }
 
