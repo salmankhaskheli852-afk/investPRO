@@ -20,7 +20,12 @@ import type { User, Transaction } from '@/lib/data';
 import { collection, doc, query, where, collectionGroup } from 'firebase/firestore';
 import { format } from 'date-fns';
 
-export default function AgentHistoryPage({ params }: { params: { agentId: string } }) {
+interface AgentHistoryPageProps {
+  params: { agentId: string };
+  searchParams: { [key: string]: string | string[] | undefined };
+}
+
+export default function AgentHistoryPage({ params }: AgentHistoryPageProps) {
   const { agentId } = params;
   const firestore = useFirestore();
 
