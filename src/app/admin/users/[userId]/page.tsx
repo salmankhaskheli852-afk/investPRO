@@ -209,7 +209,7 @@ export default function UserDetailsPage() {
             else if (editedTxType === 'withdrawal' || editedTxType === 'investment') balanceAdjustment -= newAmount;
         } else if (wasCompleted && isNowCompleted) { // Both completed, but amount or type might have changed
             const oldEffect = (originalTx.type === 'deposit' || originalTx.type === 'income') ? originalTx.amount : -originalTx.amount;
-            const newEffect = (editedTxType === 'deposit' || editedTxType === 'income') ? newAmount : -newAmount;
+            const newEffect = (editedTxType === 'deposit' || editedTxType === 'income') ? newAmount : -newEffect;
             balanceAdjustment = newEffect - oldEffect;
         }
 
@@ -628,3 +628,5 @@ export default function UserDetailsPage() {
     </div>
   );
 }
+
+    
