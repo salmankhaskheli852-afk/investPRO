@@ -37,14 +37,13 @@ function AgentNav() {
     if (agentData?.permissions?.canManageWithdrawalRequests) {
       items.push({ href: '/agent/withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine });
     }
+    // Only add the Live Chat nav item if the feature is enabled in settings
     if (chatSettings?.isChatEnabled) {
       items.push({ href: '/agent/live-chat', label: 'Live Chat', icon: MessageCircle });
     }
     
-    // You can add more items based on other permissions like canViewDepositHistory etc.
-
     return items;
-  }, [agentData, chatSettings]);
+  }, [agentData?.permissions, chatSettings?.isChatEnabled]);
 
   return <SidebarNav navItems={navItems} />;
 }
