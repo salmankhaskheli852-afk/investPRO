@@ -59,7 +59,7 @@ export default function InvitationPage() {
         <Card>
           <CardHeader>
             <CardTitle>Your Invitation Link</CardTitle>
-            <CardDescription>Share this link with your friends to invite them to InvesPro.</CardDescription>
+            <CardDescription>Share this link with your friends to invite them to investPro.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">

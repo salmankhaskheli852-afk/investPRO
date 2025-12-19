@@ -142,7 +142,7 @@ export function Header() {
             <path d="M2 17l10 5 10-5" />
             <path d="M2 12l10 5 10-5" />
           </svg>
-          <span className="font-headline text-lg font-semibold text-primary">InvesPro</span>
+          <span className="font-headline text-lg font-semibold text-primary">investPro</span>
         </Link>
       </div>
       <div className="flex items-center gap-4">

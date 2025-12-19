@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -57,7 +58,7 @@ export function SidebarNav({ navItems }: SidebarNavProps) {
             <path d="M2 12l10 5 10-5" />
           </svg>
           <span className="font-headline text-2xl font-semibold text-primary group-data-[collapsible=icon]:hidden">
-            InvesPro
+            investPro
           </span>
         </Link>
       </SidebarHeader>

@@ -194,7 +194,7 @@ export default function Home() {
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
-          <h1 className="font-headline text-4xl font-bold text-primary">InvesPro</h1>
+          <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
           <CardDescription className="pt-2">Your trusted partner in modern investments.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
