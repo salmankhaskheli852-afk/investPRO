@@ -21,7 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { AdminWallet, WithdrawalMethod } from '@/lib/data';
-import { collection, doc, addDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -57,6 +57,11 @@ export default function AdminWalletPage() {
   const [editWalletAddress, setEditWalletAddress] = React.useState('');
   const [editIsBank, setEditIsBank] = React.useState(false);
 
+  // Withdrawal Method state
+  const [isMethodDialogOpen, setIsMethodDialogOpen] = React.useState(false);
+  const [editingMethod, setEditingMethod] = React.useState<WithdrawalMethod | null>(null);
+  const [methodName, setMethodName] = React.useState('');
+
 
   const adminWalletsQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'admin_wallets') : null,
@@ -82,7 +87,7 @@ export default function AdminWalletPage() {
     setIsSaving(true);
     try {
       const newDocRef = doc(collection(firestore, 'admin_wallets'));
-      await addDoc(collection(firestore, "admin_wallets"), {
+      await setDoc(newDocRef, {
         id: newDocRef.id,
         walletName: newWalletName,
         name: newAccountName,
@@ -145,7 +150,6 @@ export default function AdminWalletPage() {
     }
   };
 
-
   const handleDeleteAccount = async (walletId: string) => {
     if (!firestore) return;
     try {
@@ -177,6 +181,44 @@ export default function AdminWalletPage() {
     }
   };
 
+  // --- Withdrawal Method Functions ---
+  const handleMethodClick = (method: WithdrawalMethod | null) => {
+    setEditingMethod(method);
+    setMethodName(method ? method.name : '');
+    setIsMethodDialogOpen(true);
+  };
+
+  const handleSaveMethod = async () => {
+    if (!firestore || !methodName) return;
+    setIsSaving(true);
+    try {
+      if (editingMethod) {
+        // Update existing method
+        await updateDoc(doc(firestore, 'withdrawal_methods', editingMethod.id), { name: methodName });
+        toast({ title: 'Method Updated' });
+      } else {
+        // Add new method
+        const newDocRef = doc(collection(firestore, 'withdrawal_methods'));
+        await setDoc(newDocRef, { id: newDocRef.id, name: methodName, isEnabled: true });
+        toast({ title: 'Method Added' });
+      }
+      setIsMethodDialogOpen(false);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error saving method', description: e.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteMethod = async (method: WithdrawalMethod) => {
+    if (!firestore) return;
+    try {
+      await deleteDoc(doc(firestore, 'withdrawal_methods', method.id));
+      toast({ title: 'Method Deleted' });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error deleting method', description: e.message });
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -188,24 +230,53 @@ export default function AdminWalletPage() {
       </div>
       
       <Card>
-        <CardHeader>
-          <CardTitle>Withdrawal Method Settings</CardTitle>
-          <CardDescription>Enable or disable withdrawal options for all users.</CardDescription>
+        <CardHeader  className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Withdrawal Method Settings</CardTitle>
+            <CardDescription>Enable or disable withdrawal options for all users.</CardDescription>
+          </div>
+          <Button onClick={() => handleMethodClick(null)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Method
+          </Button>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {isLoadingMethods ? <p>Loading withdrawal methods...</p> : withdrawalMethods?.map(method => (
-            <div key={method.id} className="flex items-center justify-between rounded-lg border p-4">
-              <div className="space-y-0.5">
-                <Label htmlFor={`method-${method.id}`} className="text-base">{method.name}</Label>
-                <p className="text-sm text-muted-foreground">
-                  Allow users to withdraw via {method.name}.
-                </p>
+            <div key={method.id} className="flex flex-col justify-between rounded-lg border p-4 space-y-4">
+              <div className='flex items-start justify-between'>
+                <div className="space-y-0.5">
+                  <Label htmlFor={`method-${method.id}`} className="text-base">{method.name}</Label>
+                </div>
+                <Switch 
+                  id={`method-${method.id}`} 
+                  checked={method.isEnabled}
+                  onCheckedChange={() => handleToggle('withdrawal_methods', method.id, method.isEnabled)}
+                />
               </div>
-              <Switch 
-                id={`method-${method.id}`} 
-                checked={method.isEnabled}
-                onCheckedChange={() => handleToggle('withdrawal_methods', method.id, method.isEnabled)}
-              />
+              <div className="flex items-center justify-end gap-2">
+                <Button variant="ghost" size="icon" onClick={() => handleMethodClick(method)}>
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete {method.name}?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently remove this withdrawal option for all users.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDeleteMethod(method)}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           ))}
         </CardContent>
@@ -362,6 +433,29 @@ export default function AdminWalletPage() {
             </DialogContent>
          </Dialog>
       )}
+
+      <Dialog open={isMethodDialogOpen} onOpenChange={setIsMethodDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{editingMethod ? 'Edit' : 'Add'} Withdrawal Method</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <Label htmlFor="method-name">Method Name</Label>
+            <Input
+              id="method-name"
+              value={methodName}
+              onChange={(e) => setMethodName(e.target.value)}
+              placeholder="e.g., NayaPay"
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button onClick={handleSaveMethod} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Method'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
