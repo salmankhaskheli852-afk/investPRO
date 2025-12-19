@@ -47,7 +47,7 @@ export default function UserDashboardPage() {
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
     [firestore, user]
   );
-  const { data: userData } = useDoc<User>(userDocRef);
+  const { data: userData, isLoading: isUserDocLoading } = useDoc<User>(userDocRef);
 
   // Fetch user wallet
   const walletRef = useMemoFirebase(
@@ -119,12 +119,20 @@ export default function UserDashboardPage() {
     }
   }, [activePlans]);
 
-  if (isUserLoading || !user || !userData) {
+  if (isUserLoading || isUserDocLoading || !user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <p>Loading...</p>
       </div>
     );
+  }
+  
+  if (!userData) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center">
+            <p>Could not load user profile. Please try again later.</p>
+        </div>
+      )
   }
 
   return (
