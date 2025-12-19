@@ -58,7 +58,7 @@ service cloud.firestore {
      * Checks if the authenticated user has admin privileges based on their email.
      */
     function isAdmin() {
-      return isSignedIn() && request.auth.token.email == 'salmankhaskheli885@gmail.com';
+      return isSignedIn() && request.auth.token.email == 'salmankhaskheli852@gmail.com';
     }
 
     /**
