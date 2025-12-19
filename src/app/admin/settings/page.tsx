@@ -26,7 +26,13 @@ export default function AppSettingsPage() {
   const [userMaintenanceMessage, setUserMaintenanceMessage] = React.useState('');
   const [agentMaintenanceMode, setAgentMaintenanceMode] = React.useState(false);
   const [agentMaintenanceMessage, setAgentMaintenanceMessage] = React.useState('');
-  
+
+  // Verification system state
+  const [isVerificationEnabled, setIsVerificationEnabled] = React.useState(false);
+  const [verificationPopupTitle, setVerificationPopupTitle] = React.useState('');
+  const [verificationPopupMessage, setVerificationPopupMessage] = React.useState('');
+  const [verificationDepositAmount, setVerificationDepositAmount] = React.useState('');
+
   const [isSaving, setIsSaving] = React.useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -50,6 +56,12 @@ export default function AppSettingsPage() {
       setUserMaintenanceMessage(appSettings.userMaintenanceMessage || 'The user panel is currently under maintenance. We will be back shortly.');
       setAgentMaintenanceMode(appSettings.agentMaintenanceMode || false);
       setAgentMaintenanceMessage(appSettings.agentMaintenanceMessage || 'The agent panel is currently under maintenance. We will be back shortly.');
+      
+      // Verification settings
+      setIsVerificationEnabled(appSettings.isVerificationEnabled || false);
+      setVerificationPopupTitle(appSettings.verificationPopupTitle || 'Account Verification Required');
+      setVerificationPopupMessage(appSettings.verificationPopupMessage || 'To ensure the security of your account and enable all features including withdrawals, please verify your account by making a one-time deposit.');
+      setVerificationDepositAmount(String(appSettings.verificationDepositAmount || '5000'));
     }
   }, [appSettings]);
 
@@ -69,6 +81,10 @@ export default function AppSettingsPage() {
         userMaintenanceMessage,
         agentMaintenanceMode,
         agentMaintenanceMessage,
+        isVerificationEnabled,
+        verificationPopupTitle,
+        verificationPopupMessage,
+        verificationDepositAmount: parseFloat(verificationDepositAmount) || 0,
       }, { merge: true });
       toast({
         title: 'Settings Saved',
@@ -164,6 +180,55 @@ export default function AppSettingsPage() {
                 </div>
              </div>
           </div>
+
+           <Separator />
+            
+            <div>
+              <h3 className="text-lg font-medium mb-4">Account Verification System</h3>
+               <div className="flex flex-col space-y-3 rounded-lg border p-4">
+                  <div className="flex items-center justify-between">
+                      <Label htmlFor="verification-enabled" className="font-medium">Enable Verification System</Label>
+                      <Switch
+                          id="verification-enabled"
+                          checked={isVerificationEnabled}
+                          onCheckedChange={setIsVerificationEnabled}
+                          disabled={isLoading}
+                      />
+                  </div>
+                   <p className="text-sm text-muted-foreground">
+                      If enabled, new users must make a one-time deposit to verify their account and unlock withdrawals.
+                  </p>
+                  {isVerificationEnabled && (
+                    <div className="space-y-4 pt-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="verification-title">Popup Title</Label>
+                        <Input
+                          id="verification-title"
+                          value={verificationPopupTitle}
+                          onChange={(e) => setVerificationPopupTitle(e.target.value)}
+                        />
+                      </div>
+                       <div className="space-y-2">
+                        <Label htmlFor="verification-message">Popup Message</Label>
+                        <Textarea
+                          id="verification-message"
+                          value={verificationPopupMessage}
+                          onChange={(e) => setVerificationPopupMessage(e.target.value)}
+                        />
+                      </div>
+                       <div className="space-y-2">
+                        <Label htmlFor="verification-amount">Verification Deposit Amount (PKR)</Label>
+                        <Input
+                          id="verification-amount"
+                          type="number"
+                          value={verificationDepositAmount}
+                          onChange={(e) => setVerificationDepositAmount(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+              </div>
+            </div>
 
            <Separator />
 

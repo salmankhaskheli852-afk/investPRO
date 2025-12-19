@@ -26,7 +26,7 @@ import {
   DialogTrigger,
   DialogClose
 } from '@/components/ui/dialog';
-import type { Wallet, Transaction, AdminWallet, WithdrawalMethod, UserWithdrawalAccount } from '@/lib/data';
+import type { Wallet, Transaction, AdminWallet, WithdrawalMethod, UserWithdrawalAccount, AppSettings, User } from '@/lib/data';
 import { ArrowDownToLine, ArrowUpFromLine, Banknote, Landmark, PlusCircle, Trash2 } from 'lucide-react';
 import {
   Select,
@@ -149,6 +149,18 @@ export default function UserWalletPage() {
     [firestore, user]
   );
   const { data: walletData } = useDoc<Wallet>(walletRef);
+
+  const userDocRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user]
+  );
+  const { data: userData } = useDoc<User>(userDocRef);
+
+  const settingsRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore]
+  );
+  const { data: appSettings } = useDoc<AppSettings>(settingsRef);
   
   const adminWalletsQuery = useMemoFirebase(
     () => (firestore && user ? query(collection(firestore, 'admin_wallets'), where('isEnabled', '==', true)) : null),
@@ -161,6 +173,8 @@ export default function UserWalletPage() {
     [firestore, user]
   );
   const { data: userWithdrawalAccounts } = useCollection<UserWithdrawalAccount>(userWithdrawalAccountsQuery);
+
+  const isWithdrawalDisabled = appSettings?.isVerificationEnabled && !userData?.isVerified;
 
   React.useEffect(() => {
     if (adminWalletsData && adminWalletsData.length > 0 && !selectedAdminWallet) {
@@ -244,6 +258,10 @@ export default function UserWalletPage() {
   }
 
   const handleWithdrawalSubmit = async () => {
+    if (isWithdrawalDisabled) {
+       toast({ variant: 'destructive', title: 'Action Denied', description: 'Your account must be verified to make withdrawals.' });
+       return;
+    }
     if (!user || !firestore || !walletData) {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
       return;
@@ -433,6 +451,8 @@ export default function UserWalletPage() {
                           <Button 
                               size="lg"
                               variant='outline'
+                              disabled={isWithdrawalDisabled}
+                              title={isWithdrawalDisabled ? 'Your account must be verified to withdraw' : 'Withdraw funds'}
                           >
                               <ArrowUpFromLine className="mr-2 h-4 w-4" />
                               Withdraw

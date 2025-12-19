@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,14 +12,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { LogOut, Settings, User as UserIcon, ShieldCheck } from 'lucide-react';
+import { LogOut, Settings, User as UserIcon, ShieldCheck, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import { doc } from 'firebase/firestore';
-import type { AppSettings } from '@/lib/data';
+import type { AppSettings, User } from '@/lib/data';
 
 
 export function Header() {
@@ -34,6 +35,12 @@ export function Header() {
   );
   const { data: appSettings, isLoading: isLoadingSettings } = useDoc<AppSettings>(appSettingsRef);
 
+  const userDocRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user]
+  );
+  const { data: userData, isLoading: isLoadingUserData } = useDoc<User>(userDocRef);
+
   useEffect(() => {
     setHasMounted(true);
   }, []);
@@ -43,6 +50,26 @@ export function Header() {
     await signOut(auth);
     router.push('/');
   };
+
+  const renderVerificationStatus = () => {
+    if (!appSettings?.isVerificationEnabled || isLoadingUserData || userData?.role !== 'user') {
+      return null;
+    }
+    if (userData?.isVerified) {
+       return (
+          <div className="hidden items-center gap-1.5 sm:flex">
+            <ShieldCheck className="h-5 w-5 text-green-600" />
+            <span className="text-sm font-medium text-green-600">{appSettings.verificationBadgeText || "Verified"}</span>
+          </div>
+        );
+    }
+    return (
+       <div className="hidden items-center gap-1.5 sm:flex">
+          <ShieldAlert className="h-5 w-5 text-amber-500" />
+          <span className="text-sm font-medium text-amber-500">Not Verified</span>
+        </div>
+    );
+  }
 
   const renderUserMenu = () => {
     if (!hasMounted) {
@@ -119,12 +146,7 @@ export function Header() {
         </Link>
       </div>
       <div className="flex items-center gap-4">
-        {!isLoadingSettings && appSettings?.verificationBadgeText && (
-          <div className="hidden items-center gap-1.5 sm:flex">
-            <ShieldCheck className="h-5 w-5 text-green-600" />
-            <span className="text-sm font-medium text-green-600">{appSettings.verificationBadgeText}</span>
-          </div>
-        )}
+        {renderVerificationStatus()}
         {renderUserMenu()}
       </div>
     </header>

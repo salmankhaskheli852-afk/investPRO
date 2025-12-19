@@ -40,70 +40,78 @@ function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User
     const globalTransactionRef = doc(firestore, 'transactions', tx.id);
     const userTransactionRef = doc(firestore, 'users', user.id, 'wallets', 'main', 'transactions', tx.id);
     const walletRef = doc(firestore, 'users', user.id, 'wallets', 'main');
+    const userRef = doc(firestore, 'users', user.id);
 
     try {
-      const batch = writeBatch(firestore);
-
-      if (newStatus === 'completed') {
-        const walletSnapshot = await getDoc(walletRef);
-        const walletData = walletSnapshot.data();
-        const currentBalance = walletData?.balance || 0;
-        batch.update(walletRef, { balance: currentBalance + tx.amount });
-
-        // Handle referral commission on first deposit
-        if (user.referrerId) {
-            // Check if this is the user's first completed deposit
-            const userTransactionsQuery = query(collection(firestore, 'users', user.id, 'wallets', 'main', 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'completed'));
-            const previousDeposits = await getDocs(userTransactionsQuery);
-            
-            if (previousDeposits.empty) { // This is the first deposit
-                const commissionRate = (appSettings?.referralCommissionPercentage || 0) / 100;
-                const commissionAmount = tx.amount * commissionRate;
-
-                if (commissionAmount > 0) {
-                    const referrerRef = doc(firestore, 'users', user.referrerId);
-                    
-                    // Add commission to referrer's income and create transaction
-                    await runTransaction(firestore, async (transaction) => {
-                        const referrerDoc = await transaction.get(referrerRef);
-                        if (!referrerDoc.exists()) {
-                            throw "Referrer not found!";
-                        }
-                        
-                        // Update referrer's wallet and user doc
-                        const referrerWalletRef = doc(firestore, 'users', user.referrerId!, 'wallets', 'main');
-                        const referrerWalletDoc = await transaction.get(referrerWalletRef);
-                        const newBalance = (referrerWalletDoc.data()?.balance || 0) + commissionAmount;
-                        const newIncome = (referrerDoc.data()?.referralIncome || 0) + commissionAmount;
-
-                        transaction.update(referrerWalletRef, { balance: newBalance });
-                        transaction.update(referrerRef, { referralIncome: newIncome });
-                        
-                        // Create transaction for referrer
-                        const referrerTxRef = doc(collection(firestore, 'users', user.referrerId!, 'wallets', 'main', 'transactions'));
-                        transaction.set(referrerTxRef, {
-                            id: referrerTxRef.id,
-                            type: 'referral_income',
-                            amount: commissionAmount,
-                            status: 'completed',
-                            date: serverTimestamp(),
-                            walletId: 'main',
-                            details: {
-                                referredUserId: user.id,
-                                referredUserName: user.name,
-                                originalDeposit: tx.amount,
-                            }
-                        });
-                    });
-                }
-            }
+      await runTransaction(firestore, async (transaction) => {
+        
+        const walletDoc = await transaction.get(walletRef);
+        if (!walletDoc.exists()) {
+            throw new Error("Wallet not found!");
         }
-      }
+        const currentBalance = walletDoc.data().balance;
+        
+        // Main logic for deposit completion
+        if (newStatus === 'completed') {
+          // 1. Update wallet balance
+          transaction.update(walletRef, { balance: currentBalance + tx.amount });
 
-      batch.update(globalTransactionRef, { status: newStatus });
-      batch.update(userTransactionRef, { status: newStatus });
-      
-      await batch.commit();
+          // 2. Handle account verification
+          if (appSettings?.isVerificationEnabled && !user.isVerified) {
+            if (tx.amount >= (appSettings.verificationDepositAmount || 0)) {
+              transaction.update(userRef, { isVerified: true });
+            }
+          }
+
+          // 3. Handle referral commission on first deposit
+          if (user.referrerId) {
+              const userTransactionsQuery = query(collection(firestore, 'users', user.id, 'wallets', 'main', 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'completed'));
+              const previousDepositsSnapshot = await getDocs(userTransactionsQuery);
+              
+              const previousDeposits = previousDepositsSnapshot.docs.filter(doc => doc.id !== tx.id);
+
+              if (previousDeposits.length === 0) { // This is the first completed deposit
+                  const commissionRate = (appSettings?.referralCommissionPercentage || 0) / 100;
+                  const commissionAmount = tx.amount * commissionRate;
+
+                  if (commissionAmount > 0) {
+                      const referrerRef = doc(firestore, 'users', user.referrerId);
+                      const referrerDoc = await transaction.get(referrerRef);
+                      if (!referrerDoc.exists()) {
+                          console.warn("Referrer not found, skipping commission.");
+                      } else {
+                          const referrerWalletRef = doc(firestore, 'users', user.referrerId!, 'wallets', 'main');
+                          const referrerWalletDoc = await transaction.get(referrerWalletRef);
+                          const newBalance = (referrerWalletDoc.data()?.balance || 0) + commissionAmount;
+                          const newIncome = (referrerDoc.data()?.referralIncome || 0) + commissionAmount;
+
+                          transaction.update(referrerWalletRef, { balance: newBalance });
+                          transaction.update(referrerRef, { referralIncome: newIncome });
+                          
+                          const referrerTxRef = doc(collection(firestore, 'users', user.referrerId!, 'wallets', 'main', 'transactions'));
+                          transaction.set(referrerTxRef, {
+                              id: referrerTxRef.id,
+                              type: 'referral_income',
+                              amount: commissionAmount,
+                              status: 'completed',
+                              date: serverTimestamp(),
+                              walletId: 'main',
+                              details: {
+                                  referredUserId: user.id,
+                                  referredUserName: user.name,
+                                  originalDeposit: tx.amount,
+                              }
+                          });
+                      }
+                  }
+              }
+          }
+        }
+        
+        // 4. Update transaction status in both locations
+        transaction.update(globalTransactionRef, { status: newStatus });
+        transaction.update(userTransactionRef, { status: newStatus });
+      });
 
       toast({
         title: `Request ${newStatus}`,
@@ -174,18 +182,18 @@ function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User
 
 export default function AdminDepositsPage() {
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user: adminUser } = useUser();
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const usersQuery = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'users') : null),
-    [firestore, user]
+    () => (firestore && adminUser ? collection(firestore, 'users') : null),
+    [firestore, adminUser]
   );
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
   const depositsQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'pending')) : null),
-    [firestore, user]
+    () => (firestore && adminUser ? query(collection(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'pending')) : null),
+    [firestore, adminUser]
   );
   const { data: depositRequests, isLoading: isLoadingDeposits, forceRefetch } = useCollection<Transaction>(depositsQuery);
   

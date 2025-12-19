@@ -54,6 +54,7 @@ export type User = {
   referralCount?: number;
   referralIncome?: number;
   createdAt: Timestamp;
+  isVerified?: boolean;
 };
 
 export type Wallet = {
@@ -116,6 +117,10 @@ export type AppSettings = {
     userMaintenanceMessage?: string;
     agentMaintenanceMode?: boolean;
     agentMaintenanceMessage?: string;
+    isVerificationEnabled?: boolean;
+    verificationPopupTitle?: string;
+    verificationPopupMessage?: string;
+    verificationDepositAmount?: number;
 }
 
 // This is now seed data for Firestore, not used directly in the app.
