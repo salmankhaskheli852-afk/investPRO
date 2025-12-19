@@ -1,3 +1,6 @@
+'use client';
+
+import React from 'react';
 import {
   Table,
   TableBody,
@@ -19,7 +22,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { investmentPlans, planCategories } from '@/lib/data';
+import { planCategories } from '@/lib/data';
 import { Edit, PlusCircle, Trash2 } from 'lucide-react';
 import {
   Select,
@@ -29,8 +32,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import type { InvestmentPlan } from '@/lib/data';
+import { collection } from 'firebase/firestore';
 
 export default function AdminInvestmentsPage() {
+  const firestore = useFirestore();
+  const plansQuery = useMemoFirebase(
+    () => firestore ? collection(firestore, 'investment_plans') : null,
+    [firestore]
+  );
+  const { data: investmentPlans, isLoading } = useCollection<InvestmentPlan>(plansQuery);
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -103,7 +116,8 @@ export default function AdminInvestmentsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    {investmentPlans.map((plan) => (
+                    {isLoading && <p>Loading plans...</p>}
+                    {investmentPlans?.map((plan) => (
                        <div key={plan.id} className="relative group">
                          <InvestmentPlanCard plan={plan} showPurchaseButton={false} />
                          <div className="absolute top-2 right-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -125,7 +139,7 @@ export default function AdminInvestmentsPage() {
                 <CardHeader>
                     <CardTitle>Categories</CardTitle>
                     <CardDescription>Manage investment plan categories.</CardDescription>
-                </CardHeader>
+                </Header>
                 <CardContent>
                    <div className="space-y-4">
                      <Dialog>

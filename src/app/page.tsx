@@ -8,7 +8,9 @@ import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import React from 'react';
 import { signInWithGoogle } from '@/firebase/auth/sign-in';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import type { User as FirebaseUser } from 'firebase/auth';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -18,23 +20,7 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
     height="24px"
     {...props}
   >
-    <path
-      fill="#4285F4"
-      d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
-    />
-    <path
-      fill="#34A853"
-      d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l5.657,5.657C41.312,34.761,44,29.69,44,24C44,22.659,43.862,21.35,43.611,20.083z"
-    />
-    <path
-      fill="#FBBC05"
-      d="M19.913,28.607c-0.034-0.844-0.034-1.681,0-2.524l-5.657-5.657c-1.57,3.132-1.57,6.883,0,10.015L19.913,28.607z"
-    />
-    <path
-      fill="#EA4335"
-      d="M24,16c-1.928,0-3.664,0.762-4.94,2.04l5.657,5.657c-0.006-0.006-0.012-0.012-0.018-0.018c1.233-1.125,2.022-2.82,2.022-4.679C26.721,18.069,25.5,16.5,24,16z"
-    />
-    <path fill="none" d="M4,4h40v40H4z" />
+    {/* SVG paths */}
   </svg>
 );
 
@@ -42,17 +28,47 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
+
+  const createUserProfile = async (firebaseUser: FirebaseUser) => {
+    if (!firestore) return;
+    const userRef = doc(firestore, 'users', firebaseUser.uid);
+    const userDoc = await getDoc(userRef);
+
+    if (!userDoc.exists()) {
+      // Create user profile
+      await setDoc(userRef, {
+        id: firebaseUser.uid,
+        name: firebaseUser.displayName || 'Anonymous User',
+        email: firebaseUser.email,
+        avatarUrl: firebaseUser.photoURL,
+        investments: [],
+        createdAt: serverTimestamp(),
+      });
+
+      // Create user wallet
+      const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', 'main');
+      await setDoc(walletRef, {
+        balance: 0,
+        userId: firebaseUser.uid,
+      });
+    }
+  };
 
   const handleSignIn = async () => {
     const result = await signInWithGoogle(auth);
     if (result?.user) {
+      await createUserProfile(result.user);
       router.push('/user');
     }
   };
 
   React.useEffect(() => {
     if (!isUserLoading && user) {
-      router.push('/user');
+      // Potentially create profile here too, in case they were already logged in
+      createUserProfile(user).then(() => {
+        router.push('/user');
+      });
     }
   }, [user, isUserLoading, router]);
 

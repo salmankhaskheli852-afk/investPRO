@@ -1,5 +1,4 @@
-
-"use client";
+'use client';
 
 import Image from 'next/image';
 import React from 'react';
@@ -19,6 +18,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { CheckCircle, Info, Wallet } from 'lucide-react';
+import { useFirestore, useUser, updateDocumentNonBlocking } from '@/firebase';
+import { doc, arrayUnion, writeBatch } from 'firebase/firestore';
 
 interface InvestmentPlanCardProps {
   plan: InvestmentPlan;
@@ -28,15 +29,18 @@ interface InvestmentPlanCardProps {
   showPurchaseButton?: boolean;
 }
 
-export function InvestmentPlanCard({ 
-  plan, 
-  isPurchased = false, 
-  userWalletBalance = 0, 
+export function InvestmentPlanCard({
+  plan,
+  isPurchased = false,
+  userWalletBalance = 0,
   showAsPurchased = false,
-  showPurchaseButton = true 
+  showPurchaseButton = true,
 }: InvestmentPlanCardProps) {
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
+  const { user } = useUser();
+  const firestore = useFirestore();
+
   const canAfford = userWalletBalance >= plan.price;
 
   // Simulate plan progress
@@ -48,14 +52,62 @@ export function InvestmentPlanCard({
     }
   }, [isPurchased]);
 
-  const handlePurchase = () => {
-    // In a real app, you'd call an API here.
-    toast({
-      title: 'Purchase Successful!',
-      description: `You have successfully invested in the ${plan.name}.`,
-    });
-    setOpen(false);
-    // Here you would typically update the user's data.
+  const handlePurchase = async () => {
+    if (!user || !firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Not authenticated.' });
+      return;
+    }
+    if (!canAfford) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Insufficient funds.' });
+      return;
+    }
+    
+    const userRef = doc(firestore, 'users', user.uid);
+    const walletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
+    
+    try {
+        const batch = writeBatch(firestore);
+
+        // 1. Add investment to user's profile
+        batch.update(userRef, {
+            investments: arrayUnion(plan.id)
+        });
+
+        // 2. Deduct price from wallet
+        const newBalance = userWalletBalance - plan.price;
+        batch.update(walletRef, {
+            balance: newBalance
+        });
+
+        // 3. Add an investment transaction
+        const transactionRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'));
+        batch.set(transactionRef, {
+            type: 'investment',
+            amount: plan.price,
+            status: 'completed',
+            date: serverTimestamp(),
+            details: {
+                planId: plan.id,
+                planName: plan.name
+            }
+        });
+
+        await batch.commit();
+
+        toast({
+            title: 'Purchase Successful!',
+            description: `You have successfully invested in the ${plan.name}.`,
+        });
+        setOpen(false);
+
+    } catch (e: any) {
+         toast({
+            variant: "destructive",
+            title: "Uh oh! Something went wrong.",
+            description: e.message || "Could not purchase plan.",
+        });
+    }
+
   };
 
   const totalIncome = plan.dailyIncome * plan.incomePeriod;
@@ -115,7 +167,7 @@ export function InvestmentPlanCard({
             <div className="rounded-lg border bg-background/50 p-4 space-y-2">
               <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground flex items-center gap-2"><Wallet className="w-4 h-4" /> Current Balance</span>
-                  <span>{userWalletBalance.toLocaleString()} Rs</span>
+                  <span>{userWalletBalance?.toLocaleString() || 0} Rs</span>
               </div>
                <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Remaining Balance</span>

@@ -1,6 +1,6 @@
-
 'use client';
 
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,19 +17,88 @@ import {
 } from '@/components/ui/dialog';
 import { adminWallets } from '@/lib/data';
 import { ArrowDownToLine, ArrowUpFromLine, Banknote, Landmark } from 'lucide-react';
-import React from 'react';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Switch } from '@/components/ui/switch';
+} from "@/components/ui/select";
+import { useToast } from '@/hooks/use-toast';
+import { useFirestore, useUser, addDocumentNonBlocking } from '@/firebase';
+import { collection, serverTimestamp } from 'firebase/firestore';
 
 export default function UserWalletPage() {
   const [selectedWallet, setSelectedWallet] = React.useState(adminWallets.find(w => !w.isBank)?.id || '');
   const [showBankDetails, setShowBankDetails] = React.useState(false);
+  const [depositAmount, setDepositAmount] = React.useState('');
+  const [depositTid, setDepositTid] = React.useState('');
+  const [depositHolderName, setDepositHolderName] = React.useState('');
+  const [depositAccountNumber, setDepositAccountNumber] = React.useState('');
+  
+  const [withdrawAmount, setWithdrawAmount] = React.useState('');
+  const [withdrawHolderName, setWithdrawHolderName] = React.useState('');
+  const [withdrawAccountNumber, setWithdrawAccountNumber] = React.useState('');
+  const [withdrawMethod, setWithdrawMethod] = React.useState('jazzcash');
+
+
+  const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
+
+  const handleDepositSubmit = async () => {
+    if (!user || !firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
+      return;
+    }
+    if (!depositAmount || !depositTid || !depositHolderName || !depositAccountNumber) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please fill all deposit fields.' });
+        return;
+    }
+
+    const transactionRef = collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions');
+    addDocumentNonBlocking(transactionRef, {
+      type: 'deposit',
+      amount: parseFloat(depositAmount),
+      status: 'pending',
+      date: serverTimestamp(),
+      details: {
+        tid: depositTid,
+        senderName: depositHolderName,
+        senderAccount: depositAccountNumber,
+        adminWalletId: selectedWallet
+      }
+    });
+
+    toast({ title: 'Success', description: 'Your deposit request has been submitted.' });
+  };
+
+  const handleWithdrawalSubmit = async () => {
+     if (!user || !firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
+      return;
+    }
+    if (!withdrawAmount || !withdrawHolderName || !withdrawAccountNumber) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please fill all withdrawal fields.' });
+        return;
+    }
+
+    const transactionRef = collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions');
+    addDocumentNonBlocking(transactionRef, {
+      type: 'withdrawal',
+      amount: parseFloat(withdrawAmount),
+      status: 'pending',
+      date: serverTimestamp(),
+      details: {
+        method: withdrawMethod,
+        receiverName: withdrawHolderName,
+        receiverAccount: withdrawAccountNumber,
+      }
+    });
+
+    toast({ title: 'Success', description: 'Your withdrawal request has been submitted.' });
+  };
+
 
   // Mock states for withdrawal method toggles from admin
   const [jazzcashEnabled, setJazzcashEnabled] = React.useState(true);
@@ -40,6 +109,7 @@ export default function UserWalletPage() {
   const selectedWalletDetails = adminWallets.find(w => w.id === selectedWallet);
 
   const handleWithdrawalMethodChange = (value: string) => {
+    setWithdrawMethod(value);
     setShowBankDetails(value === 'bank');
   }
 
@@ -66,7 +136,7 @@ export default function UserWalletPage() {
                         Deposit
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-xs">
+                  <DialogContent className="sm:max-w-sm">
                     <DialogHeader>
                       <DialogTitle>Deposit Funds</DialogTitle>
                       <DialogDescription>
@@ -109,23 +179,23 @@ export default function UserWalletPage() {
                         
                         <div className="space-y-2 pt-4">
                             <Label htmlFor="account-holder-name">Your Account Holder Name</Label>
-                            <Input id="account-holder-name" placeholder="Your Name" />
+                            <Input id="account-holder-name" placeholder="Your Name" value={depositHolderName} onChange={e => setDepositHolderName(e.target.value)} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="account-number">Your Account Number</Label>
-                            <Input id="account-number" placeholder="03xxxxxxxx" />
+                            <Input id="account-number" placeholder="03xxxxxxxx" value={depositAccountNumber} onChange={e => setDepositAccountNumber(e.target.value)} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="amount">Amount (PKR)</Label>
-                            <Input id="amount" type="number" placeholder="500" />
+                            <Input id="amount" type="number" placeholder="500" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="tid">Transaction ID (TID)</Label>
-                            <Input id="tid" placeholder="e.g., 1234567890" />
+                            <Input id="tid" placeholder="e.g., 1234567890" value={depositTid} onChange={e => setDepositTid(e.target.value)} />
                         </div>
                     </div>
                     <DialogFooter>
-                      <Button type="submit" className="w-full bg-primary hover:bg-primary/90">Submit Request</Button>
+                      <Button type="submit" className="w-full bg-primary hover:bg-primary/90" onClick={handleDepositSubmit}>Submit Request</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -140,7 +210,7 @@ export default function UserWalletPage() {
                             Withdraw
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-xs">
+                    <DialogContent className="sm:max-w-sm">
                         <DialogHeader>
                             <DialogTitle>Withdraw Funds</DialogTitle>
                             <DialogDescription>
@@ -150,7 +220,7 @@ export default function UserWalletPage() {
                         <div className="grid gap-4 py-4">
                             <div className="space-y-2">
                                 <Label>Select Method</Label>
-                                <RadioGroup onValueChange={handleWithdrawalMethodChange} defaultValue="jazzcash" className="flex">
+                                <RadioGroup onValueChange={handleWithdrawalMethodChange} value={withdrawMethod} className="flex">
                                     {jazzcashEnabled && <Label htmlFor="jazzcash" className="flex items-center space-x-2 cursor-pointer">
                                         <RadioGroupItem value="jazzcash" id="jazzcash" />
                                         <span>JazzCash</span>
@@ -196,19 +266,19 @@ export default function UserWalletPage() {
 
                             <div className="space-y-2">
                                 <Label htmlFor="withdraw-account-holder">Account Holder Name</Label>
-                                <Input id="withdraw-account-holder" placeholder="Your Name" />
+                                <Input id="withdraw-account-holder" placeholder="Your Name" value={withdrawHolderName} onChange={e => setWithdrawHolderName(e.target.value)} />
                             </div>
                              <div className="space-y-2">
                                 <Label htmlFor="withdraw-account-number">{showBankDetails ? 'Account Number / IBAN' : 'Account Number'}</Label>
-                                <Input id="withdraw-account-number" placeholder={showBankDetails ? 'PK...' : '03...'} />
+                                <Input id="withdraw-account-number" placeholder={showBankDetails ? 'PK...' : '03...'} value={withdrawAccountNumber} onChange={e => setWithdrawAccountNumber(e.target.value)} />
                             </div>
                              <div className="space-y-2">
                                 <Label htmlFor="withdraw-amount">Amount to Withdraw (PKR)</Label>
-                                <Input id="withdraw-amount" type="number" placeholder="1000" />
+                                <Input id="withdraw-amount" type="number" placeholder="1000" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} />
                             </div>
                         </div>
                          <DialogFooter>
-                            <Button type="submit" className="w-full bg-primary hover:bg-primary/90">Submit Request</Button>
+                            <Button type="submit" className="w-full bg-primary hover:bg-primary/90" onClick={handleWithdrawalSubmit}>Submit Request</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>

@@ -1,3 +1,6 @@
+'use client';
+
+import React from 'react';
 import {
   Table,
   TableBody,
@@ -7,13 +10,71 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { users, agents } from '@/lib/data';
+import { Card, CardContent } from '@/components/ui/card';
 import { Edit, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import type { User, Wallet } from '@/lib/data';
+import { collection, query } from 'firebase/firestore';
+
+function UserRow({ user }: { user: User }) {
+  const firestore = useFirestore();
+  const walletsQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'users', user.id, 'wallets')) : null,
+    [firestore, user.id]
+  );
+  const { data: wallets, isLoading } = useCollection<Wallet>(walletsQuery);
+
+  const wallet = wallets?.[0];
+
+  return (
+    <TableRow key={user.id}>
+      <TableCell>
+        <div className="flex items-center gap-3">
+          <Avatar>
+            <AvatarImage src={user.avatarUrl} alt={user.name} />
+            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="font-medium">{user.name}</div>
+            <div className="text-sm text-muted-foreground">{user.email}</div>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>
+        {isLoading ? 'Loading...' : `${wallet?.balance.toLocaleString() || 0} PKR`}
+      </TableCell>
+      <TableCell>
+        <Badge variant="outline">{user.investments?.length || 0} plans</Badge>
+      </TableCell>
+      <TableCell>{'N/A'}</TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="ghost" size="icon">
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-destructive hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
 
 export default function AdminUsersPage() {
+  const firestore = useFirestore();
+  const usersQuery = useMemoFirebase(
+    () => firestore ? collection(firestore, 'users') : null,
+    [firestore]
+  );
+  const { data: users, isLoading } = useCollection<User>(usersQuery);
+
   return (
     <div className="space-y-8">
       <div>
@@ -34,40 +95,21 @@ export default function AdminUsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => {
-                const agent = agents.find(a => a.id === user.agentId);
-                return (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={user.avatarUrl} alt={user.name} />
-                          <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{user.name}</div>
-                          <div className="text-sm text-muted-foreground">{user.email}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{user.walletBalance.toLocaleString()} PKR</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{user.investments.length} plans</Badge>
-                    </TableCell>
-                    <TableCell>{agent?.name || 'N/A'}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="icon">
-                            <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center">
+                    Loading users...
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading && users?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center">
+                    No users found.
+                  </TableCell>
+                </TableRow>
+              )}
+              {users?.map((user) => <UserRow key={user.id} user={user} />)}
             </TableBody>
           </Table>
         </CardContent>

@@ -1,14 +1,14 @@
-
 'use client';
 
 import React from 'react';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
-import { investmentPlans } from '@/lib/data';
 import { DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
+import { collection, doc, query, where, getDocs, collectionGroup } from 'firebase/firestore';
+import type { InvestmentPlan, User, Wallet, Transaction } from '@/lib/data';
 
 const mockWalletData = [
   { name: 'Jan', balance: 1000 },
@@ -40,21 +40,59 @@ const mockIncomeData = [
 export default function UserDashboardPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const firestore = useFirestore();
 
-  // Mock user data for demonstration until Firestore is connected
-  const mockUser = {
-      name: user?.displayName || 'User',
-      walletBalance: 1250.75,
-      investments: ['plan-1'],
-      totalDeposit: 5000,
-      totalWithdraw: 1500,
-      totalIncome: 750,
-  };
+  // Fetch user profile
+  const userDocRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user]
+  );
+  const { data: userData } = useDoc<User>(userDocRef);
 
-  const activePlans = mockUser.investments.map(planId => investmentPlans.find(p => p.id === planId)).filter(Boolean);
-  const totalInvestment = activePlans.reduce((sum, plan) => sum + (plan?.price || 0), 0);
-  
-  const [walletBalance, setWalletBalance] = React.useState(mockUser.walletBalance);
+  // Fetch user wallet
+  const walletRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid, 'wallets', 'main') : null),
+    [firestore, user]
+  );
+  const { data: walletData, isLoading: isWalletLoading } = useDoc<Wallet>(walletRef);
+  const [walletBalance, setWalletBalance] = React.useState(0);
+
+  // Fetch user transactions
+  const transactionsQuery = useMemoFirebase(
+    () => (firestore && user ? collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions') : null),
+    [firestore, user]
+  );
+  const { data: transactions } = useCollection<Transaction>(transactionsQuery);
+
+  // Fetch all investment plans to filter against user's plans
+  const plansQuery = useMemoFirebase(
+    () => firestore ? collection(firestore, 'investment_plans') : null,
+    [firestore]
+  );
+  const { data: allPlans } = useCollection<InvestmentPlan>(plansQuery);
+
+
+  const activePlans = React.useMemo(() => {
+    if (!userData?.investments || !allPlans) return [];
+    return allPlans.filter(plan => userData.investments.includes(plan.id));
+  }, [userData, allPlans]);
+
+  const totalInvestment = React.useMemo(() => {
+    return activePlans.reduce((sum, plan) => sum + (plan?.price || 0), 0);
+  }, [activePlans]);
+
+  const transactionTotals = React.useMemo(() => {
+    if (!transactions) return { deposit: 0, withdraw: 0, income: 0 };
+    return transactions.reduce((acc, tx) => {
+      if (tx.status === 'completed') {
+        if (tx.type === 'deposit') acc.deposit += tx.amount;
+        else if (tx.type === 'withdrawal') acc.withdraw += tx.amount;
+        else if (tx.type === 'income') acc.income += tx.amount;
+      }
+      return acc;
+    }, { deposit: 0, withdraw: 0, income: 0 });
+  }, [transactions]);
+
 
   React.useEffect(() => {
     if (!isUserLoading && !user) {
@@ -62,17 +100,26 @@ export default function UserDashboardPage() {
     }
   }, [user, isUserLoading, router]);
 
+   React.useEffect(() => {
+    if (walletData) {
+      setWalletBalance(walletData.balance);
+    }
+  }, [walletData]);
+
+  // Daily income simulation
   React.useEffect(() => {
     const dailyGains = activePlans.reduce((total, plan) => total + (plan?.dailyIncome || 0), 0);
     if (dailyGains > 0) {
       const incomeInterval = setInterval(() => {
+        // In a real app, this would be a server-side function.
+        // For simulation, we'll just update the local state.
         setWalletBalance(prevBalance => prevBalance + dailyGains);
-      }, 24 * 60 * 60 * 1000); // Simulate every 24 hours
+      }, 24 * 60 * 60 * 1000); 
       return () => clearInterval(incomeInterval);
     }
   }, [activePlans]);
 
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user || !userData) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <p>Loading...</p>
@@ -82,7 +129,7 @@ export default function UserDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-bold font-headline">Welcome back, {mockUser.name.split(' ')[0]}!</h1>
+      <h1 className="text-3xl font-bold font-headline">Welcome back, {userData?.name.split(' ')[0]}!</h1>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <DashboardStatsCard
@@ -103,7 +150,7 @@ export default function UserDashboardPage() {
         />
         <DashboardStatsCard
           title="Total Income"
-          value={`${mockUser.totalIncome.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 2 })}`}
+          value={`${transactionTotals.income.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 2 })}`}
           description="From investments"
           Icon={PiggyBank}
           chartData={mockIncomeData}
@@ -113,7 +160,7 @@ export default function UserDashboardPage() {
        <div className="grid gap-4 md:grid-cols-2">
          <DashboardStatsCard
           title="Total Deposit"
-          value={`${mockUser.totalDeposit.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 })}`}
+          value={`${transactionTotals.deposit.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 })}`}
           description="Funds added"
           Icon={ArrowDownToLine}
           chartData={mockInvestmentData}
@@ -121,7 +168,7 @@ export default function UserDashboardPage() {
         />
         <DashboardStatsCard
           title="Total Withdraw"
-          value={`${mockUser.totalWithdraw.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 })}`}
+          value={`${transactionTotals.withdraw.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 })}`}
           description="Funds taken out"
           Icon={ArrowUpFromLine}
           chartData={mockIncomeData}
