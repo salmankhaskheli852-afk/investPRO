@@ -123,7 +123,7 @@ export default function AdminDepositsPage() {
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
   const depositsQuery = useMemoFirebase(
-    () => firestore ? query(collectionGroup(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'pending')) : null,
+    () => firestore ? query(collection(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'pending')) : null,
     [firestore]
   );
   const { data: depositRequests, isLoading: isLoadingDeposits } = useCollection<Transaction>(depositsQuery);
