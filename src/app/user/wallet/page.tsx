@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, serverTimestamp, doc, writeBatch, addDoc, query, where } from 'firebase/firestore';
+import { collection, serverTimestamp, doc, writeBatch, addDoc, query, where, collectionGroup } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 export default function UserWalletPage() {
@@ -91,7 +91,8 @@ export default function UserWalletPage() {
 
   React.useEffect(() => {
     if (withdrawalMethodsData && withdrawalMethodsData.length > 0 && !withdrawMethod) {
-        setWithdrawMethod(withdrawalMethodsData[0].id);
+        const defaultMethod = withdrawalMethodsData.find(m => m.name.toLowerCase().includes('easypaisa')) || withdrawalMethodsData[0];
+        setWithdrawMethod(defaultMethod.id);
     }
   }, [withdrawalMethodsData, withdrawMethod]);
 
@@ -107,8 +108,9 @@ export default function UserWalletPage() {
     }
 
     try {
-        const transactionCollectionRef = collection(firestore, 'transactions');
-        const newTransactionRef = doc(transactionCollectionRef);
+        const globalTransactionsCollectionRef = collection(firestore, 'transactions');
+        const userTransactionsCollectionRef = collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions');
+        const newTransactionRef = doc(globalTransactionsCollectionRef);
         
         const transactionData = {
           id: newTransactionRef.id,
@@ -129,7 +131,7 @@ export default function UserWalletPage() {
         const batch = writeBatch(firestore);
         batch.set(newTransactionRef, transactionData);
 
-        const userTransactionRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'), newTransactionRef.id);
+        const userTransactionRef = doc(userTransactionsCollectionRef, newTransactionRef.id);
         batch.set(userTransactionRef, transactionData);
 
         await batch.commit();
@@ -147,7 +149,7 @@ export default function UserWalletPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
       return;
     }
-    if (!withdrawAmount || !withdrawHolderName || !withdrawAccountNumber || (withdrawMethod === 'bank' && !bankName)) {
+    if (!withdrawAmount || !withdrawHolderName || !withdrawAccountNumber) {
       setShowEmptyFields(true);
       return;
     }
@@ -173,10 +175,10 @@ export default function UserWalletPage() {
           date: serverTimestamp(),
           walletId: 'main',
           details: {
-            method: withdrawMethod,
+            method: withdrawalMethodsData?.find(m => m.id === withdrawMethod)?.name || 'Unknown',
             receiverName: withdrawHolderName,
             receiverAccount: withdrawAccountNumber,
-            bankName: withdrawMethod === 'bank' ? bankName : undefined,
+            bankName: showBankDetails ? bankName : undefined,
             userId: user.uid,
             userName: user.displayName,
             userEmail: user.email,
@@ -205,13 +207,11 @@ export default function UserWalletPage() {
   };
 
   const selectedWalletDetails = adminWalletsData?.find(w => w.id === selectedWallet);
-  const selectedWithdrawalMethod = withdrawalMethodsData?.find(m => m.id === withdrawMethod);
 
   React.useEffect(() => {
-    if (selectedWithdrawalMethod) {
-        setShowBankDetails(selectedWithdrawalMethod.id === 'bank');
-    }
-  }, [selectedWithdrawalMethod]);
+    const selectedMethod = withdrawalMethodsData?.find(m => m.id === withdrawMethod);
+    setShowBankDetails(selectedMethod?.name.toLowerCase().includes('bank') || false);
+  }, [withdrawMethod, withdrawalMethodsData]);
 
   return (
     <>
@@ -272,7 +272,7 @@ export default function UserWalletPage() {
                           Send funds to an account below and enter the details to verify.
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="grid gap-4 py-4">
+                      <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
                           <Label>Select Admin Account</Label>
                           <RadioGroup value={selectedWallet} onValueChange={setSelectedWallet}>
                               {adminWalletsData?.map((wallet) => (
@@ -292,11 +292,11 @@ export default function UserWalletPage() {
                                   <CardContent className="text-sm space-y-2">
                                       <div className="flex justify-between">
                                           <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Bank Name:' : 'Wallet Service:'}</span>
-                                          <span className="font-medium">{selectedWalletDetails.walletName}</span>
+                                          <span className="font-medium">{selectedWalletDetails.name}</span>
                                       </div>
                                       <div className="flex justify-between">
                                           <span className="text-muted-foreground">Account Holder:</span>
-                                          <span className="font-medium">{selectedWalletDetails.name}</span>
+                                          <span className="font-medium">{selectedWalletDetails.walletName}</span>
                                       </div>
                                       <div className="flex justify-between">
                                           <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Account Number:' : 'Wallet Number:'}</span>
@@ -347,7 +347,7 @@ export default function UserWalletPage() {
                                   Select your withdrawal method and enter your details. Your balance is {walletData?.balance.toLocaleString() || 0} PKR.
                               </DialogDescription>
                           </DialogHeader>
-                          <div className="grid gap-4 py-4">
+                          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
                               <div className="space-y-2">
                                   <Label>Select Method</Label>
                                   <RadioGroup onValueChange={setWithdrawMethod} value={withdrawMethod} className="grid grid-cols-2 gap-2">
@@ -368,21 +368,21 @@ export default function UserWalletPage() {
                                               <SelectValue placeholder="Select a bank" />
                                           </SelectTrigger>
                                           <SelectContent>
-                                              <SelectItem value="meezan">Meezan Bank</SelectItem>
-                                              <SelectItem value="hbl">Habib Bank Limited (HBL)</SelectItem>
-                                              <SelectItem value="ubl">United Bank Limited (UBL)</SelectItem>
-                                              <SelectItem value="nbp">National Bank of Pakistan (NBP)</SelectItem>
-                                              <SelectItem value="abl">Allied Bank Limited (ABL)</SelectItem>
-                                              <SelectItem value="mcb">MCB Bank Limited</SelectItem>
-                                              <SelectItem value="alfalah">Bank Alfalah</SelectItem>
-                                              <SelectItem value="faysal">Faysal Bank</SelectItem>
-                                              <SelectItem value="askari">Askari Bank</SelectItem>
-                                              <SelectItem value="alhabib">Bank Al-Habib</SelectItem>
-                                              <SelectItem value="js">JS Bank</SelectItem>
-                                              <SelectItem value="soneri">Soneri Bank</SelectItem>
-                                              <SelectItem value="summit">Summit Bank</SelectItem>
-                                              <SelectItem value="bop">The Bank of Punjab</SelectItem>
-                                              <SelectItem value="sc">Standard Chartered Bank</SelectItem>
+                                              <SelectItem value="Meezan Bank">Meezan Bank</SelectItem>
+                                              <SelectItem value="Habib Bank Limited (HBL)">Habib Bank Limited (HBL)</SelectItem>
+                                              <SelectItem value="United Bank Limited (UBL)">United Bank Limited (UBL)</SelectItem>
+                                              <SelectItem value="National Bank of Pakistan (NBP)">National Bank of Pakistan (NBP)</SelectItem>
+                                              <SelectItem value="Allied Bank Limited (ABL)">Allied Bank Limited (ABL)</SelectItem>
+                                              <SelectItem value="MCB Bank Limited">MCB Bank Limited</SelectItem>
+                                              <SelectItem value="Bank Alfalah">Bank Alfalah</SelectItem>
+                                              <SelectItem value="Faysal Bank">Faysal Bank</SelectItem>
+                                              <SelectItem value="Askari Bank">Askari Bank</SelectItem>
+                                              <SelectItem value="Bank Al-Habib">Bank Al-Habib</SelectItem>
+                                              <SelectItem value="JS Bank">JS Bank</SelectItem>
+                                              <SelectItem value="Soneri Bank">Soneri Bank</SelectItem>
+                                              <SelectItem value="Summit Bank">Summit Bank</SelectItem>
+                                              <SelectItem value="The Bank of Punjab">The Bank of Punjab</SelectItem>
+                                              <SelectItem value="Standard Chartered Bank">Standard Chartered Bank</SelectItem>
                                           </SelectContent>
                                       </Select>
                                   </div>

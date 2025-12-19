@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -14,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Transaction } from '@/lib/data';
-import { collection, query, where, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc, collectionGroup } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X } from 'lucide-react';
@@ -28,20 +29,23 @@ function DepositRequestRow({ tx, user }: { tx: Transaction; user: User | undefin
     if (!firestore || !user) return;
     setIsProcessing(true);
 
-    const transactionRef = doc(firestore, 'users', user.id, 'wallets', 'main', 'transactions', tx.id);
+    const globalTransactionRef = doc(firestore, 'transactions', tx.id);
+    const userTransactionRef = doc(firestore, 'users', user.id, 'wallets', 'main', 'transactions', tx.id);
     const walletRef = doc(firestore, 'users', user.id, 'wallets', 'main');
 
     try {
       const batch = writeBatch(firestore);
 
       if (newStatus === 'completed') {
-        const walletSnapshot = await batch.get(walletRef);
+        const walletSnapshot = await getDoc(walletRef);
         const walletData = walletSnapshot.data();
         const currentBalance = walletData?.balance || 0;
         batch.update(walletRef, { balance: currentBalance + tx.amount });
       }
 
-      batch.update(transactionRef, { status: newStatus });
+      batch.update(globalTransactionRef, { status: newStatus });
+      batch.update(userTransactionRef, { status: newStatus });
+      
       await batch.commit();
 
       toast({
@@ -119,7 +123,7 @@ export default function AdminDepositsPage() {
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
   const depositsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'pending')) : null,
+    () => firestore ? query(collectionGroup(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'pending')) : null,
     [firestore]
   );
   const { data: depositRequests, isLoading: isLoadingDeposits } = useCollection<Transaction>(depositsQuery);

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -11,11 +12,10 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Transaction } from '@/lib/data';
-import { collection, query, where, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc, collectionGroup } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X } from 'lucide-react';
@@ -39,7 +39,7 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
       const batch = writeBatch(firestore);
 
       if (newStatus === 'failed') {
-        const walletSnapshot = await batch.get(walletRef);
+        const walletSnapshot = await getDoc(walletRef);
         const walletData = walletSnapshot.data();
         const currentBalance = walletData?.balance || 0;
         batch.update(walletRef, { balance: currentBalance + tx.amount });
@@ -129,7 +129,7 @@ export default function AdminWithdrawalsPage() {
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
   const withdrawalsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null,
+    () => firestore ? query(collectionGroup(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null,
     [firestore]
   );
   const { data: withdrawalRequests, isLoading: isLoadingWithdrawals } = useCollection<Transaction>(withdrawalsQuery);

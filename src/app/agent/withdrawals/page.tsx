@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -14,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { User, Transaction } from '@/lib/data';
-import { collection, query, where, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc, collectionGroup } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X } from 'lucide-react';
@@ -28,9 +29,7 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
     if (!firestore || !user) return;
     setIsProcessing(true);
     
-    // This is the reference to the transaction in the top-level /transactions collection
     const globalTransactionRef = doc(firestore, 'transactions', tx.id);
-    // This is the reference to the transaction in the user's subcollection
     const userTransactionRef = doc(firestore, 'users', user.id, 'wallets', 'main', 'transactions', tx.id);
     const walletRef = doc(firestore, 'users', user.id, 'wallets', 'main');
 
@@ -38,13 +37,12 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
       const batch = writeBatch(firestore);
 
       if (newStatus === 'failed') {
-        const walletSnapshot = await batch.get(walletRef);
+        const walletSnapshot = await getDoc(walletRef);
         const walletData = walletSnapshot.data();
         const currentBalance = walletData?.balance || 0;
         batch.update(walletRef, { balance: currentBalance + tx.amount });
       }
 
-      // Update both transaction documents
       batch.update(globalTransactionRef, { status: newStatus });
       batch.update(userTransactionRef, { status: newStatus });
 
@@ -134,7 +132,7 @@ export default function AgentWithdrawalsPage() {
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(allUsersQuery);
 
   const withdrawalsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null,
+    () => firestore ? query(collectionGroup(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null,
     [firestore]
   );
   const { data: withdrawalRequests, isLoading: isLoadingWithdrawals } = useCollection<Transaction>(withdrawalsQuery);
