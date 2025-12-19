@@ -36,7 +36,7 @@ import {
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { InvestmentPlan } from '@/lib/data';
-import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, Timestamp, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -442,4 +442,3 @@ export default function AdminInvestmentsPage() {
     </>
   );
 }
-
