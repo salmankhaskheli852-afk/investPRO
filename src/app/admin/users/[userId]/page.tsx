@@ -21,29 +21,27 @@ import type { User, Transaction, Wallet, InvestmentPlan } from '@/lib/data';
 import { collection, doc, query, orderBy } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
+import { useParams } from 'next/navigation';
 
-interface UserDetailsPageProps {
-  params: { userId: string };
-}
-
-export default function UserDetailsPage({ params }: UserDetailsPageProps) {
-  const userId = params.userId;
+export default function UserDetailsPage() {
+  const params = useParams();
+  const userId = params.userId as string;
   const firestore = useFirestore();
 
   const userDocRef = useMemoFirebase(
-      () => firestore ? doc(firestore, 'users', userId) : null,
+      () => firestore && userId ? doc(firestore, 'users', userId) : null,
       [firestore, userId]
   );
   const { data: user, isLoading: isLoadingUser } = useDoc<User>(userDocRef);
   
   const walletDocRef = useMemoFirebase(
-    () => firestore ? doc(firestore, 'users', userId, 'wallets', 'main') : null,
+    () => firestore && userId ? doc(firestore, 'users', userId, 'wallets', 'main') : null,
     [firestore, userId]
   );
   const { data: wallet, isLoading: isLoadingWallet } = useDoc<Wallet>(walletDocRef);
 
   const transactionsQuery = useMemoFirebase(
-      () => firestore 
+      () => firestore && userId
         ? query(
             collection(firestore, 'users', userId, 'wallets', 'main', 'transactions'),
             orderBy('date', 'desc')

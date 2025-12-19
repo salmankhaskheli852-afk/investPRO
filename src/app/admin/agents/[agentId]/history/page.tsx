@@ -20,24 +20,22 @@ import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase
 import type { User, Transaction } from '@/lib/data';
 import { collection, doc, query, where, collectionGroup } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { useParams } from 'next/navigation';
 
-interface AgentHistoryPageProps {
-  params: { agentId: string };
-}
-
-export default function AgentHistoryPage({ params }: AgentHistoryPageProps) {
-  const agentId = params.agentId;
+export default function AgentHistoryPage() {
+  const params = useParams();
+  const agentId = params.agentId as string;
   const firestore = useFirestore();
 
   const agentDocRef = useMemoFirebase(
-      () => firestore ? doc(firestore, 'users', agentId) : null,
+      () => firestore && agentId ? doc(firestore, 'users', agentId) : null,
       [firestore, agentId]
   );
   const { data: agent, isLoading: isLoadingAgent } = useDoc<User>(agentDocRef);
 
   // Get users managed by this agent
   const managedUsersQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'users'), where('agentId', '==', agentId)) : null,
+    () => firestore && agentId ? query(collection(firestore, 'users'), where('agentId', '==', agentId)) : null,
     [firestore, agentId]
   );
   const { data: managedUsers, isLoading: isLoadingUsers } = useCollection<User>(managedUsersQuery);
