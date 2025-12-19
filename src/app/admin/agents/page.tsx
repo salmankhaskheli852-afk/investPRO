@@ -6,29 +6,34 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { agents } from '@/lib/data';
-import { Edit, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 export default function AdminAgentsPage() {
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-headline">Manage Agents</h1>
-        <p className="text-muted-foreground">View and manage agent accounts.</p>
+        <p className="text-muted-foreground">Control agent permissions and view their history.</p>
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardHeader>
+          <CardTitle>Agent Permissions</CardTitle>
+          <CardDescription>Enable or disable deposit and withdrawal functionalities for each agent.</CardDescription>
+        </CardHeader>
+        <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Agent</TableHead>
-                <TableHead>Managed Users</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>Deposit</TableHead>
+                <TableHead>Withdrawal</TableHead>
+                <TableHead className="text-right">History</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -47,17 +52,17 @@ export default function AdminAgentsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{agent.managedUserIds.length} users</Badge>
+                    <Switch defaultChecked />
+                  </TableCell>
+                  <TableCell>
+                    <Switch defaultChecked />
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="icon">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button asChild variant="outline" size="sm">
+                       <Link href={`/admin/agents/${agent.id}/history`}>
+                        View History
+                       </Link>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
