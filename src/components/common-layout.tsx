@@ -4,16 +4,12 @@ import { SidebarNav, type NavItem } from './layout/sidebar-nav';
 import { Header } from './layout/header';
 
 interface CommonLayoutProps {
-  navItems: NavItem[];
   children: React.ReactNode;
 }
 
-export function CommonLayout({ navItems, children }: CommonLayoutProps) {
+export function CommonLayout({ children }: CommonLayoutProps) {
   return (
     <SidebarProvider>
-      <Sidebar>
-        <SidebarNav navItems={navItems} />
-      </Sidebar>
       <SidebarInset>
         <div className="flex min-h-screen flex-col">
           <Header />
