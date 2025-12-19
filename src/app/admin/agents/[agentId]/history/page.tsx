@@ -22,11 +22,9 @@ import { format } from 'date-fns';
 
 interface AgentHistoryPageProps {
   params: { agentId: string };
-  searchParams: { [key: string]: string | string[] | undefined };
 }
 
-export default function AgentHistoryPage({ params }: AgentHistoryPageProps) {
-  const { agentId } = params;
+export default function AgentHistoryPage({ params: { agentId } }: AgentHistoryPageProps) {
   const firestore = useFirestore();
 
   const agentDocRef = useMemoFirebase(
