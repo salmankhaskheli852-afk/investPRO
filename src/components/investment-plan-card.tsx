@@ -23,11 +23,18 @@ import { CheckCircle, Info, Wallet } from 'lucide-react';
 interface InvestmentPlanCardProps {
   plan: InvestmentPlan;
   isPurchased?: boolean;
-  userWalletBalance: number;
+  userWalletBalance?: number;
   showAsPurchased?: boolean;
+  showPurchaseButton?: boolean;
 }
 
-export function InvestmentPlanCard({ plan, isPurchased = false, userWalletBalance, showAsPurchased = false }: InvestmentPlanCardProps) {
+export function InvestmentPlanCard({ 
+  plan, 
+  isPurchased = false, 
+  userWalletBalance = 0, 
+  showAsPurchased = false,
+  showPurchaseButton = true 
+}: InvestmentPlanCardProps) {
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
   const canAfford = userWalletBalance >= plan.price;
@@ -67,12 +74,20 @@ export function InvestmentPlanCard({ plan, isPurchased = false, userWalletBalanc
         );
     }
 
+    if (!showPurchaseButton) {
+      return null;
+    }
+
     // This is for the main investment page view.
     return (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button size="lg" className="w-full bg-primary hover:bg-primary/90">
-            Purchase Plan
+          <Button 
+            size="lg" 
+            className="w-full bg-primary hover:bg-primary/90"
+            disabled={isPurchased && showAsPurchased}
+          >
+            {isPurchased && showAsPurchased ? 'Purchased' : 'Purchase Plan'}
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-sm">

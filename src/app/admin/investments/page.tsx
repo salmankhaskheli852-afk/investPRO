@@ -105,7 +105,7 @@ export default function AdminInvestmentsPage() {
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     {investmentPlans.map((plan) => (
                        <div key={plan.id} className="relative group">
-                         <InvestmentPlanCard plan={plan} />
+                         <InvestmentPlanCard plan={plan} showPurchaseButton={false} />
                          <div className="absolute top-2 right-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button variant="outline" size="icon" className="bg-background/80 hover:bg-background">
                                 <Edit className="h-4 w-4" />
