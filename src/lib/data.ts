@@ -1,3 +1,4 @@
+
 import { PlaceHolderImages } from "./placeholder-images";
 import { Timestamp } from "firebase/firestore";
 
@@ -24,6 +25,7 @@ export type AgentPermissions = {
   canViewWithdrawalHistory: boolean;
   canManageDepositRequests: boolean;
   canManageWithdrawalRequests: boolean;
+  canAccessLiveChat: boolean;
 }
 
 export type User = {

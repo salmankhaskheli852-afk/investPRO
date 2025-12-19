@@ -31,6 +31,7 @@ const defaultPermissions: AgentPermissions = {
   canViewWithdrawalHistory: false,
   canManageDepositRequests: false,
   canManageWithdrawalRequests: false,
+  canAccessLiveChat: false,
 };
 
 export function ManageAgentAccountsDialog({
@@ -48,7 +49,8 @@ export function ManageAgentAccountsDialog({
   React.useEffect(() => {
     if (agent) {
       setSelectedWallets(agent.assignedWallets || []);
-      setPermissions(agent.permissions || defaultPermissions);
+      // Ensure all permissions are initialized, even if some are missing from the DB
+      setPermissions({ ...defaultPermissions, ...(agent.permissions || {}) });
     } else {
       setSelectedWallets([]);
       setPermissions(defaultPermissions);
@@ -165,6 +167,16 @@ export function ManageAgentAccountsDialog({
                         id="perm-withdrawal-reqs"
                         checked={permissions.canManageWithdrawalRequests}
                         onCheckedChange={(checked) => handlePermissionToggle('canManageWithdrawalRequests', checked)}
+                        />
+                    </div>
+                     <div className="flex items-center justify-between rounded-lg border p-3">
+                        <Label htmlFor="perm-live-chat" className="flex flex-col space-y-1">
+                        <span>Access Live Chat</span>
+                        </Label>
+                        <Switch
+                        id="perm-live-chat"
+                        checked={permissions.canAccessLiveChat}
+                        onCheckedChange={(checked) => handlePermissionToggle('canAccessLiveChat', checked)}
                         />
                     </div>
                 </div>
