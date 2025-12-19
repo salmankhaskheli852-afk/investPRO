@@ -137,7 +137,7 @@ export function InvestmentPlanCard({
             transaction.update(userRef, {
                 investments: arrayUnion({
                     planId: plan.id,
-                    purchaseDate: serverTimestamp()
+                    purchaseDate: Timestamp.now()
                 })
             });
 
