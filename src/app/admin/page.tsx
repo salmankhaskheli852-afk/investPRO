@@ -4,8 +4,8 @@
 import React from 'react';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import type { InvestmentPlan, User } from '@/lib/data';
-import { DollarSign, TrendingUp, Users as UsersIcon, UserCog } from 'lucide-react';
+import type { InvestmentPlan, User, Transaction } from '@/lib/data';
+import { DollarSign, TrendingUp, Users as UsersIcon, UserCog, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { collection, query, where } from 'firebase/firestore';
 
 
@@ -50,6 +50,18 @@ export default function AdminDashboardPage() {
   );
   const { data: investmentPlans, isLoading: isLoadingPlans } = useCollection<InvestmentPlan>(plansQuery);
   
+  const depositsQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'pending')) : null,
+    [firestore]
+  );
+  const { data: depositRequests, isLoading: isLoadingDeposits } = useCollection<Transaction>(depositsQuery);
+
+  const withdrawalsQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null,
+    [firestore]
+  );
+  const { data: withdrawalRequests, isLoading: isLoadingWithdrawals } = useCollection<Transaction>(withdrawalsQuery);
+
 
   return (
     <div className="space-y-8">
@@ -87,6 +99,24 @@ export default function AdminDashboardPage() {
           Icon={TrendingUp}
           chartData={[{ a:1}, {a:2}]}
           chartKey="a"
+        />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+         <DashboardStatsCard
+          title="Total Deposit Requests"
+          value={isLoadingDeposits ? '...' : (depositRequests?.length || 0).toString()}
+          description="Pending deposit approvals"
+          Icon={ArrowDownToLine}
+          chartData={[]}
+          chartKey="value"
+        />
+        <DashboardStatsCard
+          title="Total Withdraw Requests"
+          value={isLoadingWithdrawals ? '...' : (withdrawalRequests?.length || 0).toString()}
+          description="Pending withdrawal approvals"
+          Icon={ArrowUpFromLine}
+          chartData={[]}
+          chartKey="value"
         />
       </div>
 
