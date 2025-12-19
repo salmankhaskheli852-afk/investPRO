@@ -1,3 +1,52 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "plan-starter",
+      "description": "A person looking at a growing chart on a screen.",
+      "imageUrl": "https://images.unsplash.com/photo-1707157284454-553ef0a4ed0d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxmaW5hbmNlJTIwZ3Jvd3RofGVufDB8fHx8MTc2NjA1MTgwM3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "finance growth"
+    },
+    {
+      "id": "plan-standard",
+      "description": "A modern office building, representing corporate investment.",
+      "imageUrl": "https://images.unsplash.com/photo-1605719882363-7273d12654dd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjb3Jwb3JhdGUlMjBidWlsZGluZ3xlbnwwfHx8fDE3NjYxMjY3MDd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "corporate building"
+    },
+    {
+      "id": "plan-premium",
+      "description": "A pile of gold coins, symbolizing wealth.",
+      "imageUrl": "https://images.unsplash.com/photo-1624365168775-0110f8105e7d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Z29sZCUyMGNvaW5zfGVufDB8fHx8MTc2NjA2NDg2MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "gold coins"
+    },
+    {
+      "id": "plan-vip",
+      "description": "A luxury yacht on the sea, representing a high-tier lifestyle.",
+      "imageUrl": "https://images.unsplash.com/photo-1621277224630-81d9af65e40c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxsdXh1cnklMjB5YWNodHxlbnwwfHx8fDE3NjYwODA4NzB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "luxury yacht"
+    },
+    {
+      "id": "user-avatar-1",
+      "description": "User avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwODgyNTd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "user-avatar-2",
+      "description": "User avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1590086782792-42dd2350140d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwODgyNTd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "user-avatar-3",
+      "description": "User avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwODgyNTd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "user-avatar-4",
+      "description": "User avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1531123414780-f74242c2b052?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8cGVyc29uJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzY2MDg4MjU3fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    }
+  ]
 }
