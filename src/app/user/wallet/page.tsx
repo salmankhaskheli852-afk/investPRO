@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/select"
 
 export default function UserWalletPage() {
-  const [activeTab, setActiveTab] = React.useState('deposit');
   const [selectedWallet, setSelectedWallet] = React.useState(adminWallets.find(w => !w.isBank)?.id || '');
 
   const selectedWalletDetails = adminWallets.find(w => w.id === selectedWallet);
@@ -42,7 +41,6 @@ export default function UserWalletPage() {
       <Card className="max-w-2xl mx-auto">
         <CardHeader className="text-center">
             <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Select an option to manage your funds.</CardDescription>
         </CardHeader>
         <CardContent>
             <div className="grid grid-cols-2 gap-4">
@@ -51,7 +49,6 @@ export default function UserWalletPage() {
                     <Button 
                         size="lg"
                         variant='outline'
-                        onClick={() => setActiveTab('deposit')}
                     >
                         <ArrowDownToLine className="mr-2 h-4 w-4" />
                         Deposit
@@ -83,7 +80,7 @@ export default function UserWalletPage() {
                                 </CardHeader>
                                 <CardContent className="text-sm space-y-2">
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Bank Name:' : 'Account Name:'}</span>
+                                        <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Account Holder:' : 'Account Name:'}</span>
                                         <span className="font-medium">{selectedWalletDetails.name}</span>
                                     </div>
                                     <div className="flex justify-between">
@@ -127,7 +124,7 @@ export default function UserWalletPage() {
                             Withdraw
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
+                    <DialogContent className="sm:max-w-xs">
                         <DialogHeader>
                             <DialogTitle>Withdraw Funds</DialogTitle>
                             <DialogDescription>
@@ -148,7 +145,7 @@ export default function UserWalletPage() {
                                     </Label>
                                     <Label htmlFor="bank" className="flex items-center space-x-2 cursor-pointer">
                                         <RadioGroupItem value="bank" id="bank" />
-                                        <span>Bank Transfer</span>
+                                        <span>Bank</span>
                                     </Label>
                                 </RadioGroup>
                             </div>
@@ -160,8 +157,20 @@ export default function UserWalletPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="meezan">Meezan Bank</SelectItem>
-                                        <SelectItem value="hbl">HBL</SelectItem>
-                                        <SelectItem value="ubl">UBL</SelectItem>
+                                        <SelectItem value="hbl">Habib Bank Limited (HBL)</SelectItem>
+                                        <SelectItem value="ubl">United Bank Limited (UBL)</SelectItem>
+                                        <SelectItem value="nbp">National Bank of Pakistan (NBP)</SelectItem>
+                                        <SelectItem value="abl">Allied Bank Limited (ABL)</SelectItem>
+                                        <SelectItem value="mcb">MCB Bank Limited</SelectItem>
+                                        <SelectItem value="alfalah">Bank Alfalah</SelectItem>
+                                        <SelectItem value="faysal">Faysal Bank</SelectItem>
+                                        <SelectItem value="askari">Askari Bank</SelectItem>
+                                        <SelectItem value="alhabib">Bank Al-Habib</SelectItem>
+                                        <SelectItem value="js">JS Bank</SelectItem>
+                                        <SelectItem value="soneri">Soneri Bank</SelectItem>
+                                        <SelectItem value="summit">Summit Bank</SelectItem>
+                                        <SelectItem value="bop">The Bank of Punjab</SelectItem>
+                                        <SelectItem value="sc">Standard Chartered Bank</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
