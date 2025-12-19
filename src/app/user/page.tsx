@@ -17,14 +17,13 @@ export default function UserDashboardPage() {
   const [walletBalance, setWalletBalance] = React.useState(user.walletBalance);
 
   React.useEffect(() => {
-    const incomeInterval = setInterval(() => {
-      const dailyGains = activePlans.reduce((total, plan) => total + (plan?.dailyIncome || 0), 0);
-      if (dailyGains > 0) {
+    const dailyGains = activePlans.reduce((total, plan) => total + (plan?.dailyIncome || 0), 0);
+    if (dailyGains > 0) {
+      const incomeInterval = setInterval(() => {
         setWalletBalance(prevBalance => prevBalance + dailyGains);
-      }
-    }, 24 * 60 * 60 * 1000); // Simulate every 24 hours
-
-    return () => clearInterval(incomeInterval);
+      }, 24 * 60 * 60 * 1000); // Simulate every 24 hours
+      return () => clearInterval(incomeInterval);
+    }
   }, [activePlans]);
 
 

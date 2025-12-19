@@ -1,3 +1,4 @@
+
 import { PlaceHolderImages } from "./placeholder-images";
 
 export type PlanCategory = {
@@ -67,7 +68,7 @@ export const investmentPlans: InvestmentPlan[] = [
     price: 1580,
     dailyIncome: 65,
     incomePeriod: 60,
-    totalIncome: 150,
+    totalIncome: 65 * 60,
     imageUrl: findImage('plan-starter')?.imageUrl || '',
     imageHint: findImage('plan-starter')?.imageHint || '',
     color: 'from-blue-500 to-blue-600',
@@ -79,7 +80,7 @@ export const investmentPlans: InvestmentPlan[] = [
     price: 3160,
     dailyIncome: 190,
     incomePeriod: 62,
-    totalIncome: 900,
+    totalIncome: 190 * 62,
     imageUrl: findImage('plan-standard')?.imageUrl || '',
     imageHint: findImage('plan-standard')?.imageHint || '',
     color: 'from-green-500 to-green-600',
@@ -91,7 +92,7 @@ export const investmentPlans: InvestmentPlan[] = [
     price: 11800,
     dailyIncome: 850,
     incomePeriod: 57,
-    totalIncome: 4200,
+    totalIncome: 850 * 57,
     imageUrl: findImage('plan-premium')?.imageUrl || '',
     imageHint: findImage('plan-premium')?.imageHint || '',
     color: 'from-purple-500 to-purple-600',
@@ -102,8 +103,8 @@ export const investmentPlans: InvestmentPlan[] = [
     name: 'VIP Portfolio',
     price: 31800,
     dailyIncome: 2353,
-    incomePeriod: 60, // Assuming a value
-    totalIncome: 24000,
+    incomePeriod: 60,
+    totalIncome: 2353 * 60,
     imageUrl: findImage('plan-vip')?.imageUrl || '',
     imageHint: findImage('plan-vip')?.imageHint || '',
     color: 'from-amber-500 to-amber-600',

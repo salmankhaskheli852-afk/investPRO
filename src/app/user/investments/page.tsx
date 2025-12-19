@@ -36,6 +36,7 @@ export default function UserInvestmentsPage() {
                     plan={plan} 
                     userWalletBalance={user.walletBalance}
                     isPurchased={user.investments.includes(plan.id)}
+                    showAsPurchased
                   />
                 ))}
               </div>
