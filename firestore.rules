@@ -23,7 +23,7 @@ service cloud.firestore {
 
     // Grant ADMINS total and complete access to ALL documents in the database.
     match /{document=**} {
-      allow read, write, list: if isAdmin();
+      allow read, write: if isAdmin();
     }
     
     // Grant AGENTS broad access to necessary collections.
@@ -89,6 +89,11 @@ service cloud.firestore {
     // Anyone can read chat settings for the WhatsApp widget.
     match /app_config/chat_settings {
       allow get: if true;
+    }
+
+    // Admins can list transactions. Regular users can't list all transactions.
+    match /transactions/{transactionId} {
+      allow list: if isAdmin();
     }
   }
 }
