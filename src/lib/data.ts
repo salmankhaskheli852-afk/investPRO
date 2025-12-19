@@ -50,7 +50,7 @@ export type Transaction = {
   walletId: string;
   type: 'deposit' | 'withdrawal' | 'investment' | 'income';
   amount: number;
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'completed' | 'failed' | 'revoked';
   date: Timestamp;
   details?: any;
 };
@@ -61,6 +61,13 @@ export type AdminWallet = {
     name: string;
     number: string;
     isBank?: boolean;
+    isEnabled: boolean;
+}
+
+export type WithdrawalMethod = {
+    id: string;
+    name: string;
+    isEnabled: boolean;
 }
 
 export type OfferConfig = {
@@ -130,22 +137,31 @@ export const investmentPlans: InvestmentPlan[] = [
 
 export const adminWallets: AdminWallet[] = [
     {
-        id: 'wallet-1',
+        id: 'easypaisa',
         walletName: "Easypaisa",
         name: "you",
-        number: "03087554721"
+        number: "03087554721",
+        isEnabled: true,
     },
     {
-        id: 'wallet-2',
+        id: 'jazzcash',
         walletName: "JazzCash",
         name: "salman shop",
-        number: "03433273391"
+        number: "03433273391",
+        isEnabled: true,
     },
     {
-      id: 'wallet-3',
+      id: 'bank',
       walletName: 'Bank',
       name: 'Meezan Bank',
       number: '0308237554721',
-      isBank: true
+      isBank: true,
+      isEnabled: true,
     }
+];
+
+export const withdrawalMethods: WithdrawalMethod[] = [
+    { id: 'jazzcash', name: 'JazzCash', isEnabled: true },
+    { id: 'easypaisa', name: 'Easypaisa', isEnabled: true },
+    { id: 'bank', name: 'Bank Transfer', isEnabled: true },
 ];

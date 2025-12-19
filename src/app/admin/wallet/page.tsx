@@ -1,12 +1,12 @@
+
 'use client';
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { adminWallets } from '@/lib/data';
-import { PlusCircle, Save, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -15,13 +15,125 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import type { AdminWallet, WithdrawalMethod } from '@/lib/data';
+import { collection, doc, addDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 export default function AdminWalletPage() {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const [isNewAccountDialogOpen, setIsNewAccountDialogOpen] = React.useState(false);
+
+  // New account form state
+  const [newWalletName, setNewWalletName] = React.useState('');
+  const [newAccountName, setNewAccountName] = React.useState('');
+  const [newWalletAddress, setNewWalletAddress] = React.useState('');
+  const [newIsBank, setNewIsBank] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  const adminWalletsQuery = useMemoFirebase(
+    () => firestore ? collection(firestore, 'admin_wallets') : null,
+    [firestore]
+  );
+  const { data: adminWallets, isLoading: isLoadingWallets } = useCollection<AdminWallet>(adminWalletsQuery);
+
+  const withdrawalMethodsQuery = useMemoFirebase(
+    () => firestore ? collection(firestore, 'withdrawal_methods') : null,
+    [firestore]
+  );
+  const { data: withdrawalMethods, isLoading: isLoadingMethods } = useCollection<WithdrawalMethod>(withdrawalMethodsQuery);
+  
+  const handleAddAccount = async () => {
+    if (!firestore || !newWalletName || !newAccountName || !newWalletAddress) {
+      toast({
+        variant: 'destructive',
+        title: 'Missing fields',
+        description: 'Please fill out all fields for the new account.',
+      });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const newDocRef = doc(collection(firestore, 'admin_wallets'));
+      await addDoc(collection(firestore, "admin_wallets"), {
+        id: newDocRef.id,
+        walletName: newWalletName,
+        name: newAccountName,
+        number: newWalletAddress,
+        isBank: newIsBank,
+        isEnabled: true,
+      });
+
+      toast({
+        title: 'Account Added',
+        description: `The account ${newWalletName} has been added.`,
+      });
+      setIsNewAccountDialogOpen(false);
+      // Reset form
+      setNewWalletName('');
+      setNewAccountName('');
+      setNewWalletAddress('');
+      setNewIsBank(false);
+    } catch (e: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error adding account',
+        description: e.message,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async (walletId: string) => {
+    if (!firestore) return;
+    try {
+      await deleteDoc(doc(firestore, 'admin_wallets', walletId));
+      toast({
+        title: 'Account Deleted',
+        description: 'The deposit account has been removed.',
+      });
+    } catch (e: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error deleting account',
+        description: e.message,
+      });
+    }
+  };
+
+  const handleToggle = async (collectionName: 'admin_wallets' | 'withdrawal_methods', id: string, isEnabled: boolean) => {
+    if(!firestore) return;
+    try {
+      const docRef = doc(firestore, collectionName, id);
+      await updateDoc(docRef, { isEnabled: !isEnabled });
+    } catch(e: any) {
+       toast({
+        variant: 'destructive',
+        title: 'Update failed',
+        description: `Could not update the setting. ${e.message}`,
+      });
+    }
+  };
+
+
   return (
     <div className="space-y-8">
       <div>
@@ -36,34 +148,22 @@ export default function AdminWalletPage() {
           <CardTitle>Withdrawal Method Settings</CardTitle>
           <CardDescription>Enable or disable withdrawal options for all users.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="space-y-0.5">
-              <Label htmlFor="jazzcash-switch" className="text-base">JazzCash</Label>
-              <p className="text-sm text-muted-foreground">
-                Allow users to withdraw funds to a JazzCash account.
-              </p>
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {isLoadingMethods ? <p>Loading withdrawal methods...</p> : withdrawalMethods?.map(method => (
+            <div key={method.id} className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label htmlFor={`method-${method.id}`} className="text-base">{method.name}</Label>
+                <p className="text-sm text-muted-foreground">
+                  Allow users to withdraw via {method.name}.
+                </p>
+              </div>
+              <Switch 
+                id={`method-${method.id}`} 
+                checked={method.isEnabled}
+                onCheckedChange={() => handleToggle('withdrawal_methods', method.id, method.isEnabled)}
+              />
             </div>
-            <Switch id="jazzcash-switch" defaultChecked />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="space-y-0.5">
-              <Label htmlFor="easypaisa-switch" className="text-base">Easypaisa</Label>
-              <p className="text-sm text-muted-foreground">
-                Allow users to withdraw funds to an Easypaisa account.
-              </p>
-            </div>
-            <Switch id="easypaisa-switch" defaultChecked />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="space-y-0.5">
-              <Label htmlFor="bank-switch" className="text-base">Bank Transfer</Label>
-              <p className="text-sm text-muted-foreground">
-                Allow users to withdraw funds to a bank account.
-              </p>
-            </div>
-            <Switch id="bank-switch" defaultChecked />
-          </div>
+          ))}
         </CardContent>
       </Card>
 
@@ -75,14 +175,14 @@ export default function AdminWalletPage() {
               This information will be shown to users when they want to deposit funds.
             </CardDescription>
           </div>
-          <Dialog>
+          <Dialog open={isNewAccountDialogOpen} onOpenChange={setIsNewAccountDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Account
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Add New Deposit Account</DialogTitle>
                 <DialogDescription>
@@ -92,61 +192,73 @@ export default function AdminWalletPage() {
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
                   <Label htmlFor="new-wallet-name">Display Name</Label>
-                  <Input id="new-wallet-name" placeholder="e.g., Easypaisa, HBL" />
+                  <Input id="new-wallet-name" value={newWalletName} onChange={e => setNewWalletName(e.target.value)} placeholder="e.g., Easypaisa, HBL" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="new-account-name">Account/Bank Name</Label>
-                  <Input id="new-account-name" placeholder="e.g., John Doe, Meezan Bank" />
+                  <Input id="new-account-name" value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="e.g., John Doe, Meezan Bank" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="new-wallet-address">Address/Number</Label>
-                  <Input id="new-wallet-address" placeholder="Account number or phone number" />
+                  <Input id="new-wallet-address" value={newWalletAddress} onChange={e => setNewWalletAddress(e.target.value)} placeholder="Account number or phone number" />
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="is-bank" />
+                  <Checkbox id="is-bank" checked={newIsBank} onCheckedChange={checked => setNewIsBank(Boolean(checked))} />
                   <Label htmlFor="is-bank">This is a bank account</Label>
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Add Account</Button>
+                <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                <Button type="submit" onClick={handleAddAccount} disabled={isSaving}>
+                  {isSaving ? "Saving..." : "Add Account"}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Display Name</TableHead>
-                <TableHead>Account/Bank Name</TableHead>
-                <TableHead>Number/Address</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {adminWallets.map((wallet) => (
-                <TableRow key={wallet.id}>
-                  <TableCell className="font-medium">{wallet.walletName}</TableCell>
-                  <TableCell>{wallet.name}</TableCell>
-                  <TableCell>{wallet.number}</TableCell>
-                  <TableCell>{wallet.isBank ? 'Bank' : 'Wallet'}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          {isLoadingWallets ? <p>Loading deposit accounts...</p> : adminWallets?.map((wallet) => (
+            <div key={wallet.id} className="rounded-lg border p-4 space-y-4">
+               <div className="flex items-start justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor={`wallet-switch-${wallet.id}`} className="text-base">{wallet.walletName}</Label>
+                  <p className="text-sm text-muted-foreground">{wallet.name} - {wallet.number}</p>
+                </div>
+                <Switch 
+                  id={`wallet-switch-${wallet.id}`} 
+                  checked={wallet.isEnabled}
+                  onCheckedChange={() => handleToggle('admin_wallets', wallet.id, wallet.isEnabled)}
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the <strong>{wallet.walletName}</strong> deposit account.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive hover:bg-destructive/90"
+                          onClick={() => handleDeleteAccount(wallet.id)}
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+              </div>
+            </div>
+          ))}
         </CardContent>
-        <CardFooter>
-          <Button className='bg-primary hover:bg-primary/90'>
-            <Save className="mr-2 h-4 w-4" />
-            Save All Changes
-          </Button>
-        </CardFooter>
       </Card>
     </div>
   );

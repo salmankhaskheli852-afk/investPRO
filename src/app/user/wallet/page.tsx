@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -25,7 +26,7 @@ import {
   DialogTrigger,
   DialogClose
 } from '@/components/ui/dialog';
-import type { Wallet, Transaction, AdminWallet } from '@/lib/data';
+import type { Wallet, Transaction, AdminWallet, WithdrawalMethod } from '@/lib/data';
 import { ArrowDownToLine, ArrowUpFromLine, Banknote, Landmark } from 'lucide-react';
 import {
   Select,
@@ -50,7 +51,7 @@ export default function UserWalletPage() {
   const [withdrawAmount, setWithdrawAmount] = React.useState('');
   const [withdrawHolderName, setWithdrawHolderName] = React.useState('');
   const [withdrawAccountNumber, setWithdrawAccountNumber] = React.useState('');
-  const [withdrawMethod, setWithdrawMethod] = React.useState('jazzcash');
+  const [withdrawMethod, setWithdrawMethod] = React.useState('');
 
   const [isDepositDialogOpen, setIsDepositDialogOpen] = React.useState(false);
   const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = React.useState(false);
@@ -70,16 +71,28 @@ export default function UserWalletPage() {
   const { data: walletData } = useDoc<Wallet>(walletRef);
   
   const adminWalletsQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'admin_wallets') : null,
+    () => firestore ? query(collection(firestore, 'admin_wallets'), where('isEnabled', '==', true)) : null,
     [firestore]
   );
   const { data: adminWalletsData } = useCollection<AdminWallet>(adminWalletsQuery);
 
+  const withdrawalMethodsQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'withdrawal_methods'), where('isEnabled', '==', true)) : null,
+    [firestore]
+  );
+  const { data: withdrawalMethodsData } = useCollection<WithdrawalMethod>(withdrawalMethodsQuery);
+
   React.useEffect(() => {
-    if (adminWalletsData && adminWalletsData.length > 0) {
-      setSelectedWallet(adminWalletsData.find(w => !w.isBank)?.id || adminWalletsData[0].id);
+    if (adminWalletsData && adminWalletsData.length > 0 && !selectedWallet) {
+      setSelectedWallet(adminWalletsData[0].id);
     }
-  }, [adminWalletsData]);
+  }, [adminWalletsData, selectedWallet]);
+
+  React.useEffect(() => {
+    if (withdrawalMethodsData && withdrawalMethodsData.length > 0 && !withdrawMethod) {
+        setWithdrawMethod(withdrawalMethodsData[0].id);
+    }
+  }, [withdrawalMethodsData, withdrawMethod]);
 
 
   const handleDepositSubmit = async () => {
@@ -93,7 +106,11 @@ export default function UserWalletPage() {
     }
 
     try {
-        await addDoc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'), {
+        const transactionCollectionRef = collection(firestore, 'transactions');
+        const newTransactionRef = doc(transactionCollectionRef);
+        
+        const transactionData = {
+          id: newTransactionRef.id,
           type: 'deposit',
           amount: parseFloat(depositAmount),
           status: 'pending',
@@ -106,7 +123,15 @@ export default function UserWalletPage() {
             adminWalletId: selectedWallet,
             userId: user.uid,
           }
-        });
+        };
+
+        const batch = writeBatch(firestore);
+        batch.set(newTransactionRef, transactionData);
+
+        const userTransactionRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'), newTransactionRef.id);
+        batch.set(userTransactionRef, transactionData);
+
+        await batch.commit();
 
         toast({ title: 'Success', description: 'Your deposit request has been submitted.' });
         setIsDepositDialogOpen(false);
@@ -176,16 +201,14 @@ export default function UserWalletPage() {
     }
   };
 
-  const [jazzcashEnabled, setJazzcashEnabled] = React.useState(true);
-  const [easypaisaEnabled, setEasypaisaEnabled] = React.useState(true);
-  const [bankEnabled, setBankEnabled] = React.useState(true);
-
   const selectedWalletDetails = adminWalletsData?.find(w => w.id === selectedWallet);
+  const selectedWithdrawalMethod = withdrawalMethodsData?.find(m => m.id === withdrawMethod);
 
-  const handleWithdrawalMethodChange = (value: string) => {
-    setWithdrawMethod(value);
-    setShowBankDetails(value === 'bank');
-  }
+  React.useEffect(() => {
+    if (selectedWithdrawalMethod) {
+        setShowBankDetails(selectedWithdrawalMethod.id === 'bank');
+    }
+  }, [selectedWithdrawalMethod]);
 
   return (
     <>
@@ -265,11 +288,11 @@ export default function UserWalletPage() {
                                   </CardHeader>
                                   <CardContent className="text-sm space-y-2">
                                       <div className="flex justify-between">
-                                          <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Bank Name:' : 'Account Name:'}</span>
-                                          <span className="font-medium">{selectedWalletDetails.isBank ? selectedWalletDetails.walletName : selectedWalletDetails.name}</span>
+                                          <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Bank Name:' : 'Wallet Service:'}</span>
+                                          <span className="font-medium">{selectedWalletDetails.walletName}</span>
                                       </div>
                                       <div className="flex justify-between">
-                                          <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Account Holder:' : 'Account Name:'}</span>
+                                          <span className="text-muted-foreground">Account Holder:</span>
                                           <span className="font-medium">{selectedWalletDetails.name}</span>
                                       </div>
                                       <div className="flex justify-between">
@@ -298,7 +321,8 @@ export default function UserWalletPage() {
                           </div>
                       </div>
                       <DialogFooter>
-                        <Button type="submit" className="w-full bg-primary hover:bg-primary/90" onClick={handleDepositSubmit}>Submit Request</Button>
+                        <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                        <Button type="submit" className="bg-primary hover:bg-primary/90" onClick={handleDepositSubmit}>Submit Request</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
@@ -323,23 +347,17 @@ export default function UserWalletPage() {
                           <div className="grid gap-4 py-4">
                               <div className="space-y-2">
                                   <Label>Select Method</Label>
-                                  <RadioGroup onValueChange={handleWithdrawalMethodChange} value={withdrawMethod} className="flex">
-                                      {jazzcashEnabled && <Label htmlFor="jazzcash" className="flex items-center space-x-2 cursor-pointer">
-                                          <RadioGroupItem value="jazzcash" id="jazzcash" />
-                                          <span>JazzCash</span>
-                                      </Label>}
-                                      {easypaisaEnabled && <Label htmlFor="easypaisa" className="flex items-center space-x-2 cursor-pointer">
-                                          <RadioGroupItem value="easypaisa" id="easypaisa" />
-                                          <span>Easypaisa</span>
-                                      </Label>}
-                                      {bankEnabled && <Label htmlFor="bank" className="flex items-center space-x-2 cursor-pointer">
-                                          <RadioGroupItem value="bank" id="bank" />
-                                          <span>Bank</span>
-                                      </Label>}
+                                  <RadioGroup onValueChange={setWithdrawMethod} value={withdrawMethod} className="grid grid-cols-2 gap-2">
+                                      {withdrawalMethodsData?.map((method) => (
+                                         <Label key={method.id} htmlFor={method.id} className="flex items-center space-x-2 cursor-pointer rounded-md border p-3 [&:has([data-state=checked])]:border-primary">
+                                          <RadioGroupItem value={method.id} id={method.id} />
+                                          <span>{method.name}</span>
+                                      </Label>
+                                      ))}
                                   </RadioGroup>
                               </div>
 
-                              {showBankDetails ? (
+                              {showBankDetails && (
                                   <div className="space-y-2">
                                       <Label htmlFor="bank-name">Bank Name</Label>
                                       <Select>
@@ -365,7 +383,7 @@ export default function UserWalletPage() {
                                           </SelectContent>
                                       </Select>
                                   </div>
-                              ) : null}
+                              )}
 
                               <div className="space-y-2">
                                   <Label htmlFor="withdraw-account-holder">Account Holder Name</Label>
@@ -381,7 +399,8 @@ export default function UserWalletPage() {
                               </div>
                           </div>
                           <DialogFooter>
-                              <Button type="submit" className="w-full bg-primary hover:bg-primary/90" onClick={handleWithdrawalSubmit}>Submit Request</Button>
+                              <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                              <Button type="submit" className="bg-primary hover:bg-primary/90" onClick={handleWithdrawalSubmit}>Submit Request</Button>
                           </DialogFooter>
                       </DialogContent>
                   </Dialog>
@@ -392,5 +411,3 @@ export default function UserWalletPage() {
     </>
   );
 }
-
-    
