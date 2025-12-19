@@ -15,7 +15,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Edit, Trash2, MoreHorizontal, Eye, ShieldCheck, UserPlus, Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { User, Wallet } from '@/lib/data';
 import { collection, query, where } from 'firebase/firestore';
 import {
@@ -120,6 +120,7 @@ function UserRow({
 
 export default function AdminUsersPage() {
   const firestore = useFirestore();
+  const { user: adminUser } = useUser();
   
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isRoleDialogOpen, setIsRoleDialogOpen] = React.useState(false);
@@ -129,14 +130,14 @@ export default function AdminUsersPage() {
   const usersPerPage = 10;
 
   const usersQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'users') : null,
-    [firestore]
+    () => firestore && adminUser ? collection(firestore, 'users') : null,
+    [firestore, adminUser]
   );
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
   const agentsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'users'), where('role', '==', 'agent')) : null,
-    [firestore]
+    () => firestore && adminUser ? query(collection(firestore, 'users'), where('role', '==', 'agent')) : null,
+    [firestore, adminUser]
   );
   const { data: agents, isLoading: isLoadingAgents } = useCollection<User>(agentsQuery);
 

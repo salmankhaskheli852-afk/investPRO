@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { User, Transaction } from '@/lib/data';
 import { collection, doc, query, where, collectionGroup } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -26,6 +26,7 @@ export default function AgentHistoryPage() {
   const params = useParams();
   const agentId = params.agentId as string;
   const firestore = useFirestore();
+  const { user: adminUser } = useUser();
 
   const agentDocRef = useMemoFirebase(
       () => firestore && agentId ? doc(firestore, 'users', agentId) : null,
@@ -35,8 +36,8 @@ export default function AgentHistoryPage() {
 
   // Get users managed by this agent
   const managedUsersQuery = useMemoFirebase(
-    () => firestore && agentId ? query(collection(firestore, 'users'), where('agentId', '==', agentId)) : null,
-    [firestore, agentId]
+    () => firestore && agentId && adminUser ? query(collection(firestore, 'users'), where('agentId', '==', agentId)) : null,
+    [firestore, agentId, adminUser]
   );
   const { data: managedUsers, isLoading: isLoadingUsers } = useCollection<User>(managedUsersQuery);
 
@@ -44,7 +45,7 @@ export default function AgentHistoryPage() {
   // A better approach would be to denormalize the agentId onto the transaction itself.
   const withdrawalTransactionsQuery = useMemoFirebase(
       () => {
-          if (!firestore || !managedUsers || managedUsers.length === 0) return null;
+          if (!firestore || !managedUsers || managedUsers.length === 0 || !adminUser) return null;
           const userIds = managedUsers.map(u => u.id);
           return query(
               collectionGroup(firestore, 'transactions'),
@@ -52,7 +53,7 @@ export default function AgentHistoryPage() {
               where('details.userId', 'in', userIds)
           );
       },
-      [firestore, managedUsers]
+      [firestore, managedUsers, adminUser]
   );
   const { data: withdrawalTransactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(withdrawalTransactionsQuery);
 
@@ -96,6 +97,7 @@ export default function AgentHistoryPage() {
         </div>
        </div>
 
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card>
         <CardContent className="pt-6">
           <Table>
@@ -155,6 +157,7 @@ export default function AgentHistoryPage() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
