@@ -281,10 +281,10 @@ export function InvestmentPlanCard({
         <h3 className="font-headline font-bold text-xl text-foreground">{plan.name}</h3>
         
         <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground flex-1">
-            <div className="flex flex-col"><span>Product price</span> <span className="font-medium text-foreground text-base">{plan.price.toLocaleString()} Rs</span></div>
-            <div className="flex flex-col text-right"><span>Daily income</span> <span className="font-medium text-foreground text-base">{dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span></div>
-            <div className="flex flex-col"><span>Period</span> <span className="font-medium text-foreground text-base">{plan.incomePeriod} days</span></div>
-            <div className="flex flex-col text-right"><span>Total income</span> <span className="font-medium text-foreground text-base">{totalIncome.toLocaleString()} Rs</span></div>
+            <div className="flex flex-col"><span>Product price</span> <span className="font-medium text-foreground text-lg">{plan.price.toLocaleString()} Rs</span></div>
+            <div className="flex flex-col text-right"><span>Daily income</span> <span className="font-medium text-foreground text-lg">{dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span></div>
+            <div className="flex flex-col"><span>Period</span> <span className="font-medium text-foreground text-lg">{plan.incomePeriod} days</span></div>
+            <div className="flex flex-col text-right"><span>Total income</span> <span className="font-medium text-foreground text-lg">{totalIncome.toLocaleString()} Rs</span></div>
         </div>
         
         {renderPurchaseButton()}
