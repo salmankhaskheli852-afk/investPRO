@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import {
   Table,
   TableBody,
@@ -22,7 +21,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { investmentPlans, planCategories } from '@/lib/data';
 import { Edit, PlusCircle, Trash2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -30,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { InvestmentPlanCard } from '@/components/investment-plan-card';
 
 export default function AdminInvestmentsPage() {
   return (
@@ -103,57 +102,21 @@ export default function AdminInvestmentsPage() {
                     <CardDescription>A list of all available investment plans.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                <Table>
-                    <TableHeader>
-                    <TableRow>
-                        <TableHead>Plan</TableHead>
-                        <TableHead>Details</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {investmentPlans.map((plan) => {
-                        const category = planCategories.find(c => c.id === plan.categoryId);
-                        return (
-                            <TableRow key={plan.id}>
-                                <TableCell>
-                                    <div className="flex items-center gap-4">
-                                        <Image
-                                        src={plan.imageUrl}
-                                        alt={plan.name}
-                                        width={80}
-                                        height={60}
-                                        className="rounded-md object-cover"
-                                        data-ai-hint={plan.imageHint}
-                                        />
-                                        <div>
-                                            <div className="font-medium">{plan.name}</div>
-                                            <Badge variant="outline">{category?.name}</Badge>
-                                        </div>
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    <div className="text-sm">
-                                        <div className="flex justify-between"><span>Product price:</span> <span className="font-medium">{plan.price.toLocaleString()} Rs</span></div>
-                                        <div className="flex justify-between"><span>Daily income:</span> <span className="font-medium">{plan.dailyIncome.toLocaleString()} Rs</span></div>
-                                        <div className="flex justify-between"><span>Income period:</span> <span className="font-medium">{plan.incomePeriod}</span></div>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <div className="flex items-center justify-end gap-2">
-                                        <Button variant="ghost" size="icon">
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        );
-                    })}
-                    </TableBody>
-                </Table>
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    {investmentPlans.map((plan) => (
+                       <div key={plan.id} className="relative group">
+                         <InvestmentPlanCard plan={plan} />
+                         <div className="absolute top-2 right-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="outline" size="icon" className="bg-background/80 hover:bg-background">
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="destructive" size="icon">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                         </div>
+                       </div>
+                    ))}
+                  </div>
                 </CardContent>
             </Card>
         </div>

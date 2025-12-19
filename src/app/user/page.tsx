@@ -1,9 +1,8 @@
-import Image from 'next/image';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
 import { users, investmentPlans } from '@/lib/data';
 import { DollarSign, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { InvestmentPlanCard } from '@/components/investment-plan-card';
 
 export default function UserDashboardPage() {
   const user = users[0]; // Mock current user
@@ -34,39 +33,16 @@ export default function UserDashboardPage() {
           <CardTitle>My Active Investments</CardTitle>
           <CardDescription>Here's an overview of your current investment portfolio.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent>
           {activePlans.length > 0 ? (
-            activePlans.map(plan => {
-              if (!plan) return null;
-              const progress = 63; // Mock progress
-              return (
-                <div key={plan.id} className="rounded-lg border p-4 space-y-4">
-                  <h3 className="font-semibold text-lg">{plan.name}</h3>
-                  <div className="flex flex-col sm:flex-row items-start gap-4">
-                    <Image
-                      src={plan.imageUrl}
-                      alt={plan.name}
-                      width={128}
-                      height={96}
-                      className="rounded-md object-cover aspect-[4/3] w-full sm:w-32"
-                      data-ai-hint={plan.imageHint}
-                    />
-                    <div className="flex-1 w-full text-sm">
-                        <div className="flex justify-between"><span>Product price</span> <span className="font-medium">{plan.price.toLocaleString()} Rs</span></div>
-                        <div className="flex justify-between"><span>Daily income</span> <span className="font-medium">{plan.dailyIncome.toLocaleString()} Rs</span></div>
-                        <div className="flex justify-between"><span>Income period</span> <span className="font-medium">{plan.incomePeriod}</span></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                        <span>Progress</span>
-                        <span>{progress}%</span>
-                    </div>
-                    <Progress value={progress} className="h-2" />
-                  </div>
-                </div>
-              );
-            })
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {activePlans.map(plan => {
+                if (!plan) return null;
+                return (
+                  <InvestmentPlanCard key={plan.id} plan={plan} purchased={true} />
+                );
+              })}
+            </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <p>You have no active investments yet.</p>

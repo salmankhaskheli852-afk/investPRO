@@ -27,13 +27,10 @@ export default function UserInvestmentsPage() {
           const plansInCategory = investmentPlans.filter(plan => plan.categoryId === category.id);
           return (
             <TabsContent key={category.id} value={category.id}>
-              <div className="space-y-6 pt-4">
-                <p className="text-muted-foreground">Plans in the {category.name.toLowerCase()} category.</p>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-                  {plansInCategory.map((plan) => (
-                    <InvestmentPlanCard key={plan.id} plan={plan} />
-                  ))}
-                </div>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pt-4">
+                {plansInCategory.map((plan) => (
+                  <InvestmentPlanCard key={plan.id} plan={plan} />
+                ))}
               </div>
             </TabsContent>
           );

@@ -10,9 +10,10 @@ import { Progress } from '@/components/ui/progress';
 
 interface InvestmentPlanCardProps {
   plan: InvestmentPlan;
+  purchased?: boolean;
 }
 
-export function InvestmentPlanCard({ plan }: InvestmentPlanCardProps) {
+export function InvestmentPlanCard({ plan, purchased = false }: InvestmentPlanCardProps) {
   const { toast } = useToast();
 
   const handlePurchase = () => {
@@ -24,29 +25,38 @@ export function InvestmentPlanCard({ plan }: InvestmentPlanCardProps) {
 
   return (
     <Card className={cn("w-full overflow-hidden flex flex-col transition-all duration-300 hover:scale-[1.02] hover:shadow-xl shadow-lg border-2 border-transparent", `hover:border-primary`)}>
+      <div className="relative aspect-[3/4] w-full">
+        <Image
+          src={plan.imageUrl}
+          alt={plan.name}
+          fill
+          className="object-cover"
+          data-ai-hint={plan.imageHint}
+        />
+      </div>
       <CardContent className="p-4 space-y-4">
-        <h3 className="font-semibold text-lg">{plan.name}</h3>
-        <div className="flex flex-col sm:flex-row items-start gap-4">
-          <Image
-            src={plan.imageUrl}
-            alt={plan.name}
-            width={128}
-            height={96}
-            className="rounded-md object-cover aspect-[4/3] w-full sm:w-32"
-            data-ai-hint={plan.imageHint}
-          />
-          <div className="flex-1 w-full text-sm">
-            <div className="flex justify-between"><span>Product price</span> <span className="font-medium">{plan.price.toLocaleString()} Rs</span></div>
-            <div className="flex justify-between"><span>Daily income</span> <span className="font-medium">{plan.dailyIncome.toLocaleString()} Rs</span></div>
-            <div className="flex justify-between"><span>Income period</span> <span className="font-medium">{plan.incomePeriod}</span></div>
+        <div className="flex justify-between items-center">
+          <h3 className="font-semibold text-lg">{plan.name}</h3>
+          <span className="font-bold text-primary">{plan.price.toLocaleString()} Rs</span>
+        </div>
+        <div className="text-sm space-y-1 text-muted-foreground">
+            <div className="flex justify-between"><span>Daily income:</span> <span className="font-medium text-foreground">{plan.dailyIncome.toLocaleString()} Rs</span></div>
+            <div className="flex justify-between"><span>Period:</span> <span className="font-medium text-foreground">{plan.incomePeriod} days</span></div>
+        </div>
+        
+        {purchased ? (
+          <div>
+            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                <span>Progress</span>
+                <span>63%</span>
+            </div>
+            <Progress value={63} className="h-2" />
           </div>
-        </div>
-        <div>
-          <Progress value={10} className="h-2" />
-        </div>
-        <Button size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" onClick={handlePurchase}>
-          Purchase Plan
-        </Button>
+        ) : (
+          <Button size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" onClick={handlePurchase}>
+            Purchase Plan
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
