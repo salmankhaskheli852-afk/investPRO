@@ -77,30 +77,8 @@ export type OfferConfig = {
 }
 
 export type ChatSettings = {
-    isChatEnabled: boolean;
     whatsappNumber?: string;
 }
-
-export type ChatRoom = {
-    id: string;
-    userId: string;
-    userName: string;
-    agentId?: string;
-    createdAt: Timestamp;
-    lastMessage?: string;
-    lastMessageAt?: Timestamp;
-    isResolved: boolean;
-};
-
-export type ChatMessage = {
-    id: string;
-    roomId: string;
-    senderId: string;
-    text?: string;
-    imageUrl?: string;
-    createdAt: Timestamp;
-};
-
 
 const findImage = (id: string) => PlaceHolderImages.find(img => img.id === id);
 

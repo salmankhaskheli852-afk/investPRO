@@ -9,11 +9,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { Switch } from '@/components/ui/switch';
 
 type ChatSettings = {
   whatsappNumber?: string;
-  isChatEnabled?: boolean; // This can be deprecated but kept for safety
 };
 
 export default function ChatSettingPage() {
@@ -38,11 +36,10 @@ export default function ChatSettingPage() {
     if (!settingsRef) return;
     setIsSaving(true);
     try {
-      // Only save the WhatsApp number now
       await setDoc(settingsRef, { whatsappNumber }, { merge: true });
       toast({
         title: 'Settings Saved',
-        description: 'The chat settings have been updated successfully.',
+        description: 'The WhatsApp number has been updated successfully.',
       });
     } catch (e: any) {
       toast({
@@ -58,15 +55,15 @@ export default function ChatSettingPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold font-headline">Chat Settings</h1>
-        <p className="text-muted-foreground">Manage your customer support chat options.</p>
+        <h1 className="text-3xl font-bold font-headline">WhatsApp Chat Settings</h1>
+        <p className="text-muted-foreground">Manage your customer support contact number.</p>
       </div>
 
       <Card className="max-w-2xl">
         <CardHeader>
-          <CardTitle>Backup Support Channel</CardTitle>
+          <CardTitle>Customer Support Number</CardTitle>
           <CardDescription>
-            Provide a WhatsApp number for users to contact if live chat is unavailable.
+            Provide a WhatsApp number for users to contact you directly. This will appear in a chat bubble on the user's screen.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -74,13 +71,13 @@ export default function ChatSettingPage() {
             <Label htmlFor="whatsapp-number">WhatsApp Support Number</Label>
             <Input
               id="whatsapp-number"
-              placeholder="+1234567890"
+              placeholder="+923001234567"
               value={whatsappNumber}
               onChange={(e) => setWhatsappNumber(e.target.value)}
               disabled={isLoading}
             />
              <p className="text-xs text-muted-foreground">
-                This number can be shown to users as a backup contact method. Live chat access is now managed per-agent in the <a href="/admin/agents" className="underline">Agents</a> page.
+                Enter the number including the country code (e.g., +92 for Pakistan).
              </p>
           </div>
           <Button onClick={handleSave} disabled={isSaving || isLoading}>

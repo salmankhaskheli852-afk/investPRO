@@ -169,16 +169,6 @@ export function ManageAgentAccountsDialog({
                         onCheckedChange={(checked) => handlePermissionToggle('canManageWithdrawalRequests', checked)}
                         />
                     </div>
-                     <div className="flex items-center justify-between rounded-lg border p-3">
-                        <Label htmlFor="perm-live-chat" className="flex flex-col space-y-1">
-                        <span>Access Live Chat</span>
-                        </Label>
-                        <Switch
-                        id="perm-live-chat"
-                        checked={permissions.canAccessLiveChat}
-                        onCheckedChange={(checked) => handlePermissionToggle('canAccessLiveChat', checked)}
-                        />
-                    </div>
                 </div>
             </div>
         </div>

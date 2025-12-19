@@ -1,10 +1,11 @@
+
 'use client';
 
 import { Sidebar, SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav, type NavItem } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
 import { LayoutDashboard, TrendingUp, Wallet, History } from 'lucide-react';
-import { ChatWidget } from '@/components/chat-widget';
+import { WhatsAppWidget } from '@/components/whatsapp-widget';
 
 const navItems: NavItem[] = [
   { href: '/user', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,7 +28,7 @@ export default function UserLayout({
         <div className="flex min-h-screen flex-col">
           <Header />
           <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
-          <ChatWidget />
+          <WhatsAppWidget />
         </div>
       </SidebarInset>
     </SidebarProvider>
