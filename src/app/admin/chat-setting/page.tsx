@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import type { ChatSettings } from '@/lib/data';
+import type { AppSettings } from '@/lib/data';
 
 export default function ChatSettingPage() {
   const [whatsappNumber, setWhatsappNumber] = React.useState('');
@@ -19,17 +19,17 @@ export default function ChatSettingPage() {
   const firestore = useFirestore();
 
   const settingsRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'app_config', 'chat_settings') : null),
+    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
     [firestore]
   );
-  const { data: chatSettings, isLoading } = useDoc<ChatSettings>(settingsRef);
+  const { data: appSettings, isLoading } = useDoc<AppSettings>(settingsRef);
 
   React.useEffect(() => {
-    if (chatSettings) {
-      setWhatsappNumber(chatSettings.whatsappNumber || '');
-      setWhatsappCommunityLink(chatSettings.whatsappCommunityLink || '');
+    if (appSettings) {
+      setWhatsappNumber(appSettings.whatsappNumber || '');
+      setWhatsappCommunityLink(appSettings.whatsappCommunityLink || '');
     }
-  }, [chatSettings]);
+  }, [appSettings]);
 
   const handleSave = async () => {
     if (!settingsRef) return;

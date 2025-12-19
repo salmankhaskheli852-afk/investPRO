@@ -4,7 +4,7 @@
 import React from 'react';
 import { Button } from './ui/button';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import type { ChatSettings } from '@/lib/data';
+import type { AppSettings } from '@/lib/data';
 import { doc } from 'firebase/firestore';
 import { MessageSquare, Users } from 'lucide-react';
 import {
@@ -17,34 +17,34 @@ import {
 export function WhatsAppWidget() {
   const firestore = useFirestore();
 
-  const chatSettingsRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'app_config', 'chat_settings') : null),
+  const appSettingsRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
     [firestore]
   );
-  const { data: chatSettings, isLoading } = useDoc<ChatSettings>(chatSettingsRef);
+  const { data: appSettings, isLoading } = useDoc<AppSettings>(appSettingsRef);
 
   const handleChatClick = () => {
-    if (chatSettings?.whatsappNumber) {
-      const cleanNumber = chatSettings.whatsappNumber.replace(/\D/g, '');
+    if (appSettings?.whatsappNumber) {
+      const cleanNumber = appSettings.whatsappNumber.replace(/\D/g, '');
       window.open(`https://wa.me/${cleanNumber}`, '_blank', 'noopener,noreferrer');
     }
   };
 
   const handleCommunityClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent the main chat button click event
-    if (chatSettings?.whatsappCommunityLink) {
-      window.open(chatSettings.whatsappCommunityLink, '_blank', 'noopener,noreferrer');
+    if (appSettings?.whatsappCommunityLink) {
+      window.open(appSettings.whatsappCommunityLink, '_blank', 'noopener,noreferrer');
     }
   };
 
-  if (isLoading || (!chatSettings?.whatsappNumber && !chatSettings?.whatsappCommunityLink)) {
+  if (isLoading || (!appSettings?.whatsappNumber && !appSettings?.whatsappCommunityLink)) {
     return null;
   }
 
   return (
     <TooltipProvider>
       <div className="fixed bottom-4 right-4 z-50 flex flex-col items-center gap-2">
-        {chatSettings?.whatsappCommunityLink && (
+        {appSettings?.whatsappCommunityLink && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -62,7 +62,7 @@ export function WhatsAppWidget() {
           </Tooltip>
         )}
 
-        {chatSettings?.whatsappNumber && (
+        {appSettings?.whatsappNumber && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

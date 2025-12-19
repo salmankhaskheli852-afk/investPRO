@@ -18,7 +18,7 @@ import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import { doc } from 'firebase/firestore';
-import type { ChatSettings } from '@/lib/data';
+import type { AppSettings } from '@/lib/data';
 
 
 export function Header() {
@@ -28,11 +28,11 @@ export function Header() {
   const router = useRouter();
   const [hasMounted, setHasMounted] = useState(false);
 
-  const chatSettingsRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'app_config', 'chat_settings') : null),
+  const appSettingsRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
     [firestore]
   );
-  const { data: chatSettings, isLoading: isLoadingSettings } = useDoc<ChatSettings>(chatSettingsRef);
+  const { data: appSettings, isLoading: isLoadingSettings } = useDoc<AppSettings>(appSettingsRef);
 
   useEffect(() => {
     setHasMounted(true);
@@ -119,10 +119,10 @@ export function Header() {
         </Link>
       </div>
       <div className="flex items-center gap-4">
-        {!isLoadingSettings && chatSettings?.verificationBadgeText && (
+        {!isLoadingSettings && appSettings?.verificationBadgeText && (
           <div className="hidden items-center gap-1.5 sm:flex">
             <ShieldCheck className="h-5 w-5 text-green-600" />
-            <span className="text-sm font-medium text-green-600">{chatSettings.verificationBadgeText}</span>
+            <span className="text-sm font-medium text-green-600">{appSettings.verificationBadgeText}</span>
           </div>
         )}
         {renderUserMenu()}

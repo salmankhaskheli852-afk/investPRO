@@ -8,7 +8,7 @@ export type PlanCategory = {
 
 export type InvestmentPlan = {
   id: string;
-  name: string;
+  name:string;
   price: number;
   dailyIncomePercentage: number;
   incomePeriod: number;
@@ -78,11 +78,22 @@ export type OfferConfig = {
     endTime: Timestamp | null;
 }
 
-export type ChatSettings = {
+export type AppSettings = {
     whatsappNumber?: string;
     whatsappCommunityLink?: string;
     verificationBadgeText?: string;
+    minDeposit?: number;
+    maxDeposit?: number;
+    minWithdrawal?: number;
+    maxWithdrawal?: number;
 }
 
 // This is now seed data for Firestore, not used directly in the app.
 export const investmentPlans: InvestmentPlan[] = [];
+
+// This is now seed data for Firestore, not used directly in the app.
+export const planCategories: PlanCategory[] = [
+    { id: 'short-term', name: 'Short Term' },
+    { id: 'long-term', name: 'Long Term' },
+    { id: 'vip', name: 'VIP' },
+  ];

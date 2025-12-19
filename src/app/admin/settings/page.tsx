@@ -9,35 +9,53 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import type { ChatSettings } from '@/lib/data';
+import type { AppSettings } from '@/lib/data';
+import { Separator } from '@/components/ui/separator';
 
 export default function AppSettingsPage() {
   const [whatsappNumber, setWhatsappNumber] = React.useState('');
   const [whatsappCommunityLink, setWhatsappCommunityLink] = React.useState('');
   const [verificationBadgeText, setVerificationBadgeText] = React.useState('');
+  const [minDeposit, setMinDeposit] = React.useState('');
+  const [maxDeposit, setMaxDeposit] = React.useState('');
+  const [minWithdrawal, setMinWithdrawal] = React.useState('');
+  const [maxWithdrawal, setMaxWithdrawal] = React.useState('');
+  
   const [isSaving, setIsSaving] = React.useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
 
   const settingsRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'app_config', 'chat_settings') : null),
+    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
     [firestore]
   );
-  const { data: chatSettings, isLoading } = useDoc<ChatSettings>(settingsRef);
+  const { data: appSettings, isLoading } = useDoc<AppSettings>(settingsRef);
 
   React.useEffect(() => {
-    if (chatSettings) {
-      setWhatsappNumber(chatSettings.whatsappNumber || '');
-      setWhatsappCommunityLink(chatSettings.whatsappCommunityLink || '');
-      setVerificationBadgeText(chatSettings.verificationBadgeText || 'Verified by Gov');
+    if (appSettings) {
+      setWhatsappNumber(appSettings.whatsappNumber || '');
+      setWhatsappCommunityLink(appSettings.whatsappCommunityLink || '');
+      setVerificationBadgeText(appSettings.verificationBadgeText || 'Verified by Gov');
+      setMinDeposit(String(appSettings.minDeposit || ''));
+      setMaxDeposit(String(appSettings.maxDeposit || ''));
+      setMinWithdrawal(String(appSettings.minWithdrawal || ''));
+      setMaxWithdrawal(String(appSettings.maxWithdrawal || ''));
     }
-  }, [chatSettings]);
+  }, [appSettings]);
 
   const handleSave = async () => {
     if (!settingsRef) return;
     setIsSaving(true);
     try {
-      await setDoc(settingsRef, { whatsappNumber, whatsappCommunityLink, verificationBadgeText }, { merge: true });
+      await setDoc(settingsRef, { 
+        whatsappNumber, 
+        whatsappCommunityLink, 
+        verificationBadgeText,
+        minDeposit: parseFloat(minDeposit) || 0,
+        maxDeposit: parseFloat(maxDeposit) || 0,
+        minWithdrawal: parseFloat(minWithdrawal) || 0,
+        maxWithdrawal: parseFloat(maxWithdrawal) || 0,
+      }, { merge: true });
       toast({
         title: 'Settings Saved',
         description: 'The app settings have been updated successfully.',
@@ -64,7 +82,7 @@ export default function AppSettingsPage() {
         <CardHeader>
           <CardTitle>General Settings</CardTitle>
           <CardDescription>
-            Provide general information for your users.
+            Provide general information and set transaction limits for your users.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -107,6 +125,31 @@ export default function AppSettingsPage() {
                 Provide the full invitation link for your WhatsApp community group.
              </p>
           </div>
+
+          <Separator />
+
+          <div>
+             <h3 className="text-lg font-medium mb-4">Transaction Limits</h3>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                    <Label htmlFor="min-deposit">Minimum Deposit (PKR)</Label>
+                    <Input id="min-deposit" type="number" placeholder="e.g., 500" value={minDeposit} onChange={(e) => setMinDeposit(e.target.value)} disabled={isLoading} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="max-deposit">Maximum Deposit (PKR)</Label>
+                    <Input id="max-deposit" type="number" placeholder="e.g., 100000" value={maxDeposit} onChange={(e) => setMaxDeposit(e.target.value)} disabled={isLoading} />
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="min-withdrawal">Minimum Withdrawal (PKR)</Label>
+                    <Input id="min-withdrawal" type="number" placeholder="e.g., 1000" value={minWithdrawal} onChange={(e) => setMinWithdrawal(e.target.value)} disabled={isLoading} />
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="max-withdrawal">Maximum Withdrawal (PKR)</Label>
+                    <Input id="max-withdrawal" type="number" placeholder="e.g., 50000" value={maxWithdrawal} onChange={(e) => setMaxWithdrawal(e.target.value)} disabled={isLoading} />
+                </div>
+             </div>
+          </div>
+          
           <Button onClick={handleSave} disabled={isSaving || isLoading}>
             {isSaving ? 'Saving...' : 'Save Settings'}
           </Button>
