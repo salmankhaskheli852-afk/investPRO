@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Edit, Trash2, RefreshCcw } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Transaction, Wallet, InvestmentPlan } from '@/lib/data';
 import { collection, doc, query, orderBy, writeBatch, serverTimestamp, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
@@ -43,11 +43,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MoreHorizontal } from 'lucide-react';
 
 export default function UserDetailsPage() {
   const params = useParams();
@@ -255,6 +263,49 @@ export default function UserDetailsPage() {
         toast({ variant: 'destructive', title: 'Error deleting transaction', description: e.message });
     }
   };
+
+  const handleRevokeDeposit = async (tx: Transaction) => {
+    if (!firestore || !userId || !wallet || tx.type !== 'deposit' || tx.status !== 'completed') {
+      toast({ variant: 'destructive', title: 'Invalid Action', description: 'This action is only for completed deposits.' });
+      return;
+    }
+  
+    const batch = writeBatch(firestore);
+    const walletRef = doc(firestore, 'users', userId, 'wallets', 'main');
+    const originalTxRef = doc(firestore, 'users', userId, 'wallets', 'main', 'transactions', tx.id);
+  
+    try {
+      // 1. Deduct amount from user's wallet
+      const newBalance = wallet.balance - tx.amount;
+      batch.update(walletRef, { balance: newBalance });
+  
+      // 2. Mark original transaction as 'revoked'
+      batch.update(originalTxRef, { status: 'revoked' });
+  
+      // 3. Create a new transaction to record the revocation
+      const revocationTxRef = doc(collection(firestore, 'users', userId, 'wallets', 'main', 'transactions'));
+      batch.set(revocationTxRef, {
+        type: 'withdrawal',
+        amount: tx.amount,
+        status: 'completed',
+        date: serverTimestamp(),
+        details: {
+          reason: `Revocation of deposit TID: ${tx.details?.tid || tx.id}`,
+          revokedBy: 'admin',
+        },
+        walletId: 'main'
+      });
+  
+      await batch.commit();
+  
+      toast({
+        title: 'Deposit Revoked',
+        description: `Successfully revoked the deposit of ${tx.amount} PKR. The user's balance has been updated.`,
+      });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error Revoking Deposit', description: e.message });
+    }
+  };
   
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -264,8 +315,10 @@ export default function UserDetailsPage() {
         return 'bg-amber-500/20 text-amber-700';
       case 'failed':
         return 'bg-red-500/20 text-red-700';
+      case 'revoked':
+          return 'bg-gray-500/20 text-gray-700';
       default:
-        return '';
+        return 'bg-gray-500/20 text-gray-700';
     }
   };
 
@@ -382,11 +435,11 @@ export default function UserDetailsPage() {
                 transactions.map((tx) => (
                     <TableRow key={tx.id}>
                       <TableCell className="capitalize">{tx.type}</TableCell>
-                      <TableCell>{tx.details?.planName || tx.details?.method || tx.details?.reason || 'N/A'}</TableCell>
+                      <TableCell>{tx.details?.planName || tx.details?.method || tx.details?.reason || tx.details?.tid || 'N/A'}</TableCell>
                       <TableCell>{tx.amount.toLocaleString()} PKR</TableCell>
                       <TableCell>
                          <Badge
-                            variant={tx.status === 'completed' ? 'default' : tx.status === 'pending' ? 'secondary' : 'destructive'}
+                            variant='outline'
                             className={getStatusBadge(tx.status)}
                         >
                             {tx.status}
@@ -394,31 +447,72 @@ export default function UserDetailsPage() {
                       </TableCell>
                       <TableCell>{tx.date ? format(tx.date.toDate(), 'PPpp') : 'N/A'}</TableCell>
                       <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => handleEditTxClick(tx)}>
-                                <Edit className="h-4 w-4" />
-                            </Button>
-                             <AlertDialog>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEditTxClick(tx)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+
+                              {tx.type === 'deposit' && tx.status === 'completed' && (
+                                <>
+                                 <DropdownMenuSeparator />
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
+                                        <RefreshCcw className="mr-2 h-4 w-4" />
+                                        Revoke Deposit
+                                      </div>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Revoke this deposit?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          This will deduct {tx.amount} PKR from the user's balance and create a "revoked" transaction record. This action cannot be undone.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          className="bg-destructive hover:bg-destructive/90"
+                                          onClick={() => handleRevokeDeposit(tx)}
+                                        >
+                                          Confirm Revoke
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </>
+                              )}
+
+                              <DropdownMenuSeparator />
+                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                  <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </div>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
-                                    <AlertDialogHeader>
+                                  <AlertDialogHeader>
                                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete the transaction
-                                        and adjust the user's wallet balance.
+                                      This action cannot be undone. This will permanently delete the transaction and may adjust the user's wallet balance.
                                     </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                                     <AlertDialogAction onClick={() => handleDeleteTx(tx)}>Continue</AlertDialogAction>
-                                    </AlertDialogFooter>
+                                  </AlertDialogFooter>
                                 </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
+                              </AlertDialog>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                       </TableCell>
                     </TableRow>
                 ))
@@ -499,6 +593,7 @@ export default function UserDetailsPage() {
                             <SelectItem value="pending">Pending</SelectItem>
                             <SelectItem value="completed">Completed</SelectItem>
                             <SelectItem value="failed">Failed</SelectItem>
+                            <SelectItem value="revoked">Revoked</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
