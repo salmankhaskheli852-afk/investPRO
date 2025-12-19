@@ -34,6 +34,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function AdminWalletPage() {
   const firestore = useFirestore();
@@ -192,7 +193,16 @@ export default function AdminWalletPage() {
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
                   <Label htmlFor="new-wallet-name">Display Name</Label>
-                  <Input id="new-wallet-name" value={newWalletName} onChange={e => setNewWalletName(e.target.value)} placeholder="e.g., Easypaisa, HBL" />
+                   <Select value={newWalletName} onValueChange={setNewWalletName}>
+                    <SelectTrigger id="new-wallet-name">
+                        <SelectValue placeholder="Select account type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Easypaisa">Easypaisa</SelectItem>
+                        <SelectItem value="JazzCash">JazzCash</SelectItem>
+                        <SelectItem value="Bank">Bank</SelectItem>
+                    </SelectContent>
+                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="new-account-name">Account/Bank Name</Label>
