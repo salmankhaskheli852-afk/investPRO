@@ -32,13 +32,12 @@ function AgentNav() {
     if (agentData?.permissions?.canManageWithdrawalRequests) {
       items.push({ href: '/agent/withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine });
     }
-    // Check for the specific agent permission to access live chat
     if (agentData?.permissions?.canAccessLiveChat) {
       items.push({ href: '/agent/live-chat', label: 'Live Chat', icon: MessageCircle });
     }
     
     return items;
-  }, [agentData?.permissions]);
+  }, [agentData]);
 
   return <SidebarNav navItems={navItems} />;
 }
