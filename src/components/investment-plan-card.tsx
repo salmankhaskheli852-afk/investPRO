@@ -119,17 +119,29 @@ export function InvestmentPlanCard({
     
     try {
         await runTransaction(firestore, async (transaction) => {
+            // --- READS FIRST ---
             const planDoc = await transaction.get(planRef);
+            const walletDoc = await transaction.get(walletRef);
+
             if (!planDoc.exists()) {
                 throw new Error("Plan does not exist.");
             }
-            const currentPlanData = planDoc.data() as InvestmentPlan;
+            if (!walletDoc.exists()) {
+                throw new Error("User wallet not found.");
+            }
 
-            // Check purchase limit again within the transaction
+            const currentPlanData = planDoc.data() as InvestmentPlan;
+            const currentBalance = walletDoc.data().balance;
+
+            // --- VALIDATION ---
             if (currentPlanData.purchaseLimit && (currentPlanData.purchaseCount || 0) >= currentPlanData.purchaseLimit) {
                 throw new Error("This plan is sold out.");
             }
+            if (currentBalance < plan.price) {
+                throw new Error("Insufficient funds.");
+            }
 
+            // --- WRITES LAST ---
             // 1. Update purchase count on plan
             transaction.update(planRef, { purchaseCount: increment(1) });
             
@@ -137,19 +149,11 @@ export function InvestmentPlanCard({
             transaction.update(userRef, {
                 investments: arrayUnion({
                     planId: plan.id,
-                    purchaseDate: Timestamp.now()
+                    purchaseDate: Timestamp.now() // Use client-side timestamp in transactions
                 })
             });
 
             // 3. Deduct price from wallet
-            const walletDoc = await transaction.get(walletRef);
-            if (!walletDoc.exists()) {
-                throw new Error("User wallet not found.");
-            }
-            const currentBalance = walletDoc.data().balance;
-            if (currentBalance < plan.price) {
-                throw new Error("Insufficient funds.");
-            }
             const newBalance = currentBalance - plan.price;
             transaction.update(walletRef, { balance: newBalance });
 
@@ -159,7 +163,7 @@ export function InvestmentPlanCard({
                 type: 'investment',
                 amount: plan.price,
                 status: 'completed',
-                date: serverTimestamp(),
+                date: serverTimestamp(), // OK here as it's a new doc, not an arrayUnion
                 details: {
                     planId: plan.id,
                     planName: plan.name
