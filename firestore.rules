@@ -20,6 +20,7 @@ service cloud.firestore {
     }
 
     // Grant ADMIN total and complete access to ALL documents in the database.
+    // This rule is placed first to ensure it's evaluated before more specific rules.
     match /{document=**} {
       allow read, write, list: if isAdmin();
     }
@@ -40,7 +41,7 @@ service cloud.firestore {
     match /investment_plans/{planId} {
         // Any authenticated user can view the investment plans.
         allow read: if isUserAuthenticated();
-        // Only admins can create, update, or delete plans
+        // Admins can write (already covered by global rule, but kept for clarity)
         allow write: if isAdmin();
     }
 
@@ -48,6 +49,13 @@ service cloud.firestore {
     match /users/{userId}/{document=**} {
       // A user can only access their own subcollections (wallets, transactions, etc.).
       allow read, write: if isOwner(userId);
+    }
+
+    // Rules for the top-level 'transactions' collection for non-admins
+    match /transactions/{transactionId} {
+        // Admins are already covered. This allows users to read their own transactions if needed,
+        // although the app currently reads from the subcollection.
+        allow read: if request.auth.uid == resource.data.details.userId;
     }
 
     // Allow any authenticated user to read chat settings for the WhatsApp widget
