@@ -1,5 +1,3 @@
-
-import { PlaceHolderImages } from "./placeholder-images";
 import { Timestamp } from "firebase/firestore";
 
 export type PlanCategory = {
@@ -83,9 +81,8 @@ export type OfferConfig = {
 export type ChatSettings = {
     whatsappNumber?: string;
     whatsappCommunityLink?: string;
+    verificationBadgeText?: string;
 }
-
-const findImage = (id: string) => PlaceHolderImages.find(img => img.id === id);
 
 // This is now seed data for Firestore, not used directly in the app.
 export const investmentPlans: InvestmentPlan[] = [];

@@ -13,17 +13,26 @@ import {
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { LogOut, Settings, User as UserIcon, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import { useUser, useAuth } from '@/firebase';
+import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
+import { doc } from 'firebase/firestore';
+import type { ChatSettings } from '@/lib/data';
 
 
 export function Header() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
   const [hasMounted, setHasMounted] = useState(false);
+
+  const chatSettingsRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'app_config', 'chat_settings') : null),
+    [firestore]
+  );
+  const { data: chatSettings, isLoading: isLoadingSettings } = useDoc<ChatSettings>(chatSettingsRef);
 
   useEffect(() => {
     setHasMounted(true);
@@ -110,10 +119,12 @@ export function Header() {
         </Link>
       </div>
       <div className="flex items-center gap-4">
-        <div className="hidden items-center gap-1.5 sm:flex">
-          <ShieldCheck className="h-5 w-5 text-green-600" />
-          <span className="text-sm font-medium text-green-600">Verified by Gov</span>
-        </div>
+        {!isLoadingSettings && chatSettings?.verificationBadgeText && (
+          <div className="hidden items-center gap-1.5 sm:flex">
+            <ShieldCheck className="h-5 w-5 text-green-600" />
+            <span className="text-sm font-medium text-green-600">{chatSettings.verificationBadgeText}</span>
+          </div>
+        )}
         {renderUserMenu()}
       </div>
     </header>
