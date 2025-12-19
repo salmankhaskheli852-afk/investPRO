@@ -3,12 +3,12 @@
 
 import React from 'react';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
-import { DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank } from 'lucide-react';
+import { DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { collection, doc, query, where, getDocs, collectionGroup, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, doc, query, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
 import type { InvestmentPlan, User, Wallet, Transaction, UserInvestment } from '@/lib/data';
 
 const mockWalletData = [
@@ -81,15 +81,16 @@ export default function UserDashboardPage() {
   }, [activePlans]);
 
   const transactionTotals = React.useMemo(() => {
-    if (!transactions) return { deposit: 0, withdraw: 0, income: 0 };
+    if (!transactions) return { deposit: 0, withdraw: 0, income: 0, referral_income: 0 };
     return transactions.reduce((acc, tx) => {
       if (tx.status === 'completed') {
         if (tx.type === 'deposit') acc.deposit += tx.amount;
         else if (tx.type === 'withdrawal') acc.withdraw += tx.amount;
         else if (tx.type === 'income') acc.income += tx.amount;
+        else if (tx.type === 'referral_income') acc.referral_income += tx.amount;
       }
       return acc;
-    }, { deposit: 0, withdraw: 0, income: 0 });
+    }, { deposit: 0, withdraw: 0, income: 0, referral_income: 0 });
   }, [transactions]);
 
 
@@ -191,7 +192,7 @@ export default function UserDashboardPage() {
     <div className="space-y-8">
       <h1 className="text-3xl font-bold font-headline">Welcome back, {userData?.name.split(' ')[0]}!</h1>
       
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <DashboardStatsCard
           title="Wallet Balance"
           value={`${(walletData?.balance || 0).toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 2 })}`}
@@ -209,11 +210,19 @@ export default function UserDashboardPage() {
           chartKey="value"
         />
         <DashboardStatsCard
-          title="Total Income"
+          title="Daily Income"
           value={`${transactionTotals.income.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 2 })}`}
           description="From investments"
           Icon={PiggyBank}
           chartData={mockIncomeData}
+          chartKey="value"
+        />
+        <DashboardStatsCard
+          title="Referral Income"
+          value={`${(userData?.referralIncome || 0).toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 2 })}`}
+          description={`From ${userData?.referralCount || 0} friends`}
+          Icon={Users}
+          chartData={[]}
           chartKey="value"
         />
       </div>

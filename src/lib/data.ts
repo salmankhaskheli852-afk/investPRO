@@ -48,6 +48,11 @@ export type User = {
   role: 'user' | 'agent' | 'admin';
   assignedWallets?: string[]; // array of admin wallet IDs
   permissions?: AgentPermissions;
+  referralId: string; // User's own referral ID (same as user ID)
+  referrerId?: string; // The ID of the user who referred them
+  referralCount?: number;
+  referralIncome?: number;
+  createdAt: Timestamp;
 };
 
 export type Wallet = {
@@ -59,7 +64,7 @@ export type Wallet = {
 export type Transaction = {
   id:string;
   walletId: string;
-  type: 'deposit' | 'withdrawal' | 'investment' | 'income';
+  type: 'deposit' | 'withdrawal' | 'investment' | 'income' | 'referral_income';
   amount: number;
   status: 'pending' | 'completed' | 'failed' | 'revoked';
   date: Timestamp;
@@ -104,6 +109,8 @@ export type AppSettings = {
     maxDeposit?: number;
     minWithdrawal?: number;
     maxWithdrawal?: number;
+    baseInvitationUrl?: string;
+    referralCommissionPercentage?: number;
 }
 
 // This is now seed data for Firestore, not used directly in the app.

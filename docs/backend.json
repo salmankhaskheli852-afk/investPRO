@@ -12,9 +12,13 @@
         "email": { "type": "string", "description": "The email address of the user.", "format": "email" },
         "firstName": { "type": "string", "description": "The first name of the user." },
         "lastName": { "type": "string", "description": "The last name of the user." },
-        "role": { "type": "string", "description": "The role of the user (e.g., 'admin', 'agent', 'user')." }
+        "role": { "type": "string", "description": "The role of the user (e.g., 'admin', 'agent', 'user')." },
+        "referralId": { "type": "string", "description": "The user's own unique referral ID (typically same as user ID)." },
+        "referrerId": { "type": ["string", "null"], "description": "The user ID of the person who referred this user." },
+        "referralCount": { "type": "number", "description": "The number of users this user has successfully referred." },
+        "referralIncome": { "type": "number", "description": "The total income earned from referrals." }
       },
-      "required": ["id", "googleId", "email", "firstName", "lastName", "role"]
+      "required": ["id", "googleId", "email", "firstName", "lastName", "role", "referralId"]
     },
     "InvestmentPlan": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -51,7 +55,7 @@
       "properties": {
         "id": { "type": "string", "description": "Unique identifier for the transaction." },
         "walletId": { "type": "string", "description": "Reference to Wallet. (Relationship: Wallet 1:N Transaction)" },
-        "type": { "type": "string", "description": "The type of transaction ('deposit' or 'withdrawal')." },
+        "type": { "type": "string", "description": "The type of transaction ('deposit', 'withdrawal', 'referral_income')." },
         "amount": { "type": "number", "description": "The amount of the transaction." },
         "transactionDate": { "type": "string", "description": "The date and time of the transaction.", "format": "date-time" },
         "adminWalletNumber": { "type": "string", "description": "The admin's wallet number (for deposits)." },

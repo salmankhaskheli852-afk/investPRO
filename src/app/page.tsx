@@ -6,11 +6,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ShieldCheck, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useDoc } from '@/firebase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import React from 'react';
 import { signInWithGoogle } from '@/firebase/auth/sign-in';
 import { useAuth, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, collection, getDocs, writeBatch } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { User, AdminWallet, WithdrawalMethod, InvestmentPlan } from '@/lib/data';
 import { planCategories, investmentPlans as seedPlans } from '@/lib/data';
@@ -64,6 +64,8 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const seedInitialData = async () => {
     if (!firestore) return;
@@ -100,6 +102,13 @@ export default function Home() {
         batch.set(docRef, {...plan, id: docRef.id, createdAt: serverTimestamp() });
     });
 
+    // Seed app settings
+    const settingsRef = doc(firestore, 'app_config', 'app_settings');
+    batch.set(settingsRef, {
+        baseInvitationUrl: `${window.location.origin}/`,
+        referralCommissionPercentage: 5
+    }, { merge: true });
+
     await batch.commit();
   };
 
@@ -111,12 +120,13 @@ export default function Home() {
     if (!userDoc.exists()) {
       const role = firebaseUser.email === ADMIN_EMAIL ? 'admin' : 'user';
       if (role === 'admin') {
-          // Check if seeding is needed
           const adminWalletsSnapshot = await getDocs(collection(firestore, 'admin_wallets'));
           if(adminWalletsSnapshot.empty) {
             await seedInitialData();
           }
       }
+
+      const referrerId = searchParams.get('ref') || undefined;
 
       // Create user profile
       await setDoc(userRef, {
@@ -127,7 +137,21 @@ export default function Home() {
         investments: [],
         createdAt: serverTimestamp(),
         role: role,
+        referralId: firebaseUser.uid,
+        referrerId: referrerId,
+        referralCount: 0,
+        referralIncome: 0,
       });
+      
+      // If there was a referrer, update their count
+      if(referrerId) {
+          const referrerRef = doc(firestore, 'users', referrerId);
+          const referrerDoc = await getDoc(referrerRef);
+          if (referrerDoc.exists()) {
+              const currentCount = referrerDoc.data().referralCount || 0;
+              await setDoc(referrerRef, { referralCount: currentCount + 1 }, { merge: true });
+          }
+      }
 
       // If user is an admin, also add them to the roles collection
       if (role === 'admin') {
@@ -138,6 +162,7 @@ export default function Home() {
       // Create user wallet
       const walletRef = doc(collection(firestore, 'users', firebaseUser.uid, 'wallets'), 'main');
       await setDoc(walletRef, {
+        id: 'main',
         balance: 0,
         userId: firebaseUser.uid,
       });

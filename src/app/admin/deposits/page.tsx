@@ -13,17 +13,23 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import type { User, Transaction } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, getDoc } from 'firebase/firestore';
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import type { User, Transaction, AppSettings } from '@/lib/data';
+import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X } from 'lucide-react';
 
-function DepositRequestRow({ tx, user }: { tx: Transaction; user: User | undefined }) {
+function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User | undefined, onUpdate: () => void }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = React.useState(false);
+  
+  const settingsRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore]
+  );
+  const { data: appSettings } = useDoc<AppSettings>(settingsRef);
 
   const handleUpdateStatus = async (newStatus: 'completed' | 'failed') => {
     if (!firestore || !user) return;
@@ -41,6 +47,43 @@ function DepositRequestRow({ tx, user }: { tx: Transaction; user: User | undefin
         const walletData = walletSnapshot.data();
         const currentBalance = walletData?.balance || 0;
         batch.update(walletRef, { balance: currentBalance + tx.amount });
+
+        // Handle referral commission on first deposit
+        if (user.referrerId) {
+            // Check if this is the user's first completed deposit
+            const userTransactionsQuery = query(collection(firestore, 'users', user.id, 'wallets', 'main', 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'completed'));
+            const previousDeposits = await getDocs(userTransactionsQuery);
+            
+            if (previousDeposits.empty) { // This is the first deposit
+                const commissionRate = (appSettings?.referralCommissionPercentage || 0) / 100;
+                const commissionAmount = tx.amount * commissionRate;
+
+                if (commissionAmount > 0) {
+                    const referrerRef = doc(firestore, 'users', user.referrerId);
+                    const referrerWalletRef = doc(firestore, 'users', user.referrerId, 'wallets', 'main');
+                    
+                    // Add commission to referrer's wallet and income
+                    batch.update(referrerWalletRef, { balance: increment(commissionAmount) });
+                    batch.update(referrerRef, { referralIncome: increment(commissionAmount) });
+
+                    // Create a commission transaction for the referrer
+                    const referrerTxRef = doc(collection(firestore, 'users', user.referrerId, 'wallets', 'main', 'transactions'));
+                    batch.set(referrerTxRef, {
+                        id: referrerTxRef.id,
+                        type: 'referral_income',
+                        amount: commissionAmount,
+                        status: 'completed',
+                        date: serverTimestamp(),
+                        walletId: 'main',
+                        details: {
+                            referredUserId: user.id,
+                            referredUserName: user.name,
+                            originalDeposit: tx.amount,
+                        }
+                    });
+                }
+            }
+        }
       }
 
       batch.update(globalTransactionRef, { status: newStatus });
@@ -52,6 +95,8 @@ function DepositRequestRow({ tx, user }: { tx: Transaction; user: User | undefin
         title: `Request ${newStatus}`,
         description: `The deposit request for ${tx.amount} PKR has been ${newStatus}.`,
       });
+      onUpdate();
+
     } catch (e: any) {
       toast({
         variant: 'destructive',
@@ -126,7 +171,7 @@ export default function AdminDepositsPage() {
     () => firestore ? query(collection(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'pending')) : null,
     [firestore]
   );
-  const { data: depositRequests, isLoading: isLoadingDeposits } = useCollection<Transaction>(depositsQuery);
+  const { data: depositRequests, isLoading: isLoadingDeposits, forceRefetch } = useCollection<Transaction>(depositsQuery);
   
   const findUserForTx = (tx: Transaction) => users?.find(u => u.id === tx.details?.userId);
 
@@ -164,7 +209,7 @@ export default function AdminDepositsPage() {
                 </TableRow>
               ) : depositRequests && depositRequests.length > 0 ? (
                 depositRequests.map((tx) => (
-                  <DepositRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} />
+                  <DepositRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} onUpdate={forceRefetch} />
                 ))
               ) : (
                 <TableRow>

@@ -4,7 +4,7 @@
 import { Sidebar, SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav, type NavItem } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
-import { LayoutDashboard, TrendingUp, Wallet, History } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, Wallet, History, GitBranch } from 'lucide-react';
 import { WhatsAppWidget } from '@/components/whatsapp-widget';
 
 const navItems: NavItem[] = [
@@ -12,6 +12,7 @@ const navItems: NavItem[] = [
   { href: '/user/investments', label: 'Investments', icon: TrendingUp },
   { href: '/user/wallet', label: 'Wallet', icon: Wallet },
   { href: '/user/history', label: 'History', icon: History },
+  { href: '/user/invitation', label: 'Invitation', icon: GitBranch },
 ];
 
 export default function UserLayout({
