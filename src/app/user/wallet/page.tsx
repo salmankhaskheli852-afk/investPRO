@@ -151,8 +151,8 @@ export default function UserWalletPage() {
   const { data: walletData } = useDoc<Wallet>(walletRef);
   
   const adminWalletsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'admin_wallets'), where('isEnabled', '==', true)) : null,
-    [firestore]
+    () => (firestore && user ? query(collection(firestore, 'admin_wallets'), where('isEnabled', '==', true)) : null),
+    [firestore, user]
   );
   const { data: adminWalletsData } = useCollection<AdminWallet>(adminWalletsQuery);
   

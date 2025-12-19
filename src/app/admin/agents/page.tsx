@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { AdminWallet, User } from '@/lib/data';
 import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
 import {
@@ -100,6 +100,7 @@ function AgentRow({
 
 export default function AdminAgentsPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const [isManageDialogOpen, setIsManageDialogOpen] = React.useState(false);
   const [selectedAgent, setSelectedAgent] = React.useState<User | null>(null);
@@ -112,8 +113,8 @@ export default function AdminAgentsPage() {
   const { data: agents, isLoading: isLoadingAgents } = useCollection<User>(agentsQuery);
 
   const adminWalletsQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'admin_wallets') : null,
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'admin_wallets') : null),
+    [firestore, user]
   );
   const { data: adminWallets, isLoading: isLoadingWallets } = useCollection<AdminWallet>(adminWalletsQuery);
   

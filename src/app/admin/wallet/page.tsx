@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { AdminWallet, WithdrawalMethod } from '@/lib/data';
 import { collection, doc, addDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +39,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 export default function AdminWalletPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { user } = useUser();
 
   const [isNewAccountDialogOpen, setIsNewAccountDialogOpen] = React.useState(false);
   const [isEditAccountDialogOpen, setIsEditAccountDialogOpen] = React.useState(false);
@@ -58,14 +59,14 @@ export default function AdminWalletPage() {
   const [editIsBank, setEditIsBank] = React.useState(false);
 
   const adminWalletsQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'admin_wallets') : null,
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'admin_wallets') : null),
+    [firestore, user]
   );
   const { data: adminWallets, isLoading: isLoadingWallets } = useCollection<AdminWallet>(adminWalletsQuery);
 
   const withdrawalMethodsQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'withdrawal_methods') : null,
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'withdrawal_methods') : null),
+    [firestore, user]
   );
   const { data: withdrawalMethods, isLoading: isLoadingMethods } = useCollection<WithdrawalMethod>(withdrawalMethodsQuery);
   
