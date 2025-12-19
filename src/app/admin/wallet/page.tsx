@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,6 +18,8 @@ import {
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 
 export default function AdminWalletPage() {
   return (
@@ -24,9 +27,45 @@ export default function AdminWalletPage() {
       <div>
         <h1 className="text-3xl font-bold font-headline">Wallet Settings</h1>
         <p className="text-muted-foreground">
-          Manage the wallet and bank details that will be displayed to users for deposits.
+          Manage deposit accounts and available withdrawal methods for users.
         </p>
       </div>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Withdrawal Method Settings</CardTitle>
+          <CardDescription>Enable or disable withdrawal options for all users.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="jazzcash-switch" className="text-base">JazzCash</Label>
+              <p className="text-sm text-muted-foreground">
+                Allow users to withdraw funds to a JazzCash account.
+              </p>
+            </div>
+            <Switch id="jazzcash-switch" defaultChecked />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="easypaisa-switch" className="text-base">Easypaisa</Label>
+              <p className="text-sm text-muted-foreground">
+                Allow users to withdraw funds to an Easypaisa account.
+              </p>
+            </div>
+            <Switch id="easypaisa-switch" defaultChecked />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="bank-switch" className="text-base">Bank Transfer</Label>
+              <p className="text-sm text-muted-foreground">
+                Allow users to withdraw funds to a bank account.
+              </p>
+            </div>
+            <Switch id="bank-switch" defaultChecked />
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

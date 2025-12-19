@@ -27,9 +27,13 @@ import {
 
 export default function UserWalletPage() {
   const [selectedWallet, setSelectedWallet] = React.useState(adminWallets.find(w => !w.isBank)?.id || '');
+  const [showBankDetails, setShowBankDetails] = React.useState(false);
 
   const selectedWalletDetails = adminWallets.find(w => w.id === selectedWallet);
 
+  const handleWithdrawalMethodChange = (value: string) => {
+    setShowBankDetails(value === 'bank');
+  }
 
   return (
     <div className="space-y-8">
@@ -134,7 +138,7 @@ export default function UserWalletPage() {
                         <div className="grid gap-4 py-4">
                             <div className="space-y-2">
                                 <Label>Select Method</Label>
-                                <RadioGroup defaultValue="bank" className="flex">
+                                <RadioGroup onValueChange={handleWithdrawalMethodChange} defaultValue="jazzcash" className="flex">
                                     <Label htmlFor="jazzcash" className="flex items-center space-x-2 cursor-pointer">
                                         <RadioGroupItem value="jazzcash" id="jazzcash" />
                                         <span>JazzCash</span>
@@ -149,38 +153,42 @@ export default function UserWalletPage() {
                                     </Label>
                                 </RadioGroup>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="bank-name">Bank Name</Label>
-                                <Select>
-                                    <SelectTrigger id="bank-name">
-                                        <SelectValue placeholder="Select a bank" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="meezan">Meezan Bank</SelectItem>
-                                        <SelectItem value="hbl">Habib Bank Limited (HBL)</SelectItem>
-                                        <SelectItem value="ubl">United Bank Limited (UBL)</SelectItem>
-                                        <SelectItem value="nbp">National Bank of Pakistan (NBP)</SelectItem>
-                                        <SelectItem value="abl">Allied Bank Limited (ABL)</SelectItem>
-                                        <SelectItem value="mcb">MCB Bank Limited</SelectItem>
-                                        <SelectItem value="alfalah">Bank Alfalah</SelectItem>
-                                        <SelectItem value="faysal">Faysal Bank</SelectItem>
-                                        <SelectItem value="askari">Askari Bank</SelectItem>
-                                        <SelectItem value="alhabib">Bank Al-Habib</SelectItem>
-                                        <SelectItem value="js">JS Bank</SelectItem>
-                                        <SelectItem value="soneri">Soneri Bank</SelectItem>
-                                        <SelectItem value="summit">Summit Bank</SelectItem>
-                                        <SelectItem value="bop">The Bank of Punjab</SelectItem>
-                                        <SelectItem value="sc">Standard Chartered Bank</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+
+                            {showBankDetails ? (
+                                <div className="space-y-2">
+                                    <Label htmlFor="bank-name">Bank Name</Label>
+                                    <Select>
+                                        <SelectTrigger id="bank-name">
+                                            <SelectValue placeholder="Select a bank" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="meezan">Meezan Bank</SelectItem>
+                                            <SelectItem value="hbl">Habib Bank Limited (HBL)</SelectItem>
+                                            <SelectItem value="ubl">United Bank Limited (UBL)</SelectItem>
+                                            <SelectItem value="nbp">National Bank of Pakistan (NBP)</SelectItem>
+                                            <SelectItem value="abl">Allied Bank Limited (ABL)</SelectItem>
+                                            <SelectItem value="mcb">MCB Bank Limited</SelectItem>
+                                            <SelectItem value="alfalah">Bank Alfalah</SelectItem>
+                                            <SelectItem value="faysal">Faysal Bank</SelectItem>
+                                            <SelectItem value="askari">Askari Bank</SelectItem>
+                                            <SelectItem value="alhabib">Bank Al-Habib</SelectItem>
+                                            <SelectItem value="js">JS Bank</SelectItem>
+                                            <SelectItem value="soneri">Soneri Bank</SelectItem>
+                                            <SelectItem value="summit">Summit Bank</SelectItem>
+                                            <SelectItem value="bop">The Bank of Punjab</SelectItem>
+                                            <SelectItem value="sc">Standard Chartered Bank</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            ) : null}
+
                             <div className="space-y-2">
                                 <Label htmlFor="withdraw-account-holder">Account Holder Name</Label>
                                 <Input id="withdraw-account-holder" placeholder="Your Name" />
                             </div>
                              <div className="space-y-2">
-                                <Label htmlFor="withdraw-account-number">Account Number / IBAN</Label>
-                                <Input id="withdraw-account-number" placeholder="PK..." />
+                                <Label htmlFor="withdraw-account-number">{showBankDetails ? 'Account Number / IBAN' : 'Account Number'}</Label>
+                                <Input id="withdraw-account-number" placeholder={showBankDetails ? 'PK...' : '03...'} />
                             </div>
                              <div className="space-y-2">
                                 <Label htmlFor="withdraw-amount">Amount to Withdraw (PKR)</Label>
