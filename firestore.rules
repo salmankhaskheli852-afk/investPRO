@@ -68,7 +68,7 @@ service cloud.firestore {
     
     // A user has full access to their own sub-collections (wallets, transactions, withdrawal_accounts, etc.).
     match /users/{userId}/{collection}/{docId} {
-      allow read, write, create, delete: if isOwner(userId);
+      allow read, write, create, delete, list: if isOwner(userId);
     }
     
     // Any authenticated user can read admin wallet details for depositing.
