@@ -10,6 +10,25 @@ import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 
+const mockWalletData = [
+  { name: 'Jan', balance: 1000 },
+  { name: 'Feb', balance: 1200 },
+  { name: 'Mar', balance: 900 },
+  { name: 'Apr', balance: 1500 },
+  { name: 'May', balance: 1400 },
+  { name: 'Jun', balance: 1800 },
+];
+
+const mockInvestmentData = [
+  { name: 'Jan', investment: 500 },
+  { name: 'Feb', investment: 600 },
+  { name: 'Mar', investment: 800 },
+  { name: 'Apr', investment: 700 },
+  { name: 'May', investment: 900 },
+  { name: 'Jun', investment: 1100 },
+];
+
+
 export default function UserDashboardPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
@@ -60,12 +79,16 @@ export default function UserDashboardPage() {
           value={`${walletBalance.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 2 })}`}
           description="Available funds for investment or withdrawal"
           Icon={DollarSign}
+          chartData={mockWalletData}
+          chartKey="balance"
         />
         <DashboardStatsCard
           title="Total Invested"
           value={`${totalInvestment.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 })}`}
           description={`${activePlans.length} active plans`}
           Icon={TrendingUp}
+          chartData={mockInvestmentData}
+          chartKey="investment"
         />
       </div>
 
@@ -84,7 +107,8 @@ export default function UserDashboardPage() {
                     key={plan.id} 
                     plan={plan} 
                     isPurchased={true}
-                    userWalletBalance={walletBalance} 
+                    userWalletBalance={walletBalance}
+                    showPurchaseButton={false}
                   />
                 );
               })}

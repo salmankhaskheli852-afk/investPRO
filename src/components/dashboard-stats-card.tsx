@@ -1,6 +1,10 @@
+
+'use client';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { LucideIcon } from 'lucide-react';
+import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 
 interface DashboardStatsCardProps {
   title: string;
@@ -8,6 +12,8 @@ interface DashboardStatsCardProps {
   description: string;
   Icon: LucideIcon;
   className?: string;
+  chartData: any[];
+  chartKey: string;
 }
 
 export function DashboardStatsCard({
@@ -16,17 +22,39 @@ export function DashboardStatsCard({
   description,
   Icon,
   className,
+  chartData,
+  chartKey,
 }: DashboardStatsCardProps) {
   return (
-    <Card className={cn("transition-all hover:shadow-md", className)}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+    <Card className={cn("transition-all hover:shadow-md overflow-hidden relative", className)}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 z-10 relative">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Icon className="h-5 w-5 text-muted-foreground" />
       </CardHeader>
-      <CardContent>
+      <CardContent className="z-10 relative">
         <div className="text-2xl font-bold">{value}</div>
         <p className="text-xs text-muted-foreground">{description}</p>
       </CardContent>
+      <div className="absolute bottom-0 left-0 w-full h-2/3 opacity-20">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id={`color${chartKey}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <Area 
+                type="monotone" 
+                dataKey={chartKey} 
+                stroke="hsl(var(--primary))" 
+                strokeWidth={2}
+                fillOpacity={1} 
+                fill={`url(#color${chartKey})`}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+      </div>
     </Card>
   );
 }

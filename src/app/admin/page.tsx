@@ -6,6 +6,25 @@ import { users, agents, investmentPlans, transactions } from '@/lib/data';
 import { DollarSign, TrendingUp, Users, UserCog, Activity } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
+const mockRevenueData = [
+  { name: 'Jan', revenue: 20000 },
+  { name: 'Feb', revenue: 22000 },
+  { name: 'Mar', revenue: 19000 },
+  { name: 'Apr', revenue: 25000 },
+  { name: 'May', revenue: 24000 },
+  { name: 'Jun', revenue: 28000 },
+];
+
+const mockUsersData = [
+  { name: 'Jan', users: 10 },
+  { name: 'Feb', users: 12 },
+  { name: 'Mar', users: 15 },
+  { name: 'Apr', users: 14 },
+  { name: 'May', users: 18 },
+  { name: 'Jun', users: 22 },
+];
+
+
 export default function AdminDashboardPage() {
   const totalInvestment = users.reduce((acc, user) => {
     const userInvestments = user.investments.reduce((sum, planId) => {
@@ -27,24 +46,32 @@ export default function AdminDashboardPage() {
           value={`${totalInvestment.toLocaleString()} PKR`}
           description="Total amount invested by users"
           Icon={DollarSign}
+          chartData={mockRevenueData}
+          chartKey="revenue"
         />
         <DashboardStatsCard
           title="Total Users"
           value={users.length.toString()}
           description="Number of registered users"
           Icon={Users}
+          chartData={mockUsersData}
+          chartKey="users"
         />
         <DashboardStatsCard
           title="Total Agents"
           value={agents.length.toString()}
           description="Number of registered agents"
           Icon={UserCog}
+          chartData={[{ a:1}, {a:2}]}
+          chartKey="a"
         />
         <DashboardStatsCard
           title="Investment Plans"
           value={investmentPlans.length.toString()}
           description="Number of available plans"
           Icon={TrendingUp}
+          chartData={[{ a:1}, {a:2}]}
+          chartKey="a"
         />
       </div>
 
