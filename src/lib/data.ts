@@ -1,5 +1,10 @@
 import { PlaceHolderImages } from "./placeholder-images";
 
+export type PlanCategory = {
+  id: string;
+  name: string;
+};
+
 export type InvestmentPlan = {
   id: string;
   name: string;
@@ -9,6 +14,7 @@ export type InvestmentPlan = {
   imageUrl: string;
   imageHint: string;
   color: string;
+  categoryId: string;
 };
 
 export type User = {
@@ -40,6 +46,11 @@ export type Transaction = {
 
 const findImage = (id: string) => PlaceHolderImages.find(img => img.id === id);
 
+export const planCategories: PlanCategory[] = [
+    { id: 'cat-1', name: 'Standard' },
+    { id: 'cat-2', name: 'Premium' },
+];
+
 export const investmentPlans: InvestmentPlan[] = [
   {
     id: 'plan-1',
@@ -50,6 +61,7 @@ export const investmentPlans: InvestmentPlan[] = [
     imageUrl: findImage('plan-starter')?.imageUrl || '',
     imageHint: findImage('plan-starter')?.imageHint || '',
     color: 'from-blue-500 to-blue-600',
+    categoryId: 'cat-1',
   },
   {
     id: 'plan-2',
@@ -60,6 +72,7 @@ export const investmentPlans: InvestmentPlan[] = [
     imageUrl: findImage('plan-standard')?.imageUrl || '',
     imageHint: findImage('plan-standard')?.imageHint || '',
     color: 'from-green-500 to-green-600',
+    categoryId: 'cat-1',
   },
   {
     id: 'plan-3',
@@ -70,6 +83,7 @@ export const investmentPlans: InvestmentPlan[] = [
     imageUrl: findImage('plan-premium')?.imageUrl || '',
     imageHint: findImage('plan-premium')?.imageHint || '',
     color: 'from-purple-500 to-purple-600',
+    categoryId: 'cat-2',
   },
   {
     id: 'plan-4',
@@ -80,6 +94,7 @@ export const investmentPlans: InvestmentPlan[] = [
     imageUrl: findImage('plan-vip')?.imageUrl || '',
     imageHint: findImage('plan-vip')?.imageHint || '',
     color: 'from-amber-500 to-amber-600',
+    categoryId: 'cat-2',
   },
 ];
 
