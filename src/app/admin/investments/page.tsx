@@ -322,12 +322,10 @@ export default function AdminInvestmentsPage() {
             <h1 className="text-3xl font-bold font-headline">Manage Investments</h1>
             <p className="text-muted-foreground">Add, edit, or remove investment plans and categories.</p>
           </div>
-          <DialogTrigger asChild>
-             <Button className="bg-accent hover:bg-accent/90" onClick={() => { setEditingPlan(null); setIsPlanFormOpen(true); }}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add New Plan
-            </Button>
-          </DialogTrigger>
+          <Button className="bg-accent hover:bg-accent/90" onClick={() => { setEditingPlan(null); setIsPlanFormOpen(true); }}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add New Plan
+          </Button>
         </div>
 
         <div className="grid gap-8 md:grid-cols-3">
