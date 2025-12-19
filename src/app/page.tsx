@@ -43,6 +43,13 @@ export default function Home() {
   const router = useRouter();
   const auth = useAuth();
 
+  const handleSignIn = async () => {
+    const result = await signInWithGoogle(auth);
+    if (result?.user) {
+      router.push('/user');
+    }
+  };
+
   React.useEffect(() => {
     if (!isUserLoading && user) {
       router.push('/user');
@@ -67,7 +74,7 @@ export default function Home() {
           <CardDescription className="pt-2">Your trusted partner in modern investments.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button className="w-full" size="lg" onClick={() => signInWithGoogle(auth)}>
+          <Button className="w-full" size="lg" onClick={handleSignIn}>
               <GoogleIcon className="mr-2" />
               Sign in with Google
           </Button>
