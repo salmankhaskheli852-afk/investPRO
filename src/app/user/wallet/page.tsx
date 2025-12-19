@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -17,10 +17,17 @@ import {
 import { adminWallets } from '@/lib/data';
 import { ArrowDownToLine, ArrowUpFromLine, Banknote, Landmark } from 'lucide-react';
 import React from 'react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export default function UserWalletPage() {
   const [activeTab, setActiveTab] = React.useState('deposit');
-  const [selectedWallet, setSelectedWallet] = React.useState(adminWallets[0]?.id || '');
+  const [selectedWallet, setSelectedWallet] = React.useState(adminWallets.find(w => !w.isBank)?.id || '');
 
   const selectedWalletDetails = adminWallets.find(w => w.id === selectedWallet);
 
@@ -43,9 +50,8 @@ export default function UserWalletPage() {
                   <DialogTrigger asChild>
                     <Button 
                         size="lg"
-                        variant={activeTab === 'deposit' ? 'default' : 'outline'}
+                        variant='outline'
                         onClick={() => setActiveTab('deposit')}
-                        className={activeTab === 'deposit' ? 'bg-primary hover:bg-primary/90' : ''}
                     >
                         <ArrowDownToLine className="mr-2 h-4 w-4" />
                         Deposit
@@ -111,46 +117,75 @@ export default function UserWalletPage() {
                   </DialogContent>
                 </Dialog>
 
-                <Button 
-                    size="lg" 
-                    onClick={() => setActiveTab('withdraw')}
-                    className={activeTab === 'withdraw' ? 'bg-primary hover:bg-primary/90' : ''}
-                    variant={activeTab === 'withdraw' ? 'default' : 'outline'}
-                >
-                    <ArrowUpFromLine className="mr-2 h-4 w-4" />
-                    Withdraw
-                </Button>
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <Button 
+                            size="lg"
+                            variant='outline'
+                        >
+                            <ArrowUpFromLine className="mr-2 h-4 w-4" />
+                            Withdraw
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>Withdraw Funds</DialogTitle>
+                            <DialogDescription>
+                                Select your withdrawal method and enter your details.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="space-y-2">
+                                <Label>Select Method</Label>
+                                <RadioGroup defaultValue="bank" className="flex">
+                                    <Label htmlFor="jazzcash" className="flex items-center space-x-2 cursor-pointer">
+                                        <RadioGroupItem value="jazzcash" id="jazzcash" />
+                                        <span>JazzCash</span>
+                                    </Label>
+                                    <Label htmlFor="easypaisa" className="flex items-center space-x-2 cursor-pointer">
+                                        <RadioGroupItem value="easypaisa" id="easypaisa" />
+                                        <span>Easypaisa</span>
+                                    </Label>
+                                    <Label htmlFor="bank" className="flex items-center space-x-2 cursor-pointer">
+                                        <RadioGroupItem value="bank" id="bank" />
+                                        <span>Bank Transfer</span>
+                                    </Label>
+                                </RadioGroup>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="bank-name">Bank Name</Label>
+                                <Select>
+                                    <SelectTrigger id="bank-name">
+                                        <SelectValue placeholder="Select a bank" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="meezan">Meezan Bank</SelectItem>
+                                        <SelectItem value="hbl">HBL</SelectItem>
+                                        <SelectItem value="ubl">UBL</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="withdraw-account-holder">Account Holder Name</Label>
+                                <Input id="withdraw-account-holder" placeholder="Your Name" />
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="withdraw-account-number">Account Number / IBAN</Label>
+                                <Input id="withdraw-account-number" placeholder="PK..." />
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="withdraw-amount">Amount to Withdraw (PKR)</Label>
+                                <Input id="withdraw-amount" type="number" placeholder="1000" />
+                            </div>
+                        </div>
+                         <DialogFooter>
+                            <Button type="submit" className="w-full bg-primary hover:bg-primary/90">Submit Request</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </CardContent>
       </Card>
-        
-      {activeTab === 'withdraw' && (
-          <Card className="max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle>Withdraw Funds</CardTitle>
-              <CardDescription>
-                Enter your withdrawal details below. Requests are processed within 24 hours.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount (PKR)</Label>
-                <Input id="amount" type="number" placeholder="e.g., 500" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="wallet-name">Wallet Name</Label>
-                <Input id="wallet-name" placeholder="e.g., USDT (TRC20)" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="wallet-address">Your Wallet Address</Label>
-                <Input id="wallet-address" placeholder="Enter your receiving address" />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full bg-accent hover:bg-accent/90">Submit Withdrawal Request</Button>
-            </CardFooter>
-          </Card>
-      )}
     </div>
   );
 }
