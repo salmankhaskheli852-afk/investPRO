@@ -41,6 +41,11 @@ service cloud.firestore {
         // Any authenticated user can view the investment plans.
         allow read: if isUserAuthenticated();
     }
+    
+    // This rule gives a user full read/write access to their own wallet document.
+    match /users/{userId}/wallets/{walletId} {
+      allow read, write: if isOwner(userId);
+    }
 
     // This rule allows a user to read, create, and update their own transactions.
     match /users/{userId}/wallets/main/transactions/{transactionId} {
