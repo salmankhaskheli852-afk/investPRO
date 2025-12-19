@@ -54,10 +54,7 @@ export function InvestmentPlanCard({ plan, isPurchased = false, userWalletBalanc
   const totalIncome = plan.dailyIncome * plan.incomePeriod;
 
   const renderPurchaseButton = () => {
-    if (showAsPurchased && isPurchased) {
-      return <Button size="lg" className="w-full" disabled>Purchased</Button>;
-    }
-
+    // This button is for the dashboard view where progress is shown.
     if (isPurchased && !showAsPurchased) {
         return (
             <div>
@@ -70,11 +67,12 @@ export function InvestmentPlanCard({ plan, isPurchased = false, userWalletBalanc
         );
     }
 
+    // This is for the main investment page view.
     return (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button size="lg" className="w-full bg-primary hover:bg-primary/90" disabled={!canAfford}>
-            {canAfford ? 'Purchase Plan' : 'Insufficient Funds'}
+          <Button size="lg" className="w-full bg-primary hover:bg-primary/90">
+            Purchase Plan
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-sm">
@@ -106,13 +104,21 @@ export function InvestmentPlanCard({ plan, isPurchased = false, userWalletBalanc
               </div>
                <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Remaining Balance</span>
-                  <span className="font-medium">{(userWalletBalance - plan.price).toLocaleString()} Rs</span>
+                  <span className={cn("font-medium", !canAfford && "text-destructive")}>
+                    {(userWalletBalance - plan.price).toLocaleString()} Rs
+                  </span>
               </div>
             </div>
+            {isPurchased && (
+                <p className="text-sm text-center text-amber-600">You have already purchased this plan.</p>
+            )}
+            {!isPurchased && !canAfford && (
+                <p className="text-sm text-center text-destructive">You do not have enough funds to purchase this plan.</p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handlePurchase} className="bg-primary hover:bg-primary/90">
+            <Button onClick={handlePurchase} className="bg-primary hover:bg-primary/90" disabled={!canAfford || isPurchased}>
               Confirm & Invest
             </Button>
           </DialogFooter>
@@ -123,7 +129,7 @@ export function InvestmentPlanCard({ plan, isPurchased = false, userWalletBalanc
 
   return (
     <Card className={cn("w-full overflow-hidden flex flex-col transition-all duration-300 hover:scale-[1.02] hover:shadow-xl shadow-lg border-2 border-transparent", `hover:border-primary`)}>
-      <div className="relative aspect-video w-full">
+      <div className="relative aspect-[4/3] w-full">
         <Image
           src={plan.imageUrl}
           alt={plan.name}
@@ -131,6 +137,12 @@ export function InvestmentPlanCard({ plan, isPurchased = false, userWalletBalanc
           className="object-cover"
           data-ai-hint={plan.imageHint}
         />
+         {isPurchased && showAsPurchased && (
+            <div className="absolute top-2 right-2 bg-primary/80 backdrop-blur-sm text-primary-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                <span>Purchased</span>
+            </div>
+         )}
          {isPurchased && !showAsPurchased && (
           <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
             <CheckCircle className="w-3 h-3" />
