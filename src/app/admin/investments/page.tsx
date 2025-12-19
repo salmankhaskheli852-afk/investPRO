@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -24,7 +23,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { planCategories } from '@/lib/data';
+import { PlanCategory } from '@/lib/data';
 import { Edit, PlusCircle, Trash2, Timer } from 'lucide-react';
 import {
   Select,
@@ -57,11 +56,13 @@ const PlanFormDialog = ({
     onOpenChange,
     planToEdit,
     onSuccess,
+    planCategories,
 } : {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     planToEdit: InvestmentPlan | null;
     onSuccess: () => void;
+    planCategories: PlanCategory[];
 }) => {
     const firestore = useFirestore();
     const { toast } = useToast();
@@ -269,6 +270,75 @@ const PlanFormDialog = ({
     )
 }
 
+const CategoryFormDialog = ({
+  isOpen,
+  onOpenChange,
+  categoryToEdit,
+  onSuccess,
+}: {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  categoryToEdit: PlanCategory | null;
+  onSuccess: () => void;
+}) => {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const [name, setName] = React.useState('');
+  const [isSaving, setIsSaving] = React.useState(false);
+  const isEditMode = categoryToEdit !== null;
+
+  React.useEffect(() => {
+    if (categoryToEdit) {
+      setName(categoryToEdit.name);
+    } else {
+      setName('');
+    }
+  }, [categoryToEdit]);
+
+  const handleSave = async () => {
+    if (!firestore || !name) return;
+    setIsSaving(true);
+    try {
+      if (isEditMode && categoryToEdit) {
+        const categoryRef = doc(firestore, 'plan_categories', categoryToEdit.id);
+        await updateDoc(categoryRef, { name });
+        toast({ title: 'Category Updated' });
+      } else {
+        const newDocRef = doc(collection(firestore, 'plan_categories'));
+        await setDoc(newDocRef, { id: newDocRef.id, name, createdAt: serverTimestamp() });
+        toast({ title: 'Category Created' });
+      }
+      onSuccess();
+      onOpenChange(false);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>{isEditMode ? 'Edit' : 'Add New'} Category</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="category-name" className="text-right">Name</Label>
+            <Input id="category-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., High-Risk" className="col-span-3" />
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild><Button variant='outline'>Cancel</Button></DialogClose>
+          <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+
 export default function AdminInvestmentsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -276,11 +346,20 @@ export default function AdminInvestmentsPage() {
   const [isPlanFormOpen, setIsPlanFormOpen] = React.useState(false);
   const [editingPlan, setEditingPlan] = React.useState<InvestmentPlan | null>(null);
 
+  const [isCategoryFormOpen, setIsCategoryFormOpen] = React.useState(false);
+  const [editingCategory, setEditingCategory] = React.useState<PlanCategory | null>(null);
+
   const plansQuery = useMemoFirebase(
     () => firestore ? query(collection(firestore, 'investment_plans'), orderBy('createdAt', 'desc')) : null,
     [firestore]
   );
-  const { data: investmentPlans, isLoading, forceRefetch } = useCollection<InvestmentPlan>(plansQuery);
+  const { data: investmentPlans, isLoading: isLoadingPlans, forceRefetch: refetchPlans } = useCollection<InvestmentPlan>(plansQuery);
+
+  const categoriesQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'plan_categories'), orderBy('createdAt', 'asc')) : null,
+    [firestore]
+  );
+  const { data: planCategories, isLoading: isLoadingCategories, forceRefetch: refetchCategories } = useCollection<PlanCategory>(categoriesQuery);
   
   const handleEditPlan = (plan: InvestmentPlan) => {
     setEditingPlan(plan);
@@ -301,6 +380,22 @@ export default function AdminInvestmentsPage() {
         title: 'Error Deleting Plan',
         description: e.message,
       });
+    }
+  };
+
+  const handleEditCategory = (category: PlanCategory) => {
+    setEditingCategory(category);
+    setIsCategoryFormOpen(true);
+  };
+
+  const handleDeleteCategory = async (category: PlanCategory) => {
+    if (!firestore) return;
+    try {
+      // Add check if any plan is using this category
+      await deleteDoc(doc(firestore, 'plan_categories', category.id));
+      toast({ title: 'Category Deleted' });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error deleting category', description: e.message });
     }
   };
 
@@ -337,7 +432,7 @@ export default function AdminInvestmentsPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                      {isLoading && <p>Loading plans...</p>}
+                      {isLoadingPlans && <p>Loading plans...</p>}
                       {sortedPlans?.map((plan) => (
                          <div key={plan.id} className="relative group">
                            <InvestmentPlanCard plan={plan} showPurchaseButton={false} />
@@ -379,29 +474,10 @@ export default function AdminInvestmentsPage() {
                   </CardHeader>
                   <CardContent>
                      <div className="space-y-4">
-                       <Dialog>
-                          <DialogTrigger asChild>
-                              <Button variant="outline" className="w-full">
-                                  <PlusCircle className="mr-2 h-4 w-4" />
-                                  Add Category
-                              </Button>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-[425px]">
-                              <DialogHeader>
-                                  <DialogTitle>Add New Category</DialogTitle>
-                              </DialogHeader>
-                              <div className="grid gap-4 py-4">
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label htmlFor="category-name" className="text-right">Name</Label>
-                                  <Input id="category-name" placeholder="e.g., High-Risk" className="col-span-3" />
-                                  </div>
-                              </div>
-                              <DialogFooter>
-                                  <Button type="submit">Create Category</Button>
-                              </DialogFooter>
-                          </DialogContent>
-                      </Dialog>
-
+                       <Button variant="outline" className="w-full" onClick={() => { setEditingCategory(null); setIsCategoryFormOpen(true); }}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Add Category
+                        </Button>
                       <Table>
                           <TableHeader>
                               <TableRow>
@@ -410,17 +486,36 @@ export default function AdminInvestmentsPage() {
                               </TableRow>
                           </TableHeader>
                           <TableBody>
-                              {planCategories.map(cat => (
+                              {isLoadingCategories && (
+                                <TableRow><TableCell colSpan={2} className="text-center">Loading...</TableCell></TableRow>
+                              )}
+                              {planCategories?.map(cat => (
                                   <TableRow key={cat.id}>
                                       <TableCell className="font-medium">{cat.name}</TableCell>
                                       <TableCell className="text-right">
                                           <div className="flex items-center justify-end gap-2">
-                                              <Button variant="ghost" size="icon">
+                                              <Button variant="ghost" size="icon" onClick={() => handleEditCategory(cat)}>
                                                   <Edit className="h-4 w-4" />
                                               </Button>
-                                              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                                  <Trash2 className="h-4 w-4" />
-                                              </Button>
+                                              <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                                      <Trash2 className="h-4 w-4" />
+                                                  </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Delete {cat.name}?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            This action cannot be undone.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDeleteCategory(cat)}>Delete</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                              </AlertDialog>
                                           </div>
                                       </TableCell>
                                   </TableRow>
@@ -437,7 +532,14 @@ export default function AdminInvestmentsPage() {
         isOpen={isPlanFormOpen}
         onOpenChange={setIsPlanFormOpen}
         planToEdit={editingPlan}
-        onSuccess={forceRefetch}
+        onSuccess={refetchPlans}
+        planCategories={planCategories || []}
+      />
+      <CategoryFormDialog
+        isOpen={isCategoryFormOpen}
+        onOpenChange={setIsCategoryFormOpen}
+        categoryToEdit={editingCategory}
+        onSuccess={refetchCategories}
       />
     </>
   );

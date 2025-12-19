@@ -5,6 +5,7 @@ import { Timestamp } from "firebase/firestore";
 export type PlanCategory = {
   id: string;
   name: string;
+  createdAt?: Timestamp;
 };
 
 export type InvestmentPlan = {
@@ -85,11 +86,6 @@ export type ChatSettings = {
 }
 
 const findImage = (id: string) => PlaceHolderImages.find(img => img.id === id);
-
-export const planCategories: PlanCategory[] = [
-    { id: 'cat-1', name: 'Standard' },
-    { id: 'cat-2', name: 'Premium' },
-];
 
 // This is now seed data for Firestore, not used directly in the app.
 export const investmentPlans: InvestmentPlan[] = [];
