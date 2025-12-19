@@ -52,6 +52,7 @@ export default function UserWalletPage() {
   const [withdrawHolderName, setWithdrawHolderName] = React.useState('');
   const [withdrawAccountNumber, setWithdrawAccountNumber] = React.useState('');
   const [withdrawMethod, setWithdrawMethod] = React.useState('');
+  const [bankName, setBankName] = React.useState('');
 
   const [isDepositDialogOpen, setIsDepositDialogOpen] = React.useState(false);
   const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = React.useState(false);
@@ -146,7 +147,7 @@ export default function UserWalletPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
       return;
     }
-    if (!withdrawAmount || !withdrawHolderName || !withdrawAccountNumber) {
+    if (!withdrawAmount || !withdrawHolderName || !withdrawAccountNumber || (withdrawMethod === 'bank' && !bankName)) {
       setShowEmptyFields(true);
       return;
     }
@@ -175,6 +176,7 @@ export default function UserWalletPage() {
             method: withdrawMethod,
             receiverName: withdrawHolderName,
             receiverAccount: withdrawAccountNumber,
+            bankName: withdrawMethod === 'bank' ? bankName : undefined,
             userId: user.uid,
             userName: user.displayName,
             userEmail: user.email,
@@ -195,6 +197,7 @@ export default function UserWalletPage() {
         setWithdrawAmount('');
         setWithdrawHolderName('');
         setWithdrawAccountNumber('');
+        setBankName('');
         setIsWithdrawDialogOpen(false);
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Error', description: e.message || "Failed to submit withdrawal request." });
@@ -360,7 +363,7 @@ export default function UserWalletPage() {
                               {showBankDetails && (
                                   <div className="space-y-2">
                                       <Label htmlFor="bank-name">Bank Name</Label>
-                                      <Select>
+                                      <Select value={bankName} onValueChange={setBankName}>
                                           <SelectTrigger id="bank-name">
                                               <SelectValue placeholder="Select a bank" />
                                           </SelectTrigger>
