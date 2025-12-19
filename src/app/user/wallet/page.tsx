@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { adminWallets } from '@/lib/data';
+import { adminWallets, type Wallet } from '@/lib/data';
 import { ArrowDownToLine, ArrowUpFromLine, Banknote, Landmark } from 'lucide-react';
 import {
   Select,
@@ -25,8 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, addDocumentNonBlocking } from '@/firebase';
-import { collection, serverTimestamp } from 'firebase/firestore';
+import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { collection, serverTimestamp, doc, writeBatch } from 'firebase/firestore';
 
 export default function UserWalletPage() {
   const [selectedWallet, setSelectedWallet] = React.useState(adminWallets.find(w => !w.isBank)?.id || '');
@@ -41,10 +41,15 @@ export default function UserWalletPage() {
   const [withdrawAccountNumber, setWithdrawAccountNumber] = React.useState('');
   const [withdrawMethod, setWithdrawMethod] = React.useState('jazzcash');
 
-
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
+
+  const walletRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid, 'wallets', 'main') : null),
+    [firestore, user]
+  );
+  const { data: walletData } = useDoc<Wallet>(walletRef);
 
   const handleDepositSubmit = async () => {
     if (!user || !firestore) {
@@ -56,8 +61,13 @@ export default function UserWalletPage() {
         return;
     }
 
-    const transactionRef = collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions');
-    addDocumentNonBlocking(transactionRef, {
+    const transactionRef = collection(firestore, 'transactions');
+    const newTransactionRef = doc(transactionRef);
+    
+    const batch = writeBatch(firestore);
+
+    batch.set(newTransactionRef, {
+      id: newTransactionRef.id,
       type: 'deposit',
       amount: parseFloat(depositAmount),
       status: 'pending',
@@ -72,23 +82,38 @@ export default function UserWalletPage() {
       }
     });
 
+    await batch.commit();
+
     toast({ title: 'Success', description: 'Your deposit request has been submitted.' });
   };
 
   const handleWithdrawalSubmit = async () => {
-     if (!user || !firestore) {
+    if (!user || !firestore || !walletData) {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
       return;
     }
     if (!withdrawAmount || !withdrawHolderName || !withdrawAccountNumber) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please fill all withdrawal fields.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please fill all withdrawal fields.' });
+      return;
+    }
+
+    const amountToWithdraw = parseFloat(withdrawAmount);
+    if (amountToWithdraw > walletData.balance) {
+        toast({ variant: 'destructive', title: 'Insufficient Funds', description: 'You do not have enough balance to withdraw this amount.' });
         return;
     }
 
-    const transactionRef = collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions');
-    addDocumentNonBlocking(transactionRef, {
+    const transactionRef = collection(firestore, 'transactions');
+    const newTransactionRef = doc(transactionRef);
+    const userWalletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
+
+    const batch = writeBatch(firestore);
+
+    // 1. Create the withdrawal transaction record
+    batch.set(newTransactionRef, {
+      id: newTransactionRef.id,
       type: 'withdrawal',
-      amount: parseFloat(withdrawAmount),
+      amount: amountToWithdraw,
       status: 'pending',
       date: serverTimestamp(),
       walletId: 'main',
@@ -97,10 +122,23 @@ export default function UserWalletPage() {
         receiverName: withdrawHolderName,
         receiverAccount: withdrawAccountNumber,
         userId: user.uid,
+        userName: user.displayName,
+        userEmail: user.email,
       }
     });
 
+    // 2. Optimistically deduct the balance from the user's wallet
+    const newBalance = walletData.balance - amountToWithdraw;
+    batch.update(userWalletRef, { balance: newBalance });
+
+    await batch.commit();
+
     toast({ title: 'Success', description: 'Your withdrawal request has been submitted.' });
+    
+    // Clear form
+    setWithdrawAmount('');
+    setWithdrawHolderName('');
+    setWithdrawAccountNumber('');
   };
 
 
@@ -218,7 +256,7 @@ export default function UserWalletPage() {
                         <DialogHeader>
                             <DialogTitle>Withdraw Funds</DialogTitle>
                             <DialogDescription>
-                                Select your withdrawal method and enter your details.
+                                Select your withdrawal method and enter your details. Your balance is {walletData?.balance.toLocaleString() || 0} PKR.
                             </DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
