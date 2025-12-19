@@ -119,12 +119,6 @@ export default function AgentWithdrawalsPage() {
   const { user: agentUser } = useUser();
   const firestore = useFirestore();
 
-  const agentDocRef = useMemoFirebase(
-    () => (agentUser && firestore ? doc(firestore, 'users', agentUser.uid) : null),
-    [agentUser, firestore]
-  );
-  const { data: agentData, isLoading: isLoadingAgent } = useDoc<User>(agentDocRef);
-
   const allUsersQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'users') : null,
     [firestore]
@@ -139,17 +133,8 @@ export default function AgentWithdrawalsPage() {
   
   const findUserForTx = (tx: Transaction) => allUsers?.find(u => u.id === tx.details?.userId);
 
-  const isLoading = isLoadingUsers || isLoadingWithdrawals || isLoadingAgent;
+  const isLoading = isLoadingUsers || isLoadingWithdrawals;
   
-  if (agentData && !agentData.permissions?.canManageWithdrawalRequests) {
-    return (
-      <div>
-        <h1 className="text-2xl font-bold">Access Denied</h1>
-        <p className="text-muted-foreground">You do not have permission to manage withdrawal requests.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8">
       <div>
