@@ -155,7 +155,7 @@ export default function AdminUsersPage() {
           <h1 className="text-3xl font-bold font-headline">Manage Users</h1>
           <p className="text-muted-foreground">View and manage user accounts and roles.</p>
         </div>
-
+        <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card>
           <CardContent className="pt-6">
             <Table>
@@ -189,6 +189,7 @@ export default function AdminUsersPage() {
             </Table>
           </CardContent>
         </Card>
+        </div>
       </div>
 
       {selectedUser && (

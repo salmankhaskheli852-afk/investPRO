@@ -30,7 +30,8 @@ export function DashboardStatsCard({
   onEdit,
 }: DashboardStatsCardProps) {
   return (
-    <Card className={cn("transition-all hover:shadow-md overflow-hidden relative group", className)}>
+    <div className={cn("rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500", className)}>
+    <Card className={"transition-all hover:shadow-md overflow-hidden relative group h-full"}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 z-10 relative">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Icon className="h-5 w-5 text-muted-foreground" />
@@ -70,5 +71,6 @@ export function DashboardStatsCard({
           </ResponsiveContainer>
       </div>
     </Card>
+    </div>
   );
 }

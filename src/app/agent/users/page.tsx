@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -87,6 +88,7 @@ export default function AgentUsersPage() {
         <p className="text-muted-foreground">An overview of all users assigned to you.</p>
       </div>
 
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card>
         <CardContent className="pt-6">
           <Table>
@@ -114,6 +116,7 @@ export default function AgentUsersPage() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

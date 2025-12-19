@@ -407,6 +407,7 @@ export default function UserDetailsPage() {
       </div>
 
 
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card>
         <CardHeader>
             <CardTitle>Transaction History</CardTitle>
@@ -527,6 +528,7 @@ export default function UserDetailsPage() {
           </Table>
         </CardContent>
       </Card>
+      </div>
       
        <Dialog open={isStatEditDialogOpen} onOpenChange={setIsStatEditDialogOpen}>
         <DialogContent>
@@ -610,5 +612,3 @@ export default function UserDetailsPage() {
     </div>
   );
 }
-
-    

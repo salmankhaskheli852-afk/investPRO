@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -70,6 +71,7 @@ export default function UserHistoryPage() {
         <p className="text-muted-foreground">A record of all your financial activities.</p>
       </div>
 
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card>
         <CardContent className="pt-6">
           <Table>
@@ -101,6 +103,7 @@ export default function UserHistoryPage() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

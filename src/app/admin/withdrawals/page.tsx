@@ -145,6 +145,7 @@ export default function AdminWithdrawalsPage() {
         <p className="text-muted-foreground">Approve or reject user withdrawal requests.</p>
       </div>
 
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card>
         <CardHeader>
             <CardTitle>Pending Requests</CardTitle>
@@ -183,6 +184,7 @@ export default function AdminWithdrawalsPage() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

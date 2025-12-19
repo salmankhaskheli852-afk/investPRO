@@ -184,6 +184,7 @@ export default function AdminDepositsPage() {
         <p className="text-muted-foreground">Approve or reject user deposit requests.</p>
       </div>
 
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card>
         <CardHeader>
             <CardTitle>Pending Requests</CardTitle>
@@ -222,6 +223,7 @@ export default function AdminDepositsPage() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

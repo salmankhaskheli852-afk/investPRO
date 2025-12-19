@@ -144,6 +144,7 @@ export default function AgentWithdrawalsPage() {
         <p className="text-muted-foreground">Approve or reject pending user withdrawal requests.</p>
       </div>
 
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card>
         <CardHeader>
             <CardTitle>Pending Requests</CardTitle>
@@ -182,6 +183,7 @@ export default function AgentWithdrawalsPage() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

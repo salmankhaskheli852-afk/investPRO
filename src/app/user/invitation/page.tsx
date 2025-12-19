@@ -55,6 +55,7 @@ export default function InvitationPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card>
           <CardHeader>
             <CardTitle>Your Invitation Link</CardTitle>
@@ -75,9 +76,11 @@ export default function InvitationPage() {
             </p>
           </CardContent>
         </Card>
+        </div>
         
         <div className="grid grid-cols-2 gap-8">
-            <Card className="flex flex-col items-center justify-center text-center">
+            <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
+            <Card className="flex flex-col items-center justify-center text-center h-full">
               <CardHeader>
                 <CardTitle className="text-4xl font-bold">{userData?.referralCount || 0}</CardTitle>
               </CardHeader>
@@ -85,7 +88,9 @@ export default function InvitationPage() {
                 <p className="text-muted-foreground">Friends Invited</p>
               </CardContent>
             </Card>
-            <Card className="flex flex-col items-center justify-center text-center">
+            </div>
+            <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
+            <Card className="flex flex-col items-center justify-center text-center h-full">
               <CardHeader>
                 <CardTitle className="text-4xl font-bold">{(userData?.referralIncome || 0).toLocaleString()} <span className="text-lg text-muted-foreground">PKR</span></CardTitle>
               </CardHeader>
@@ -93,6 +98,7 @@ export default function InvitationPage() {
                 <p className="text-muted-foreground">Total Earnings</p>
               </CardContent>
             </Card>
+            </div>
         </div>
       </div>
     </div>

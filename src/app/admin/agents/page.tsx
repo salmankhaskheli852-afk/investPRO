@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -129,6 +130,7 @@ export default function AdminAgentsPage() {
           <p className="text-muted-foreground">Assign deposit accounts and view agent history.</p>
         </div>
 
+        <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card>
           <CardHeader>
             <CardTitle>Agents</CardTitle>
@@ -170,6 +172,7 @@ export default function AdminAgentsPage() {
             </Table>
           </CardContent>
         </Card>
+        </div>
       </div>
 
       {selectedAgent && adminWallets && (

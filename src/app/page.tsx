@@ -192,6 +192,7 @@ export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4 sm:p-8">
       <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:6rem_4rem]"></div>
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <h1 className="font-headline text-4xl font-bold text-primary">InvesPro</h1>
@@ -218,6 +219,7 @@ export default function Home() {
           </div>
         </CardFooter>
       </Card>
+      </div>
     </main>
   );
 }

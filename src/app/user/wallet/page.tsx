@@ -346,7 +346,7 @@ export default function UserWalletPage() {
           <h1 className="text-3xl font-bold font-headline">My Wallet</h1>
           <p className="text-muted-foreground">Manage your funds, deposit, and withdraw.</p>
         </div>
-
+        <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card className="max-w-md mx-auto">
           <CardHeader className="text-center">
               <CardTitle>Quick Actions</CardTitle>
@@ -488,6 +488,7 @@ export default function UserWalletPage() {
               </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     </>
   );

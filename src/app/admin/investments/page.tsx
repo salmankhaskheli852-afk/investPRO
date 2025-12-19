@@ -439,6 +439,7 @@ export default function AdminInvestmentsPage() {
 
         <div className="grid gap-8 md:grid-cols-3">
           <div className="md:col-span-2">
+            <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
               <Card>
                   <CardHeader>
                       <CardTitle>Investment Plans</CardTitle>
@@ -479,8 +480,10 @@ export default function AdminInvestmentsPage() {
                     </div>
                   </CardContent>
               </Card>
+            </div>
           </div>
           <div className="space-y-8">
+            <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
               <Card>
                   <CardHeader>
                       <CardTitle>Categories</CardTitle>
@@ -539,6 +542,7 @@ export default function AdminInvestmentsPage() {
                      </div>
                   </CardContent>
               </Card>
+            </div>
           </div>
         </div>
       </div>

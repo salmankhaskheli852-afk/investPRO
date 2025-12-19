@@ -186,6 +186,7 @@ export default function AdminWalletPage() {
         </p>
       </div>
       
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card>
         <CardHeader>
             <CardTitle>Withdrawal Method Settings</CardTitle>
@@ -231,7 +232,9 @@ export default function AdminWalletPage() {
             )}
         </CardContent>
       </Card>
+      </div>
 
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
@@ -337,6 +340,7 @@ export default function AdminWalletPage() {
           ))}
         </CardContent>
       </Card>
+      </div>
 
       {editingWallet && (
          <Dialog open={isEditAccountDialogOpen} onOpenChange={setIsEditAccountDialogOpen}>
@@ -387,7 +391,3 @@ export default function AdminWalletPage() {
     </div>
   );
 }
-
-    
-
-    

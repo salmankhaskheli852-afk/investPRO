@@ -100,6 +100,7 @@ export default function AgentDashboardPage() {
         />
       </div>
 
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -161,6 +162,7 @@ export default function AgentDashboardPage() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

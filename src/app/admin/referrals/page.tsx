@@ -62,6 +62,7 @@ export default function ReferralSettingsPage() {
         <p className="text-muted-foreground">Configure the user invitation and referral commission system.</p>
       </div>
 
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card className="max-w-2xl">
         <CardHeader>
           <CardTitle>Invitation & Commission</CardTitle>
@@ -103,6 +104,7 @@ export default function ReferralSettingsPage() {
           </Button>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
