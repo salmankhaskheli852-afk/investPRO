@@ -15,10 +15,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Edit } from 'lucide-react';
+import { ArrowLeft, DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Edit, Trash2 } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Transaction, Wallet, InvestmentPlan } from '@/lib/data';
-import { collection, doc, query, orderBy, writeBatch, serverTimestamp, addDoc } from 'firebase/firestore';
+import { collection, doc, query, orderBy, writeBatch, serverTimestamp, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
 import { useParams } from 'next/navigation';
@@ -30,10 +30,24 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function UserDetailsPage() {
   const params = useParams();
@@ -41,9 +55,15 @@ export default function UserDetailsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
-  const [editingField, setEditingField] = React.useState<{ title: string; value: number; field: string } | null>(null);
-  const [newValue, setNewValue] = React.useState('');
+  const [isStatEditDialogOpen, setIsStatEditDialogOpen] = React.useState(false);
+  const [editingStatField, setEditingStatField] = React.useState<{ title: string; value: number; field: string } | null>(null);
+  const [newStatValue, setNewStatValue] = React.useState('');
+
+  const [isTxEditDialogOpen, setIsTxEditDialogOpen] = React.useState(false);
+  const [editingTransaction, setEditingTransaction] = React.useState<Transaction | null>(null);
+  const [editedTxAmount, setEditedTxAmount] = React.useState('');
+  const [editedTxType, setEditedTxType] = React.useState('');
+  const [editedTxStatus, setEditedTxStatus] = React.useState('');
 
   const userDocRef = useMemoFirebase(
       () => firestore && userId ? doc(firestore, 'users', userId) : null,
@@ -91,16 +111,16 @@ export default function UserDetailsPage() {
 
   const isLoading = isLoadingUser || isLoadingWallet || isLoadingTransactions || isLoadingPlans;
 
-  const handleEditClick = (title: string, value: number, field: string) => {
-    setEditingField({ title, value, field });
-    setNewValue(String(value));
-    setIsEditDialogOpen(true);
+  const handleEditStatClick = (title: string, value: number, field: string) => {
+    setEditingStatField({ title, value, field });
+    setNewStatValue(String(value));
+    setIsStatEditDialogOpen(true);
   };
   
-  const handleSaveChanges = async () => {
-    if (!editingField || !firestore || !userId) return;
+  const handleSaveStatChanges = async () => {
+    if (!editingStatField || !firestore || !userId) return;
 
-    const numericNewValue = parseFloat(newValue);
+    const numericNewValue = parseFloat(newStatValue);
     if (isNaN(numericNewValue)) {
       toast({ variant: 'destructive', title: 'Invalid value', description: 'Please enter a valid number.' });
       return;
@@ -109,26 +129,24 @@ export default function UserDetailsPage() {
     try {
       const batch = writeBatch(firestore);
 
-      if (editingField.field === 'balance' && walletDocRef) {
+      if (editingStatField.field === 'balance' && walletDocRef) {
         batch.update(walletDocRef, { balance: numericNewValue });
       } else {
-        // For other fields, create a manual adjustment transaction
         const transactionCollectionRef = collection(firestore, 'users', userId, 'wallets', 'main', 'transactions');
-        const diff = numericNewValue - editingField.value;
+        const diff = numericNewValue - editingStatField.value;
         
         await addDoc(transactionCollectionRef, {
-            type: 'income', // Use 'income' for adjustments, or a new 'adjustment' type
+            type: 'income',
             amount: diff,
             status: 'completed',
             date: serverTimestamp(),
             details: {
-                reason: `Admin adjustment for ${editingField.title}`,
+                reason: `Admin adjustment for ${editingStatField.title}`,
                 adjustedBy: 'admin',
             },
             walletId: 'main'
         });
         
-        // Also update wallet balance
         if(walletDocRef && wallet) {
             batch.update(walletDocRef, { balance: wallet.balance + diff });
         }
@@ -136,12 +154,105 @@ export default function UserDetailsPage() {
 
       await batch.commit();
 
-      toast({ title: 'Success', description: `${editingField.title} has been updated.` });
-      setIsEditDialogOpen(false);
-      setEditingField(null);
+      toast({ title: 'Success', description: `${editingStatField.title} has been updated.` });
+      setIsStatEditDialogOpen(false);
+      setEditingStatField(null);
 
     } catch (e: any) {
        toast({ variant: 'destructive', title: 'Error updating value', description: e.message });
+    }
+  };
+
+  const handleEditTxClick = (tx: Transaction) => {
+    setEditingTransaction(tx);
+    setEditedTxAmount(String(tx.amount));
+    setEditedTxType(tx.type);
+    setEditedTxStatus(tx.status);
+    setIsTxEditDialogOpen(true);
+  };
+  
+  const handleSaveTxChanges = async () => {
+    if (!editingTransaction || !firestore || !userId || !wallet) return;
+    
+    const txRef = doc(firestore, 'users', userId, 'wallets', 'main', 'transactions', editingTransaction.id);
+    const walletRef = doc(firestore, 'users', userId, 'wallets', 'main');
+    
+    const newAmount = parseFloat(editedTxAmount);
+    if(isNaN(newAmount)) {
+      toast({ variant: 'destructive', title: 'Invalid amount' });
+      return;
+    }
+
+    try {
+        const originalTx = editingTransaction;
+        let balanceAdjustment = 0;
+
+        // Calculate balance adjustment based on status and type changes
+        const wasCompleted = originalTx.status === 'completed';
+        const isNowCompleted = editedTxStatus === 'completed';
+
+        if (wasCompleted && !isNowCompleted) { // From completed to something else
+            if (originalTx.type === 'deposit' || originalTx.type === 'income') balanceAdjustment -= originalTx.amount;
+            else if (originalTx.type === 'withdrawal' || originalTx.type === 'investment') balanceAdjustment += originalTx.amount;
+        } else if (!wasCompleted && isNowCompleted) { // From something else to completed
+            if (editedTxType === 'deposit' || editedTxType === 'income') balanceAdjustment += newAmount;
+            else if (editedTxType === 'withdrawal' || editedTxType === 'investment') balanceAdjustment -= newAmount;
+        } else if (wasCompleted && isNowCompleted) { // Both completed, but amount or type might have changed
+            const oldEffect = (originalTx.type === 'deposit' || originalTx.type === 'income') ? originalTx.amount : -originalTx.amount;
+            const newEffect = (editedTxType === 'deposit' || editedTxType === 'income') ? newAmount : -newAmount;
+            balanceAdjustment = newEffect - oldEffect;
+        }
+
+        const batch = writeBatch(firestore);
+        
+        batch.update(txRef, {
+            amount: newAmount,
+            type: editedTxType,
+            status: editedTxStatus,
+        });
+
+        if (balanceAdjustment !== 0) {
+            batch.update(walletRef, { balance: wallet.balance + balanceAdjustment });
+        }
+
+        await batch.commit();
+
+        toast({ title: 'Transaction updated successfully!' });
+        setIsTxEditDialogOpen(false);
+        setEditingTransaction(null);
+    } catch(e: any) {
+        toast({ variant: 'destructive', title: 'Error updating transaction', description: e.message });
+    }
+  };
+
+  const handleDeleteTx = async (tx: Transaction) => {
+    if (!firestore || !userId || !wallet) return;
+
+    try {
+        const batch = writeBatch(firestore);
+        const txRef = doc(firestore, 'users', userId, 'wallets', 'main', 'transactions', tx.id);
+        const walletRef = doc(firestore, 'users', userId, 'wallets', 'main');
+
+        // Adjust wallet balance
+        let balanceAdjustment = 0;
+        if(tx.status === 'completed') {
+            if (tx.type === 'deposit' || tx.type === 'income') {
+                balanceAdjustment = -tx.amount;
+            } else if (tx.type === 'withdrawal' || tx.type === 'investment') {
+                balanceAdjustment = tx.amount;
+            }
+        }
+        
+        if (balanceAdjustment !== 0) {
+            batch.update(walletRef, { balance: wallet.balance + balanceAdjustment });
+        }
+
+        batch.delete(txRef);
+        await batch.commit();
+
+        toast({ title: 'Transaction deleted' });
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Error deleting transaction', description: e.message });
     }
   };
   
@@ -204,7 +315,7 @@ export default function UserDetailsPage() {
           description="Available funds"
           Icon={DollarSign}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditClick('Wallet Balance', wallet?.balance || 0, 'balance')}
+          onEdit={() => handleEditStatClick('Wallet Balance', wallet?.balance || 0, 'balance')}
         />
         <DashboardStatsCard
           title="Total Invested"
@@ -212,7 +323,7 @@ export default function UserDetailsPage() {
           description={`${purchasedPlansCount} active plans`}
           Icon={TrendingUp}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditClick('Total Invested', transactionTotals.investment, 'investment')}
+          onEdit={() => handleEditStatClick('Total Invested', transactionTotals.investment, 'investment')}
         />
         <DashboardStatsCard
           title="Total Income"
@@ -220,7 +331,7 @@ export default function UserDetailsPage() {
           description="From investments"
           Icon={PiggyBank}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditClick('Total Income', transactionTotals.income, 'income')}
+          onEdit={() => handleEditStatClick('Total Income', transactionTotals.income, 'income')}
         />
       </div>
        <div className="grid gap-4 md:grid-cols-2">
@@ -230,7 +341,7 @@ export default function UserDetailsPage() {
           description="Funds added"
           Icon={ArrowDownToLine}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditClick('Total Deposit', transactionTotals.deposit, 'deposit')}
+          onEdit={() => handleEditStatClick('Total Deposit', transactionTotals.deposit, 'deposit')}
         />
         <DashboardStatsCard
           title="Total Withdraw"
@@ -238,7 +349,7 @@ export default function UserDetailsPage() {
           description="Funds taken out"
           Icon={ArrowUpFromLine}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditClick('Total Withdraw', transactionTotals.withdraw, 'withdraw')}
+          onEdit={() => handleEditStatClick('Total Withdraw', transactionTotals.withdraw, 'withdraw')}
         />
       </div>
 
@@ -254,15 +365,16 @@ export default function UserDetailsPage() {
               <TableRow>
                 <TableHead>Type</TableHead>
                 <TableHead>Details</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoadingTransactions ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">
+                  <TableCell colSpan={6} className="text-center h-24">
                     Loading history...
                   </TableCell>
                 </TableRow>
@@ -271,7 +383,7 @@ export default function UserDetailsPage() {
                     <TableRow key={tx.id}>
                       <TableCell className="capitalize">{tx.type}</TableCell>
                       <TableCell>{tx.details?.planName || tx.details?.method || tx.details?.reason || 'N/A'}</TableCell>
-                      <TableCell className='text-right'>{tx.amount.toLocaleString()} PKR</TableCell>
+                      <TableCell>{tx.amount.toLocaleString()} PKR</TableCell>
                       <TableCell>
                          <Badge
                             variant={tx.status === 'completed' ? 'default' : tx.status === 'pending' ? 'secondary' : 'destructive'}
@@ -281,11 +393,38 @@ export default function UserDetailsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>{tx.date ? format(tx.date.toDate(), 'PPpp') : 'N/A'}</TableCell>
+                      <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => handleEditTxClick(tx)}>
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                             <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete the transaction
+                                        and adjust the user's wallet balance.
+                                    </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteTx(tx)}>Continue</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                      </TableCell>
                     </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">
+                  <TableCell colSpan={6} className="text-center h-24">
                     No transaction history found for this user.
                   </TableCell>
                 </TableRow>
@@ -295,10 +434,10 @@ export default function UserDetailsPage() {
         </CardContent>
       </Card>
       
-       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+       <Dialog open={isStatEditDialogOpen} onOpenChange={setIsStatEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit {editingField?.title}</DialogTitle>
+            <DialogTitle>Edit {editingStatField?.title}</DialogTitle>
             <DialogDescription>
               Enter the new value. This will be reflected in the user's account.
             </DialogDescription>
@@ -308,19 +447,73 @@ export default function UserDetailsPage() {
             <Input
               id="new-value"
               type="number"
-              value={newValue}
-              onChange={(e) => setNewValue(e.target.value)}
-              placeholder={`Enter new ${editingField?.title.toLowerCase()}`}
+              value={newStatValue}
+              onChange={(e) => setNewStatValue(e.target.value)}
+              placeholder={`Enter new ${editingStatField?.title.toLowerCase()}`}
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setIsStatEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveChanges}>Save Changes</Button>
+            <Button onClick={handleSaveStatChanges}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {editingTransaction && (
+         <Dialog open={isTxEditDialogOpen} onOpenChange={setIsTxEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Transaction</DialogTitle>
+              <DialogDescription>
+                Modify the transaction details below.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 grid gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="tx-amount">Amount (PKR)</Label>
+                    <Input id="tx-amount" type="number" value={editedTxAmount} onChange={e => setEditedTxAmount(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="tx-type">Type</Label>
+                    <Select value={editedTxType} onValueChange={setEditedTxType}>
+                        <SelectTrigger id="tx-type">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="deposit">Deposit</SelectItem>
+                            <SelectItem value="withdrawal">Withdrawal</SelectItem>
+                            <SelectItem value="investment">Investment</SelectItem>
+                            <SelectItem value="income">Income</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="tx-status">Status</Label>
+                    <Select value={editedTxStatus} onValueChange={setEditedTxStatus}>
+                        <SelectTrigger id="tx-status">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="failed">Failed</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            <DialogFooter>
+                <DialogClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button onClick={handleSaveTxChanges}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
+
+    
