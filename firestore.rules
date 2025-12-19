@@ -146,19 +146,16 @@ service cloud.firestore {
     }
     
     /**
-     * @description Admin wallet information for deposits is publicly readable by any authenticated
-     *              user so they can make deposits. Only admins can manage these accounts.
+     * @description Admin wallet information for deposits is publicly readable so users
+     *              can make deposits. Only admins can manage these accounts.
      * @path        /admin_wallets/{walletId}
-     * @allow       An authenticated user can (list) all admin wallets. An admin can (create) a wallet.
+     * @allow       Any user, authenticated or not, can (list) all admin wallets. An admin can (create) a wallet.
      * @deny        A regular, non-admin user trying to (update) a wallet.
-     * @principle   Authenticated read access with role-based write restrictions.
+     * @principle   Public read access with role-based write restrictions.
      */
     match /admin_wallets/{walletId} {
-        allow get: if isSignedIn();
-        allow list: if isSignedIn();
-        allow create: if isAdmin();
-        allow update: if isAdmin() && resource != null;
-        allow delete: if isAdmin() && resource != null;
+        allow read: if true;
+        allow write: if isAdmin();
     }
 
     /**
