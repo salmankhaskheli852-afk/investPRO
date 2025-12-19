@@ -205,7 +205,17 @@ service cloud.firestore {
     match /roles_admin/{userId} {
       allow read, write: if false;
     }
+    
+    /**
+     * @description Application configuration data. Publicly readable but only writable by admins.
+     * @path /app_config/{configId}
+     * @allow Any user can read the app config (e.g. for offer timers).
+     * @deny A non-admin user trying to write to the app config.
+     * @principle Public read for client-side settings, admin-only write control.
+     */
+    match /app_config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }
-
-    
