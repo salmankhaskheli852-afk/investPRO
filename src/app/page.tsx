@@ -28,6 +28,8 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const ADMIN_EMAIL = 'salmankhaskheli885@gmail.com';
+
 export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
@@ -40,6 +42,9 @@ export default function Home() {
     const userDoc = await getDoc(userRef);
 
     if (!userDoc.exists()) {
+      // Determine role based on email
+      const role = firebaseUser.email === ADMIN_EMAIL ? 'admin' : 'user';
+
       // Create user profile
       await setDoc(userRef, {
         id: firebaseUser.uid,
@@ -48,8 +53,14 @@ export default function Home() {
         avatarUrl: firebaseUser.photoURL,
         investments: [],
         createdAt: serverTimestamp(),
-        role: 'user'
+        role: role,
       });
+
+      // If user is an admin, also add them to the roles collection
+      if (role === 'admin') {
+        const adminRoleRef = doc(firestore, 'roles_admin', firebaseUser.uid);
+        await setDoc(adminRoleRef, { role: 'admin' });
+      }
 
       // Create user wallet
       const walletRef = doc(collection(firestore, 'users', firebaseUser.uid, 'wallets'), 'main');
@@ -70,12 +81,14 @@ export default function Home() {
 
   React.useEffect(() => {
     if (!isUserLoading && user) {
-        // User is logged in, redirect them to their dashboard.
-        router.push('/user');
+        if (user.email === ADMIN_EMAIL) {
+          router.push('/admin');
+        } else {
+          router.push('/user');
+        }
     }
   }, [user, isUserLoading, router]);
 
-  // While checking auth state, show loading.
   if (isUserLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
@@ -84,13 +97,10 @@ export default function Home() {
     );
   }
   
-  // If user is already logged in, useEffect will redirect them. 
-  // We render null here to prevent the login UI from flashing.
   if (user) {
       return null;
   }
 
-  // If no user, show the login page.
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4 sm:p-8">
       <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:6rem_4rem]"></div>
@@ -104,24 +114,6 @@ export default function Home() {
               <GoogleIcon className="mr-2" />
               Sign in with Google
           </Button>
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">
-                Or view a panel
-              </span>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button asChild variant="outline">
-              <Link href="/admin">Admin</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/agent">Agent</Link>
-            </Button>
-          </div>
         </CardContent>
         <CardFooter className="flex justify-between text-sm text-muted-foreground pt-4">
           <div className="flex items-center gap-1">

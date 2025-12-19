@@ -9,7 +9,7 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { InvestmentPlan, User, Transaction } from '@/lib/data';
 import { DollarSign, TrendingUp, Users as UsersIcon, UserCog, Activity } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { collection, collectionGroup, query, orderBy, limit } from 'firebase/firestore';
+import { collection, collectionGroup, query, orderBy, limit, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 const mockRevenueData = [
@@ -39,6 +39,12 @@ export default function AdminDashboardPage() {
     [firestore]
   );
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+
+  const agentsQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'users'), where('role', '==', 'agent')) : null,
+    [firestore]
+  );
+  const { data: agents, isLoading: isLoadingAgents } = useCollection<User>(agentsQuery);
 
   const plansQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'investment_plans') : null,
@@ -113,7 +119,7 @@ export default function AdminDashboardPage() {
         />
         <DashboardStatsCard
           title="Total Agents"
-          value={'0'}
+          value={isLoadingAgents ? '...' : (agents?.length || 0).toString()}
           description="Number of registered agents"
           Icon={UserCog}
           chartData={[{ a:1}, {a:2}]}
