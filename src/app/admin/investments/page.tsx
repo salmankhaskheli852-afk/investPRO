@@ -79,7 +79,10 @@ const PlanFormDialog = ({
 
     // Offer state
     const [offerEnabled, setOfferEnabled] = React.useState(false);
-    const [offerHours, setOfferHours] = React.useState(24);
+    const [offerDays, setOfferDays] = React.useState(1);
+    const [offerHours, setOfferHours] = React.useState(0);
+    const [offerMinutes, setOfferMinutes] = React.useState(0);
+    const [offerSeconds, setOfferSeconds] = React.useState(0);
     
     const [isSaving, setIsSaving] = React.useState(false);
 
@@ -96,7 +99,11 @@ const PlanFormDialog = ({
             setImageHint(planToEdit.imageHint || 'investment growth');
             setOfferEnabled(planToEdit.isOfferEnabled || false);
             setPurchaseLimit(planToEdit.purchaseLimit || 0);
-            // Don't prefill offer hours, admin should set it if they want to update it
+            // Don't prefill duration, admin should set it if they want to update it
+            setOfferDays(1);
+            setOfferHours(0);
+            setOfferMinutes(0);
+            setOfferSeconds(0);
         } else {
             resetForm();
         }
@@ -111,7 +118,10 @@ const PlanFormDialog = ({
         setImageUrl('https://picsum.photos/seed/105/600/400');
         setImageHint('investment growth');
         setOfferEnabled(false);
-        setOfferHours(24);
+        setOfferDays(1);
+        setOfferHours(0);
+        setOfferMinutes(0);
+        setOfferSeconds(0);
         setPurchaseLimit(0);
     };
 
@@ -132,10 +142,15 @@ const PlanFormDialog = ({
             const totalIncome = dailyIncome * period;
 
             let offerEndTime: Timestamp | null = null;
-            if (offerEnabled && offerHours > 0) {
-                const now = new Date();
-                now.setHours(now.getHours() + offerHours);
-                offerEndTime = Timestamp.fromDate(now);
+            if (offerEnabled) {
+                const totalMilliseconds = (offerDays * 24 * 60 * 60 * 1000) +
+                                          (offerHours * 60 * 60 * 1000) +
+                                          (offerMinutes * 60 * 1000) +
+                                          (offerSeconds * 1000);
+                if (totalMilliseconds > 0) {
+                    const now = new Date();
+                    offerEndTime = Timestamp.fromDate(new Date(now.getTime() + totalMilliseconds));
+                }
             }
 
             const planData: Partial<InvestmentPlan> = {
@@ -257,15 +272,26 @@ const PlanFormDialog = ({
                             />
                         </div>
                         {offerEnabled && (
-                            <div className="mt-4 space-y-2">
-                                <Label htmlFor="offer-hours">Duration (hours)</Label>
-                                <Input
-                                    id="offer-hours"
-                                    type="number"
-                                    value={offerHours}
-                                    onChange={(e) => setOfferHours(Number(e.target.value))}
-                                    placeholder="e.g., 24"
-                                />
+                            <div className="mt-4 space-y-4">
+                                <Label>Offer Duration</Label>
+                                <div className="grid grid-cols-4 gap-2">
+                                     <div className="space-y-1">
+                                        <Label htmlFor="offer-days" className="text-xs">Days</Label>
+                                        <Input id="offer-days" type="number" value={offerDays} onChange={e => setOfferDays(Number(e.target.value))} min="0" />
+                                     </div>
+                                     <div className="space-y-1">
+                                        <Label htmlFor="offer-hours" className="text-xs">Hours</Label>
+                                        <Input id="offer-hours" type="number" value={offerHours} onChange={e => setOfferHours(Number(e.target.value))} max="23" min="0" />
+                                     </div>
+                                     <div className="space-y-1">
+                                        <Label htmlFor="offer-minutes" className="text-xs">Mins</Label>
+                                        <Input id="offer-minutes" type="number" value={offerMinutes} onChange={e => setOfferMinutes(Number(e.target.value))} max="59" min="0" />
+                                     </div>
+                                     <div className="space-y-1">
+                                        <Label htmlFor="offer-seconds" className="text-xs">Secs</Label>
+                                        <Input id="offer-seconds" type="number" value={offerSeconds} onChange={e => setOfferSeconds(Number(e.target.value))} max="59" min="0" />
+                                     </div>
+                                </div>
                             </div>
                         )}
                     </div>
