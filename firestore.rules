@@ -82,8 +82,9 @@ service cloud.firestore {
       allow get: if true;
     }
 
-    // Admins can list transactions. Regular users can't list all transactions.
+    // Admins can list transactions. Regular users can create new ones.
     match /transactions/{transactionId} {
+      allow create: if isUserAuthenticated();
       allow list: if isAdmin();
     }
   }
