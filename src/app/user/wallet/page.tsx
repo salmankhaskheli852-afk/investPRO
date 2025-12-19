@@ -23,8 +23,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose
 } from '@/components/ui/dialog';
-import { adminWallets } from '@/lib/data';
 import type { Wallet, Transaction, AdminWallet } from '@/lib/data';
 import { ArrowDownToLine, ArrowUpFromLine, Banknote, Landmark } from 'lucide-react';
 import {
@@ -37,6 +37,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, serverTimestamp, doc, writeBatch, addDoc, query, where } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 
 export default function UserWalletPage() {
   const [selectedWallet, setSelectedWallet] = React.useState('');
@@ -51,12 +52,16 @@ export default function UserWalletPage() {
   const [withdrawAccountNumber, setWithdrawAccountNumber] = React.useState('');
   const [withdrawMethod, setWithdrawMethod] = React.useState('jazzcash');
 
+  const [isDepositDialogOpen, setIsDepositDialogOpen] = React.useState(false);
+  const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = React.useState(false);
+
   const [showInsufficientFunds, setShowInsufficientFunds] = React.useState(false);
   const [showEmptyFields, setShowEmptyFields] = React.useState(false);
 
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
+  const router = useRouter();
 
   const walletRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid, 'wallets', 'main') : null),
@@ -88,9 +93,7 @@ export default function UserWalletPage() {
     }
 
     try {
-        const depositTransactionRef = doc(collection(firestore, 'transactions'));
         await addDoc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'), {
-          id: depositTransactionRef.id,
           type: 'deposit',
           amount: parseFloat(depositAmount),
           status: 'pending',
@@ -106,6 +109,8 @@ export default function UserWalletPage() {
         });
 
         toast({ title: 'Success', description: 'Your deposit request has been submitted.' });
+        setIsDepositDialogOpen(false);
+        router.push('/user/history');
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Error', description: e.message || "Failed to submit deposit request." });
     }
@@ -134,10 +139,8 @@ export default function UserWalletPage() {
     try {
         const batch = writeBatch(firestore);
 
-        // 1. Create the withdrawal transaction record in the top-level 'transactions' collection
         const newTransactionRef = doc(transactionCollectionRef);
-        const transactionData = {
-          id: newTransactionRef.id,
+        const transactionData: Omit<Transaction, 'id' | 'date'> & { date: any } = {
           type: 'withdrawal',
           amount: amountToWithdraw,
           status: 'pending',
@@ -152,13 +155,11 @@ export default function UserWalletPage() {
             userEmail: user.email,
           }
         };
-        batch.set(newTransactionRef, transactionData);
+        batch.set(newTransactionRef, { ...transactionData, id: newTransactionRef.id });
 
-        // 2. Also add it to the user's subcollection for their history
         const userNewTransactionRef = doc(userTransactionCollectionRef, newTransactionRef.id);
-        batch.set(userNewTransactionRef, transactionData);
-
-        // 3. Optimistically deduct the balance from the user's wallet
+        batch.set(userNewTransactionRef, { ...transactionData, id: newTransactionRef.id });
+        
         const newBalance = walletData.balance - amountToWithdraw;
         batch.update(userWalletRef, { balance: newBalance });
 
@@ -166,21 +167,18 @@ export default function UserWalletPage() {
 
         toast({ title: 'Success', description: 'Your withdrawal request has been submitted.' });
         
-        // Clear form
         setWithdrawAmount('');
         setWithdrawHolderName('');
         setWithdrawAccountNumber('');
+        setIsWithdrawDialogOpen(false);
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Error', description: e.message || "Failed to submit withdrawal request." });
     }
   };
 
-
-  // Mock states for withdrawal method toggles from admin
   const [jazzcashEnabled, setJazzcashEnabled] = React.useState(true);
   const [easypaisaEnabled, setEasypaisaEnabled] = React.useState(true);
   const [bankEnabled, setBankEnabled] = React.useState(true);
-
 
   const selectedWalletDetails = adminWalletsData?.find(w => w.id === selectedWallet);
 
@@ -219,7 +217,6 @@ export default function UserWalletPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-
       <div className="space-y-8">
         <div>
           <h1 className="text-3xl font-bold font-headline">My Wallet</h1>
@@ -232,7 +229,7 @@ export default function UserWalletPage() {
           </CardHeader>
           <CardContent>
               <div className="grid grid-cols-2 gap-4">
-                  <Dialog>
+                  <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
                     <DialogTrigger asChild>
                       <Button 
                           size="lg"
@@ -306,7 +303,7 @@ export default function UserWalletPage() {
                     </DialogContent>
                   </Dialog>
 
-                  <Dialog>
+                  <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
                       <DialogTrigger asChild>
                           <Button 
                               size="lg"
@@ -395,3 +392,5 @@ export default function UserWalletPage() {
     </>
   );
 }
+
+    
