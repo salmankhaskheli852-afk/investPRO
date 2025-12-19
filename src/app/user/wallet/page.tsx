@@ -7,6 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -26,7 +35,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, serverTimestamp, doc, writeBatch } from 'firebase/firestore';
+import { collection, serverTimestamp, doc, writeBatch, addDoc } from 'firebase/firestore';
 
 export default function UserWalletPage() {
   const [selectedWallet, setSelectedWallet] = React.useState(adminWallets.find(w => !w.isBank)?.id || '');
@@ -40,6 +49,8 @@ export default function UserWalletPage() {
   const [withdrawHolderName, setWithdrawHolderName] = React.useState('');
   const [withdrawAccountNumber, setWithdrawAccountNumber] = React.useState('');
   const [withdrawMethod, setWithdrawMethod] = React.useState('jazzcash');
+
+  const [showInsufficientFunds, setShowInsufficientFunds] = React.useState(false);
 
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -61,30 +72,26 @@ export default function UserWalletPage() {
         return;
     }
 
-    const transactionRef = collection(firestore, 'transactions');
-    const newTransactionRef = doc(transactionRef);
-    
-    const batch = writeBatch(firestore);
+    try {
+        await addDoc(collection(firestore, 'transactions'), {
+          type: 'deposit',
+          amount: parseFloat(depositAmount),
+          status: 'pending',
+          date: serverTimestamp(),
+          walletId: 'main',
+          details: {
+            tid: depositTid,
+            senderName: depositHolderName,
+            senderAccount: depositAccountNumber,
+            adminWalletId: selectedWallet,
+            userId: user.uid,
+          }
+        });
 
-    batch.set(newTransactionRef, {
-      id: newTransactionRef.id,
-      type: 'deposit',
-      amount: parseFloat(depositAmount),
-      status: 'pending',
-      date: serverTimestamp(),
-      walletId: 'main',
-      details: {
-        tid: depositTid,
-        senderName: depositHolderName,
-        senderAccount: depositAccountNumber,
-        adminWalletId: selectedWallet,
-        userId: user.uid,
-      }
-    });
-
-    await batch.commit();
-
-    toast({ title: 'Success', description: 'Your deposit request has been submitted.' });
+        toast({ title: 'Success', description: 'Your deposit request has been submitted.' });
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Error', description: e.message || "Failed to submit deposit request." });
+    }
   };
 
   const handleWithdrawalSubmit = async () => {
@@ -99,46 +106,49 @@ export default function UserWalletPage() {
 
     const amountToWithdraw = parseFloat(withdrawAmount);
     if (amountToWithdraw > walletData.balance) {
-        toast({ variant: 'destructive', title: 'Insufficient Funds', description: 'You do not have enough balance to withdraw this amount.' });
+        setShowInsufficientFunds(true);
         return;
     }
 
-    const transactionRef = collection(firestore, 'transactions');
-    const newTransactionRef = doc(transactionRef);
     const userWalletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
 
-    const batch = writeBatch(firestore);
+    try {
+        const batch = writeBatch(firestore);
 
-    // 1. Create the withdrawal transaction record
-    batch.set(newTransactionRef, {
-      id: newTransactionRef.id,
-      type: 'withdrawal',
-      amount: amountToWithdraw,
-      status: 'pending',
-      date: serverTimestamp(),
-      walletId: 'main',
-      details: {
-        method: withdrawMethod,
-        receiverName: withdrawHolderName,
-        receiverAccount: withdrawAccountNumber,
-        userId: user.uid,
-        userName: user.displayName,
-        userEmail: user.email,
-      }
-    });
+        // 1. Create the withdrawal transaction record in the top-level 'transactions' collection
+        const newTransactionRef = doc(collection(firestore, 'transactions'));
+        batch.set(newTransactionRef, {
+          id: newTransactionRef.id,
+          type: 'withdrawal',
+          amount: amountToWithdraw,
+          status: 'pending',
+          date: serverTimestamp(),
+          walletId: 'main',
+          details: {
+            method: withdrawMethod,
+            receiverName: withdrawHolderName,
+            receiverAccount: withdrawAccountNumber,
+            userId: user.uid,
+            userName: user.displayName,
+            userEmail: user.email,
+          }
+        });
 
-    // 2. Optimistically deduct the balance from the user's wallet
-    const newBalance = walletData.balance - amountToWithdraw;
-    batch.update(userWalletRef, { balance: newBalance });
+        // 2. Optimistically deduct the balance from the user's wallet
+        const newBalance = walletData.balance - amountToWithdraw;
+        batch.update(userWalletRef, { balance: newBalance });
 
-    await batch.commit();
+        await batch.commit();
 
-    toast({ title: 'Success', description: 'Your withdrawal request has been submitted.' });
-    
-    // Clear form
-    setWithdrawAmount('');
-    setWithdrawHolderName('');
-    setWithdrawAccountNumber('');
+        toast({ title: 'Success', description: 'Your withdrawal request has been submitted.' });
+        
+        // Clear form
+        setWithdrawAmount('');
+        setWithdrawHolderName('');
+        setWithdrawAccountNumber('');
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Error', description: e.message || "Failed to submit withdrawal request." });
+    }
   };
 
 
@@ -156,177 +166,193 @@ export default function UserWalletPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold font-headline">My Wallet</h1>
-        <p className="text-muted-foreground">Manage your funds, deposit, and withdraw.</p>
-      </div>
+    <>
+      <AlertDialog open={showInsufficientFunds} onOpenChange={setShowInsufficientFunds}>
+        <AlertDialogContent className="sm:max-w-xs">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Insufficient Funds</AlertDialogTitle>
+            <AlertDialogDescription>
+              You do not have enough balance to withdraw this amount.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowInsufficientFunds(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      <Card className="max-w-md mx-auto">
-        <CardHeader className="text-center">
-            <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button 
-                        size="lg"
-                        variant='outline'
-                    >
-                        <ArrowDownToLine className="mr-2 h-4 w-4" />
-                        Deposit
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-sm">
-                    <DialogHeader>
-                      <DialogTitle>Deposit Funds</DialogTitle>
-                      <DialogDescription>
-                        Send funds to an account below and enter the details to verify.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <Label>Select Admin Account</Label>
-                        <RadioGroup value={selectedWallet} onValueChange={setSelectedWallet}>
-                            {adminWallets.map((wallet) => (
-                                <Label key={wallet.id} htmlFor={wallet.id} className="flex items-center space-x-3 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
-                                    <RadioGroupItem value={wallet.id} id={wallet.id} />
-                                    {wallet.isBank ? <Landmark className="h-5 w-5" /> : <Banknote className="h-5 w-5" />}
-                                    <span className="font-medium">{wallet.walletName}</span>
-                                </Label>
-                            ))}
-                        </RadioGroup>
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold font-headline">My Wallet</h1>
+          <p className="text-muted-foreground">Manage your funds, deposit, and withdraw.</p>
+        </div>
 
-                        {selectedWalletDetails && (
-                             <Card className="bg-muted/50">
-                                <CardHeader>
-                                    <CardTitle className="text-base">Account Details</CardTitle>
-                                </CardHeader>
-                                <CardContent className="text-sm space-y-2">
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Bank Name:' : 'Account Name:'}</span>
-                                        <span className="font-medium">{selectedWalletDetails.isBank ? selectedWalletDetails.walletName : selectedWalletDetails.name}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Account Holder:' : 'Account Name:'}</span>
-                                        <span className="font-medium">{selectedWalletDetails.name}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                         <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Account Number:' : 'Wallet Number:'}</span>
-                                        <span className="font-medium">{selectedWalletDetails.number}</span>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-                        
-                        <div className="space-y-2 pt-4">
-                            <Label htmlFor="account-holder-name">Your Account Holder Name</Label>
-                            <Input id="account-holder-name" placeholder="Your Name" value={depositHolderName} onChange={e => setDepositHolderName(e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="account-number">Your Account Number</Label>
-                            <Input id="account-number" placeholder="03xxxxxxxx" value={depositAccountNumber} onChange={e => setDepositAccountNumber(e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="amount">Amount (PKR)</Label>
-                            <Input id="amount" type="number" placeholder="500" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="tid">Transaction ID (TID)</Label>
-                            <Input id="tid" placeholder="e.g., 1234567890" value={depositTid} onChange={e => setDepositTid(e.target.value)} />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                      <Button type="submit" className="w-full bg-primary hover:bg-primary/90" onClick={handleDepositSubmit}>Submit Request</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-
-                <Dialog>
+        <Card className="max-w-md mx-auto">
+          <CardHeader className="text-center">
+              <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                  <Dialog>
                     <DialogTrigger asChild>
-                        <Button 
-                            size="lg"
-                            variant='outline'
-                        >
-                            <ArrowUpFromLine className="mr-2 h-4 w-4" />
-                            Withdraw
-                        </Button>
+                      <Button 
+                          size="lg"
+                          variant='outline'
+                      >
+                          <ArrowDownToLine className="mr-2 h-4 w-4" />
+                          Deposit
+                      </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-sm">
-                        <DialogHeader>
-                            <DialogTitle>Withdraw Funds</DialogTitle>
-                            <DialogDescription>
-                                Select your withdrawal method and enter your details. Your balance is {walletData?.balance.toLocaleString() || 0} PKR.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <div className="space-y-2">
-                                <Label>Select Method</Label>
-                                <RadioGroup onValueChange={handleWithdrawalMethodChange} value={withdrawMethod} className="flex">
-                                    {jazzcashEnabled && <Label htmlFor="jazzcash" className="flex items-center space-x-2 cursor-pointer">
-                                        <RadioGroupItem value="jazzcash" id="jazzcash" />
-                                        <span>JazzCash</span>
-                                    </Label>}
-                                    {easypaisaEnabled && <Label htmlFor="easypaisa" className="flex items-center space-x-2 cursor-pointer">
-                                        <RadioGroupItem value="easypaisa" id="easypaisa" />
-                                        <span>Easypaisa</span>
-                                    </Label>}
-                                    {bankEnabled && <Label htmlFor="bank" className="flex items-center space-x-2 cursor-pointer">
-                                        <RadioGroupItem value="bank" id="bank" />
-                                        <span>Bank</span>
-                                    </Label>}
-                                </RadioGroup>
-                            </div>
+                    <DialogContent className="sm:max-w-xs">
+                      <DialogHeader>
+                        <DialogTitle>Deposit Funds</DialogTitle>
+                        <DialogDescription>
+                          Send funds to an account below and enter the details to verify.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                          <Label>Select Admin Account</Label>
+                          <RadioGroup value={selectedWallet} onValueChange={setSelectedWallet}>
+                              {adminWallets.map((wallet) => (
+                                  <Label key={wallet.id} htmlFor={wallet.id} className="flex items-center space-x-3 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                                      <RadioGroupItem value={wallet.id} id={wallet.id} />
+                                      {wallet.isBank ? <Landmark className="h-5 w-5" /> : <Banknote className="h-5 w-5" />}
+                                      <span className="font-medium">{wallet.walletName}</span>
+                                  </Label>
+                              ))}
+                          </RadioGroup>
 
-                            {showBankDetails ? (
-                                <div className="space-y-2">
-                                    <Label htmlFor="bank-name">Bank Name</Label>
-                                    <Select>
-                                        <SelectTrigger id="bank-name">
-                                            <SelectValue placeholder="Select a bank" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="meezan">Meezan Bank</SelectItem>
-                                            <SelectItem value="hbl">Habib Bank Limited (HBL)</SelectItem>
-                                            <SelectItem value="ubl">United Bank Limited (UBL)</SelectItem>
-                                            <SelectItem value="nbp">National Bank of Pakistan (NBP)</SelectItem>
-                                            <SelectItem value="abl">Allied Bank Limited (ABL)</SelectItem>
-                                            <SelectItem value="mcb">MCB Bank Limited</SelectItem>
-                                            <SelectItem value="alfalah">Bank Alfalah</SelectItem>
-                                            <SelectItem value="faysal">Faysal Bank</SelectItem>
-                                            <SelectItem value="askari">Askari Bank</SelectItem>
-                                            <SelectItem value="alhabib">Bank Al-Habib</SelectItem>
-                                            <SelectItem value="js">JS Bank</SelectItem>
-                                            <SelectItem value="soneri">Soneri Bank</SelectItem>
-                                            <SelectItem value="summit">Summit Bank</SelectItem>
-                                            <SelectItem value="bop">The Bank of Punjab</SelectItem>
-                                            <SelectItem value="sc">Standard Chartered Bank</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            ) : null}
-
-                            <div className="space-y-2">
-                                <Label htmlFor="withdraw-account-holder">Account Holder Name</Label>
-                                <Input id="withdraw-account-holder" placeholder="Your Name" value={withdrawHolderName} onChange={e => setWithdrawHolderName(e.target.value)} />
-                            </div>
-                             <div className="space-y-2">
-                                <Label htmlFor="withdraw-account-number">{showBankDetails ? 'Account Number / IBAN' : 'Account Number'}</Label>
-                                <Input id="withdraw-account-number" placeholder={showBankDetails ? 'PK...' : '03...'} value={withdrawAccountNumber} onChange={e => setWithdrawAccountNumber(e.target.value)} />
-                            </div>
-                             <div className="space-y-2">
-                                <Label htmlFor="withdraw-amount">Amount to Withdraw (PKR)</Label>
-                                <Input id="withdraw-amount" type="number" placeholder="1000" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} />
-                            </div>
-                        </div>
-                         <DialogFooter>
-                            <Button type="submit" className="w-full bg-primary hover:bg-primary/90" onClick={handleWithdrawalSubmit}>Submit Request</Button>
-                        </DialogFooter>
+                          {selectedWalletDetails && (
+                              <Card className="bg-muted/50">
+                                  <CardHeader>
+                                      <CardTitle className="text-base">Account Details</CardTitle>
+                                  </CardHeader>
+                                  <CardContent className="text-sm space-y-2">
+                                      <div className="flex justify-between">
+                                          <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Bank Name:' : 'Account Name:'}</span>
+                                          <span className="font-medium">{selectedWalletDetails.isBank ? selectedWalletDetails.walletName : selectedWalletDetails.name}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                          <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Account Holder:' : 'Account Name:'}</span>
+                                          <span className="font-medium">{selectedWalletDetails.name}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                          <span className="text-muted-foreground">{selectedWalletDetails.isBank ? 'Account Number:' : 'Wallet Number:'}</span>
+                                          <span className="font-medium">{selectedWalletDetails.number}</span>
+                                      </div>
+                                  </CardContent>
+                              </Card>
+                          )}
+                          
+                          <div className="space-y-2 pt-4">
+                              <Label htmlFor="account-holder-name">Your Account Holder Name</Label>
+                              <Input id="account-holder-name" placeholder="Your Name" value={depositHolderName} onChange={e => setDepositHolderName(e.target.value)} />
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="account-number">Your Account Number</Label>
+                              <Input id="account-number" placeholder="03xxxxxxxx" value={depositAccountNumber} onChange={e => setDepositAccountNumber(e.target.value)} />
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="amount">Amount (PKR)</Label>
+                              <Input id="amount" type="number" placeholder="500" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} />
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="tid">Transaction ID (TID)</Label>
+                              <Input id="tid" placeholder="e.g., 1234567890" value={depositTid} onChange={e => setDepositTid(e.target.value)} />
+                          </div>
+                      </div>
+                      <DialogFooter>
+                        <Button type="submit" className="w-full bg-primary hover:bg-primary/90" onClick={handleDepositSubmit}>Submit Request</Button>
+                      </DialogFooter>
                     </DialogContent>
-                </Dialog>
-            </div>
-        </CardContent>
-      </Card>
-    </div>
+                  </Dialog>
+
+                  <Dialog>
+                      <DialogTrigger asChild>
+                          <Button 
+                              size="lg"
+                              variant='outline'
+                          >
+                              <ArrowUpFromLine className="mr-2 h-4 w-4" />
+                              Withdraw
+                          </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-xs">
+                          <DialogHeader>
+                              <DialogTitle>Withdraw Funds</DialogTitle>
+                              <DialogDescription>
+                                  Select your withdrawal method and enter your details. Your balance is {walletData?.balance.toLocaleString() || 0} PKR.
+                              </DialogDescription>
+                          </DialogHeader>
+                          <div className="grid gap-4 py-4">
+                              <div className="space-y-2">
+                                  <Label>Select Method</Label>
+                                  <RadioGroup onValueChange={handleWithdrawalMethodChange} value={withdrawMethod} className="flex">
+                                      {jazzcashEnabled && <Label htmlFor="jazzcash" className="flex items-center space-x-2 cursor-pointer">
+                                          <RadioGroupItem value="jazzcash" id="jazzcash" />
+                                          <span>JazzCash</span>
+                                      </Label>}
+                                      {easypaisaEnabled && <Label htmlFor="easypaisa" className="flex items-center space-x-2 cursor-pointer">
+                                          <RadioGroupItem value="easypaisa" id="easypaisa" />
+                                          <span>Easypaisa</span>
+                                      </Label>}
+                                      {bankEnabled && <Label htmlFor="bank" className="flex items-center space-x-2 cursor-pointer">
+                                          <RadioGroupItem value="bank" id="bank" />
+                                          <span>Bank</span>
+                                      </Label>}
+                                  </RadioGroup>
+                              </div>
+
+                              {showBankDetails ? (
+                                  <div className="space-y-2">
+                                      <Label htmlFor="bank-name">Bank Name</Label>
+                                      <Select>
+                                          <SelectTrigger id="bank-name">
+                                              <SelectValue placeholder="Select a bank" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                              <SelectItem value="meezan">Meezan Bank</SelectItem>
+                                              <SelectItem value="hbl">Habib Bank Limited (HBL)</SelectItem>
+                                              <SelectItem value="ubl">United Bank Limited (UBL)</SelectItem>
+                                              <SelectItem value="nbp">National Bank of Pakistan (NBP)</SelectItem>
+                                              <SelectItem value="abl">Allied Bank Limited (ABL)</SelectItem>
+                                              <SelectItem value="mcb">MCB Bank Limited</SelectItem>
+                                              <SelectItem value="alfalah">Bank Alfalah</SelectItem>
+                                              <SelectItem value="faysal">Faysal Bank</SelectItem>
+                                              <SelectItem value="askari">Askari Bank</SelectItem>
+                                              <SelectItem value="alhabib">Bank Al-Habib</SelectItem>
+                                              <SelectItem value="js">JS Bank</SelectItem>
+                                              <SelectItem value="soneri">Soneri Bank</SelectItem>
+                                              <SelectItem value="summit">Summit Bank</SelectItem>
+                                              <SelectItem value="bop">The Bank of Punjab</SelectItem>
+                                              <SelectItem value="sc">Standard Chartered Bank</SelectItem>
+                                          </SelectContent>
+                                      </Select>
+                                  </div>
+                              ) : null}
+
+                              <div className="space-y-2">
+                                  <Label htmlFor="withdraw-account-holder">Account Holder Name</Label>
+                                  <Input id="withdraw-account-holder" placeholder="Your Name" value={withdrawHolderName} onChange={e => setWithdrawHolderName(e.target.value)} />
+                              </div>
+                              <div className="space-y-2">
+                                  <Label htmlFor="withdraw-account-number">{showBankDetails ? 'Account Number / IBAN' : 'Account Number'}</Label>
+                                  <Input id="withdraw-account-number" placeholder={showBankDetails ? 'PK...' : '03...'} value={withdrawAccountNumber} onChange={e => setWithdrawAccountNumber(e.target.value)} />
+                              </div>
+                              <div className="space-y-2">
+                                  <Label htmlFor="withdraw-amount">Amount to Withdraw (PKR)</Label>
+                                  <Input id="withdraw-amount" type="number" placeholder="1000" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} />
+                              </div>
+                          </div>
+                          <DialogFooter>
+                              <Button type="submit" className="w-full bg-primary hover:bg-primary/90" onClick={handleWithdrawalSubmit}>Submit Request</Button>
+                          </DialogFooter>
+                      </DialogContent>
+                  </Dialog>
+              </div>
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 }
