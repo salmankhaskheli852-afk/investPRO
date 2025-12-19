@@ -1,9 +1,52 @@
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Helper function to check if the user is an authenticated admin.
+    // This checks against a specific, hardcoded admin email address.
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'salmankhaskheli885@gmail.com';
+    }
+
+    // Helper function to check if the user is authenticated.
+    function isUserAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if the user is the owner of the document.
+    function isOwner(userId) {
+      return isUserAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Grant ADMIN total and complete access to ALL documents in the database.
+    // This rule allows the admin to bypass all other specific rules.
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write, list: if isAdmin();
+    }
+    
+    // Rules for the 'users' collection
+    match /users/{userId} {
+      // A user can read their own profile.
+      allow get: if isOwner(userId);
+      
+      // An authenticated user can create their own profile.
+      allow create: if isUserAuthenticated();
+      
+      // A user can update their own profile.
+      allow update: if isOwner(userId);
+    }
+    
+    // Rules for 'investment_plans'
+    match /investment_plans/{planId} {
+        // Any authenticated user can view the investment plans.
+        allow read: if isUserAuthenticated();
+    }
+
+    // Rules for user-specific subcollections like wallets and transactions
+    match /users/{userId}/{document=**} {
+      // A user can only access their own subcollections (wallets, transactions, etc.).
+      allow read, write: if isOwner(userId);
     }
   }
 }
