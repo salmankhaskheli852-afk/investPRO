@@ -10,6 +10,7 @@
  * - /users/{userId}/wallets/{walletId}/transactions/{transactionId}: Private transaction history for a wallet.
  * - /investment_plans/{planId}: A top-level collection for investment data that is publicly readable.
  * - /roles_admin/{userId}: A lookup collection to grant admin rights. This collection is locked from all client access.
+ * - /admin_wallets/{walletId}: Publicly readable deposit account information.
  *
  * Key Security Decisions:
  * - User data is private by default. All collections and subcollections under `/users/{userId}` are only accessible by that user.
@@ -21,7 +22,7 @@
  * This ruleset avoids slow and costly `get()` calls. Path-based ownership (`/users/{userId}/...`) provides instant authorization context. Admin status is checked using a highly performant `exists()` call on the `/roles_admin/{userId}` collection, which is a purpose-built denormalization pattern for roles.
  *
  * Structural Segregation:
- * The separation between private user data (e.g., `/users/{userId}/wallets`) and public application data (`/investment_plans`) is a deliberate design choice. This structure allows for safe and performant public listing of plans without any risk of exposing private user information.
+ * The separation between private user data (e.g., `/users/{userId}/wallets`) and public application data (`/investment_plans`, `/admin_wallets`) is a deliberate design choice. This structure allows for safe and performant public listing of plans and accounts without any risk of exposing private user information.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -143,6 +144,22 @@ service cloud.firestore {
       allow update: if isAdmin() && resource != null;
       allow delete: if isAdmin() && resource != null;
     }
+    
+    /**
+     * @description Admin wallet information for deposits is publicly readable by any authenticated
+     *              user so they can make deposits. Only admins can manage these accounts.
+     * @path        /admin_wallets/{walletId}
+     * @allow       An authenticated user can (list) all admin wallets. An admin can (create) a wallet.
+     * @deny        A regular, non-admin user trying to (update) a wallet.
+     * @principle   Authenticated read access with role-based write restrictions.
+     */
+    match /admin_wallets/{walletId} {
+        allow get: if isSignedIn();
+        allow list: if isSignedIn();
+        allow create: if isAdmin();
+        allow update: if isAdmin() && resource != null;
+        allow delete: if isAdmin() && resource != null;
+    }
 
     /**
      * @description A user's wallets are private. Only the authenticated owner of the
@@ -175,6 +192,24 @@ service cloud.firestore {
         allow delete: if isExistingOwner(userId);
       }
     }
+    
+    /**
+     * @description Top-level transactions collection for admin processing. Users can create
+     *              (for withdrawal requests), but cannot read other users' requests.
+     *              Admins can read/update/delete any request.
+     * @path        /transactions/{transactionId}
+     * @allow       A user can create a withdrawal request. An admin can list all requests.
+     * @deny        A user trying to list all transactions in the top-level collection.
+     * @principle   Allows user-initiated requests into a central queue, with admin-only read/write access.
+     */
+    match /transactions/{transactionId} {
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      // Allow user to create if it is a withdrawal request they own
+      allow create: if isSignedIn() && request.resource.data.details.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
 
     /**
      * @description This collection is a lookup table for admin roles and must be managed
@@ -194,3 +229,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
