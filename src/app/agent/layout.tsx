@@ -7,8 +7,9 @@ import { SidebarNav, type NavItem } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
 import { LayoutDashboard, Users, ArrowDownToLine, ArrowUpFromLine, MessageCircle } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import type { User } from '@/lib/data';
+import type { User, AppSettings } from '@/lib/data';
 import { doc } from 'firebase/firestore';
+import { MaintenancePage } from '@/components/maintenance-page';
 
 function AgentNav() {
   const { user } = useUser();
@@ -48,6 +49,29 @@ export default function AgentLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const firestore = useFirestore();
+  const settingsRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore]
+  );
+  const { data: appSettings, isLoading } = useDoc<AppSettings>(settingsRef);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (appSettings?.agentMaintenanceMode) {
+    return (
+      <MaintenancePage 
+        message={appSettings.agentMaintenanceMessage || 'The agent panel is currently under maintenance. We will be back shortly.'}
+      />
+    );
+  }
+  
   return (
     <SidebarProvider>
       <Sidebar variant='inset'>

@@ -112,6 +112,10 @@ export type AppSettings = {
     maxWithdrawal?: number;
     baseInvitationUrl?: string;
     referralCommissionPercentage?: number;
+    userMaintenanceMode?: boolean;
+    userMaintenanceMessage?: string;
+    agentMaintenanceMode?: boolean;
+    agentMaintenanceMessage?: string;
 }
 
 // This is now seed data for Firestore, not used directly in the app.
