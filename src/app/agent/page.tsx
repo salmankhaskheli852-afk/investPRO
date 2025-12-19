@@ -10,7 +10,7 @@ import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebas
 import type { User, Transaction, InvestmentPlan } from '@/lib/data';
 import { DollarSign, Users, Activity } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { collection, query, where, orderBy, limit, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 
@@ -34,7 +34,7 @@ export default function AgentDashboardPage() {
   // Get transactions for managed users.
   const userActivitiesQuery = useMemoFirebase(
       () => {
-          if (!firestore || !managedUsers || managedUsers.length === 0) return null;
+          if (!firestore || !managedUsers) return null;
           const userIds = managedUsers.map(u => u.id);
           // IMPORTANT: Check if userIds is empty. An 'in' query with an empty array is invalid.
           if (userIds.length === 0) return null;
