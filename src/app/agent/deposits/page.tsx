@@ -14,13 +14,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import type { User, Transaction } from '@/lib/data';
+import type { User, Transaction, AdminWallet } from '@/lib/data';
 import { collection, query, where, doc, writeBatch, getDoc, collectionGroup } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X } from 'lucide-react';
 
-function DepositRequestRow({ tx, user }: { tx: Transaction; user: User | undefined }) {
+function DepositRequestRow({ tx, user, adminWallets }: { tx: Transaction; user: User | undefined, adminWallets: AdminWallet[] | null }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = React.useState(false);
@@ -64,6 +64,7 @@ function DepositRequestRow({ tx, user }: { tx: Transaction; user: User | undefin
   };
 
   const details = tx.details || {};
+  const adminWallet = adminWallets?.find(w => w.id === details.adminWalletId);
 
   return (
     <TableRow>
@@ -84,6 +85,10 @@ function DepositRequestRow({ tx, user }: { tx: Transaction; user: User | undefin
         <div className="font-medium">{details.senderName}</div>
         <div className="text-sm text-muted-foreground">{details.senderAccount}</div>
         <div className="text-xs text-muted-foreground">TID: {details.tid}</div>
+      </TableCell>
+      <TableCell>
+        <div className="font-medium">{adminWallet?.walletName || 'N/A'}</div>
+        <div className="text-sm text-muted-foreground">{adminWallet?.name}</div>
       </TableCell>
       <TableCell>{tx.date ? format(tx.date.toDate(), 'PPp') : 'N/A'}</TableCell>
       <TableCell className="text-right">
@@ -129,23 +134,29 @@ export default function AgentDepositsPage() {
   );
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
+  const adminWalletsQuery = useMemoFirebase(
+    () => firestore ? collection(firestore, 'admin_wallets') : null,
+    [firestore]
+  );
+  const { data: adminWallets, isLoading: isLoadingWallets } = useCollection<AdminWallet>(adminWalletsQuery);
+
   const depositsQuery = useMemoFirebase(
     () => {
-      if (!firestore || !agentData?.assignedWallets || agentData.assignedWallets.length === 0) return null;
+      if (!firestore) return null;
+      // Agent sees all deposit requests, same as admin
       return query(
-        collectionGroup(firestore, 'transactions'), 
+        collection(firestore, 'transactions'), 
         where('type', '==', 'deposit'), 
-        where('status', '==', 'pending'),
-        where('details.adminWalletId', 'in', agentData.assignedWallets)
+        where('status', '==', 'pending')
       );
     },
-    [firestore, agentData]
+    [firestore]
   );
   const { data: depositRequests, isLoading: isLoadingDeposits } = useCollection<Transaction>(depositsQuery);
   
   const findUserForTx = (tx: Transaction) => allUsers?.find(u => u.id === tx.details?.userId);
 
-  const isLoading = isLoadingUsers || isLoadingDeposits || isLoadingAgent;
+  const isLoading = isLoadingUsers || isLoadingDeposits || isLoadingAgent || isLoadingWallets;
 
   if (agentData && !agentData.permissions?.canManageDepositRequests) {
     return (
@@ -160,7 +171,7 @@ export default function AgentDepositsPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-headline">Deposit Requests</h1>
-        <p className="text-muted-foreground">Approve or reject user deposit requests for your assigned accounts.</p>
+        <p className="text-muted-foreground">Approve or reject user deposit requests.</p>
       </div>
 
       <Card>
@@ -175,6 +186,7 @@ export default function AgentDepositsPage() {
                 <TableHead>User</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Sender Details</TableHead>
+                <TableHead>Deposit To</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -182,18 +194,18 @@ export default function AgentDepositsPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     Loading requests...
                   </TableCell>
                 </TableRow>
               ) : depositRequests && depositRequests.length > 0 ? (
                 depositRequests.map((tx) => (
-                  <DepositRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} />
+                  <DepositRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} adminWallets={adminWallets} />
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    No pending deposit requests for your accounts.
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    No pending deposit requests.
                   </TableCell>
                 </TableRow>
               )}
