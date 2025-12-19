@@ -92,7 +92,7 @@ export default function UserWalletPage() {
   React.useEffect(() => {
     if (withdrawalMethodsData && withdrawalMethodsData.length > 0 && !withdrawMethod) {
         const defaultMethod = withdrawalMethodsData.find(m => m.name.toLowerCase().includes('easypaisa')) || withdrawalMethodsData[0];
-        setWithdrawMethod(defaultMethod.id);
+        setWithdrawMethod(defaultMethod.name);
     }
   }, [withdrawalMethodsData, withdrawMethod]);
 
@@ -149,7 +149,11 @@ export default function UserWalletPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
       return;
     }
-    if (!withdrawAmount || !withdrawHolderName || !withdrawAccountNumber) {
+    if (!withdrawAmount || !withdrawHolderName || !withdrawAccountNumber || !withdrawMethod) {
+      setShowEmptyFields(true);
+      return;
+    }
+     if (showBankDetails && !bankName) {
       setShowEmptyFields(true);
       return;
     }
@@ -175,7 +179,7 @@ export default function UserWalletPage() {
           date: serverTimestamp(),
           walletId: 'main',
           details: {
-            method: withdrawalMethodsData?.find(m => m.id === withdrawMethod)?.name || 'Unknown',
+            method: withdrawMethod,
             receiverName: withdrawHolderName,
             receiverAccount: withdrawAccountNumber,
             bankName: showBankDetails ? bankName : undefined,
@@ -209,9 +213,8 @@ export default function UserWalletPage() {
   const selectedWalletDetails = adminWalletsData?.find(w => w.id === selectedWallet);
 
   React.useEffect(() => {
-    const selectedMethod = withdrawalMethodsData?.find(m => m.id === withdrawMethod);
-    setShowBankDetails(selectedMethod?.name.toLowerCase().includes('bank') || false);
-  }, [withdrawMethod, withdrawalMethodsData]);
+    setShowBankDetails(withdrawMethod?.toLowerCase().includes('bank') || false);
+  }, [withdrawMethod]);
 
   return (
     <>
@@ -352,8 +355,8 @@ export default function UserWalletPage() {
                                   <Label>Select Method</Label>
                                   <RadioGroup onValueChange={setWithdrawMethod} value={withdrawMethod} className="grid grid-cols-2 gap-2">
                                       {withdrawalMethodsData?.map((method) => (
-                                         <Label key={method.id} htmlFor={method.id} className="flex items-center space-x-2 cursor-pointer rounded-md border p-3 [&:has([data-state=checked])]:border-primary">
-                                          <RadioGroupItem value={method.id} id={method.id} />
+                                         <Label key={method.id} htmlFor={method.name} className="flex items-center space-x-2 cursor-pointer rounded-md border p-3 [&:has([data-state=checked])]:border-primary">
+                                          <RadioGroupItem value={method.name} id={method.name} />
                                           <span>{method.name}</span>
                                       </Label>
                                       ))}
