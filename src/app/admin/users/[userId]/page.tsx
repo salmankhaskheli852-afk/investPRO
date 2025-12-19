@@ -15,18 +15,35 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank } from 'lucide-react';
+import { ArrowLeft, DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Edit } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Transaction, Wallet, InvestmentPlan } from '@/lib/data';
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, query, orderBy, writeBatch, serverTimestamp, addDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
 import { useParams } from 'next/navigation';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 export default function UserDetailsPage() {
   const params = useParams();
   const userId = params.userId as string;
   const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+  const [editingField, setEditingField] = React.useState<{ title: string; value: number; field: string } | null>(null);
+  const [newValue, setNewValue] = React.useState('');
 
   const userDocRef = useMemoFirebase(
       () => firestore && userId ? doc(firestore, 'users', userId) : null,
@@ -73,6 +90,60 @@ export default function UserDetailsPage() {
   const purchasedPlansCount = user?.investments?.length || 0;
 
   const isLoading = isLoadingUser || isLoadingWallet || isLoadingTransactions || isLoadingPlans;
+
+  const handleEditClick = (title: string, value: number, field: string) => {
+    setEditingField({ title, value, field });
+    setNewValue(String(value));
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleSaveChanges = async () => {
+    if (!editingField || !firestore || !userId) return;
+
+    const numericNewValue = parseFloat(newValue);
+    if (isNaN(numericNewValue)) {
+      toast({ variant: 'destructive', title: 'Invalid value', description: 'Please enter a valid number.' });
+      return;
+    }
+
+    try {
+      const batch = writeBatch(firestore);
+
+      if (editingField.field === 'balance' && walletDocRef) {
+        batch.update(walletDocRef, { balance: numericNewValue });
+      } else {
+        // For other fields, create a manual adjustment transaction
+        const transactionCollectionRef = collection(firestore, 'users', userId, 'wallets', 'main', 'transactions');
+        const diff = numericNewValue - editingField.value;
+        
+        await addDoc(transactionCollectionRef, {
+            type: 'income', // Use 'income' for adjustments, or a new 'adjustment' type
+            amount: diff,
+            status: 'completed',
+            date: serverTimestamp(),
+            details: {
+                reason: `Admin adjustment for ${editingField.title}`,
+                adjustedBy: 'admin',
+            },
+            walletId: 'main'
+        });
+        
+        // Also update wallet balance
+        if(walletDocRef && wallet) {
+            batch.update(walletDocRef, { balance: wallet.balance + diff });
+        }
+      }
+
+      await batch.commit();
+
+      toast({ title: 'Success', description: `${editingField.title} has been updated.` });
+      setIsEditDialogOpen(false);
+      setEditingField(null);
+
+    } catch (e: any) {
+       toast({ variant: 'destructive', title: 'Error updating value', description: e.message });
+    }
+  };
   
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -133,6 +204,7 @@ export default function UserDetailsPage() {
           description="Available funds"
           Icon={DollarSign}
           chartData={[]} chartKey=''
+          onEdit={() => handleEditClick('Wallet Balance', wallet?.balance || 0, 'balance')}
         />
         <DashboardStatsCard
           title="Total Invested"
@@ -140,6 +212,7 @@ export default function UserDetailsPage() {
           description={`${purchasedPlansCount} active plans`}
           Icon={TrendingUp}
           chartData={[]} chartKey=''
+          onEdit={() => handleEditClick('Total Invested', transactionTotals.investment, 'investment')}
         />
         <DashboardStatsCard
           title="Total Income"
@@ -147,6 +220,7 @@ export default function UserDetailsPage() {
           description="From investments"
           Icon={PiggyBank}
           chartData={[]} chartKey=''
+          onEdit={() => handleEditClick('Total Income', transactionTotals.income, 'income')}
         />
       </div>
        <div className="grid gap-4 md:grid-cols-2">
@@ -156,6 +230,7 @@ export default function UserDetailsPage() {
           description="Funds added"
           Icon={ArrowDownToLine}
           chartData={[]} chartKey=''
+          onEdit={() => handleEditClick('Total Deposit', transactionTotals.deposit, 'deposit')}
         />
         <DashboardStatsCard
           title="Total Withdraw"
@@ -163,6 +238,7 @@ export default function UserDetailsPage() {
           description="Funds taken out"
           Icon={ArrowUpFromLine}
           chartData={[]} chartKey=''
+          onEdit={() => handleEditClick('Total Withdraw', transactionTotals.withdraw, 'withdraw')}
         />
       </div>
 
@@ -194,7 +270,7 @@ export default function UserDetailsPage() {
                 transactions.map((tx) => (
                     <TableRow key={tx.id}>
                       <TableCell className="capitalize">{tx.type}</TableCell>
-                      <TableCell>{tx.details?.planName || tx.details?.method || 'N/A'}</TableCell>
+                      <TableCell>{tx.details?.planName || tx.details?.method || tx.details?.reason || 'N/A'}</TableCell>
                       <TableCell className='text-right'>{tx.amount.toLocaleString()} PKR</TableCell>
                       <TableCell>
                          <Badge
@@ -218,6 +294,33 @@ export default function UserDetailsPage() {
           </Table>
         </CardContent>
       </Card>
+      
+       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit {editingField?.title}</DialogTitle>
+            <DialogDescription>
+              Enter the new value. This will be reflected in the user's account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="new-value">New Value (PKR)</Label>
+            <Input
+              id="new-value"
+              type="number"
+              value={newValue}
+              onChange={(e) => setNewValue(e.target.value)}
+              placeholder={`Enter new ${editingField?.title.toLowerCase()}`}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveChanges}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
