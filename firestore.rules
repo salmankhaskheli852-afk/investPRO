@@ -15,7 +15,7 @@
  * Key Security Decisions:
  * - User data is private by default. All collections and subcollections under `/users/{userId}` are only accessible by that user.
  * - Admins have read/update access to user profiles for management purposes but are explicitly denied access to sensitive financial data like wallets and transactions to ensure user privacy.
- * - Listing all users is disabled to prevent user data enumeration and protect privacy.
+ * - Listing all users is disabled for non-admins to prevent user data enumeration and protect privacy.
  * - The `/roles_admin` collection is read-only from a rules perspective (used in `exists()` calls) and completely locked down from any client-side reads or writes to prevent privilege escalation attacks.
  *
  * Denormalization for Authorization:
@@ -115,15 +115,15 @@ service cloud.firestore {
 
     /**
      * @description Users can create their own profile and read/update it. Admins can also
-     *              read/update profiles for management. Listing users is forbidden for privacy.
+     *              read/update profiles and list all users.
      * @path        /users/{userId}
-     * @allow       A user with UID 'user123' can (create) their document at `/users/user123`.
-     * @deny        A user with UID 'user456' trying to (get) `/users/user123`.
+     * @allow       A user with UID 'user123' can (create) their document at `/users/user123`. An admin can (list) all users.
+     * @deny        A user with UID 'user456' trying to (get) `/users/user123`. A non-admin user trying to (list) users.
      * @principle   Enforces document ownership and provides admin override for management.
      */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if false;
+      allow list: if isAdmin();
       allow create: if canCreateUser(userId);
       allow update: if canUpdateUser(userId);
       allow delete: if isExistingOwner(userId);
@@ -226,5 +226,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
