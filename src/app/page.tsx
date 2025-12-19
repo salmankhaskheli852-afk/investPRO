@@ -12,8 +12,7 @@ import { signInWithGoogle } from '@/firebase/auth/sign-in';
 import { useAuth, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
-import type { User } from '@/lib/data';
-import { adminWallets, withdrawalMethods } from '@/lib/data';
+import type { User, AdminWallet, WithdrawalMethod } from '@/lib/data';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -68,6 +67,18 @@ export default function Home() {
   const seedInitialData = async () => {
     if (!firestore) return;
     const batch = writeBatch(firestore);
+
+    const adminWallets: AdminWallet[] = [
+      { id: 'easypaisa', walletName: "Easypaisa", name: "you", number: "03087554721", isEnabled: true },
+      { id: 'jazzcash', walletName: "JazzCash", name: "salman shop", number: "03433273391", isEnabled: true },
+      { id: 'bank', walletName: 'Bank', name: 'Meezan Bank', number: '0308237554721', isBank: true, isEnabled: true }
+    ];
+
+    const withdrawalMethods: WithdrawalMethod[] = [
+      { id: 'jazzcash', name: 'JazzCash', isEnabled: true },
+      { id: 'easypaisa', name: 'Easypaisa', isEnabled: true },
+      { id: 'bank', name: 'Bank Transfer', isEnabled: true },
+    ];
 
     // Seed admin wallets
     const adminWalletsCollection = collection(firestore, 'admin_wallets');
