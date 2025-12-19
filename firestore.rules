@@ -66,9 +66,10 @@ service cloud.firestore {
         allow read: if isUserAuthenticated();
     }
     
-    // A user has full access to their own sub-collections (wallets, transactions, withdrawal_accounts, etc.).
-    match /users/{userId}/{collection}/{docId} {
-      allow read, write, create, delete, list: if isOwner(userId);
+    // A user has full access to their own sub-collections (wallets, transactions, etc.).
+    // This recursive wildcard match is crucial for nested data like transactions.
+    match /users/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
     }
     
     // Any authenticated user can read admin wallet details for depositing.
