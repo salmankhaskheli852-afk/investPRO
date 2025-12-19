@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -35,8 +36,10 @@ export default function AgentDashboardPage() {
       () => {
           if (!firestore || !managedUsers || managedUsers.length === 0) return null;
           const userIds = managedUsers.map(u => u.id);
+          // IMPORTANT: Check if userIds is empty. An 'in' query with an empty array is invalid.
+          if (userIds.length === 0) return null;
           return query(
-              collectionGroup(firestore, 'transactions'),
+              collection(firestore, 'transactions'),
               where('details.userId', 'in', userIds),
               orderBy('date', 'desc'),
               limit(5)
