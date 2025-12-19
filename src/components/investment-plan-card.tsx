@@ -5,7 +5,7 @@ import Image from 'next/image';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import type { InvestmentPlan } from '@/lib/data';
+import type { InvestmentPlan, OfferConfig } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { CheckCircle, Info, Wallet } from 'lucide-react';
+import { CheckCircle, Info, Wallet, Timer } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, arrayUnion, writeBatch, collection, serverTimestamp } from 'firebase/firestore';
 
@@ -28,6 +28,53 @@ interface InvestmentPlanCardProps {
   userWalletBalance?: number;
   showAsPurchased?: boolean;
   showPurchaseButton?: boolean;
+  offerConfig?: OfferConfig | null;
+}
+
+function CountdownTimer({ endTime }: { endTime: { seconds: number; nanoseconds: number } }) {
+  const [timeLeft, setTimeLeft] = React.useState({
+    hours: '00',
+    minutes: '00',
+    seconds: '00',
+  });
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const end = new Date(endTime.seconds * 1000 + endTime.nanoseconds / 1000000);
+      const difference = end.getTime() - now.getTime();
+
+      if (difference <= 0) {
+        clearInterval(interval);
+        setTimeLeft({ hours: '00', minutes: '00', seconds: '00' });
+        return;
+      }
+
+      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((difference / 1000 / 60) % 60);
+      const seconds = Math.floor((difference / 1000) % 60);
+
+      setTimeLeft({
+        hours: String(hours).padStart(2, '0'),
+        minutes: String(minutes).padStart(2, '0'),
+        seconds: String(seconds).padStart(2, '0'),
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [endTime]);
+
+  return (
+    <div className="absolute top-0 left-0 w-full bg-gradient-to-t from-transparent to-black/70 p-2 text-white">
+      <div className="flex items-center justify-center gap-2">
+        <Timer className="w-5 h-5 text-amber-300" />
+        <p className="font-bold text-sm">Offer Ends In:</p>
+        <div className="flex items-center gap-1 font-mono text-lg font-bold">
+            <span>{timeLeft.hours}</span>:<span>{timeLeft.minutes}</span>:<span>{timeLeft.seconds}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function InvestmentPlanCard({
@@ -36,6 +83,7 @@ export function InvestmentPlanCard({
   userWalletBalance = 0,
   showAsPurchased = false,
   showPurchaseButton = true,
+  offerConfig,
 }: InvestmentPlanCardProps) {
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
@@ -196,9 +244,12 @@ export function InvestmentPlanCard({
     );
   }
 
+  const isOfferActive = offerConfig?.isEnabled && offerConfig.endTime && offerConfig.endTime.seconds * 1000 > Date.now();
+
   return (
     <Card className={cn("w-full overflow-hidden flex flex-col transition-all duration-300 hover:scale-[1.02] hover:shadow-xl shadow-lg border-2 border-transparent", `hover:border-primary`)}>
       <div className="relative aspect-[4/3] w-full">
+        {isOfferActive && <CountdownTimer endTime={offerConfig.endTime!} />}
         <Image
           src={plan.imageUrl}
           alt={plan.name}

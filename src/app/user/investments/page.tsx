@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -5,7 +6,7 @@ import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { planCategories } from '@/lib/data';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import type { InvestmentPlan, User, Wallet } from '@/lib/data';
+import type { InvestmentPlan, User, Wallet, OfferConfig } from '@/lib/data';
 import { collection, doc } from 'firebase/firestore';
 
 export default function UserInvestmentsPage() {
@@ -29,6 +30,9 @@ export default function UserInvestmentsPage() {
     [firestore]
   );
   const { data: investmentPlans, isLoading } = useCollection<InvestmentPlan>(plansQuery);
+
+  const offerConfigRef = useMemoFirebase(() => firestore ? doc(firestore, 'app_config', 'offer') : null, [firestore]);
+  const { data: offerConfig } = useDoc<OfferConfig>(offerConfigRef);
 
 
   return (
@@ -59,6 +63,7 @@ export default function UserInvestmentsPage() {
                     plan={plan} 
                     userWalletBalance={walletData?.balance}
                     isPurchased={userData?.investments?.includes(plan.id)}
+                    offerConfig={offerConfig}
                     showAsPurchased
                   />
                 ))}

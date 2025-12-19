@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { planCategories } from '@/lib/data';
-import { Edit, PlusCircle, Trash2 } from 'lucide-react';
+import { Edit, PlusCircle, Trash2, Timer } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -34,10 +34,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import type { InvestmentPlan } from '@/lib/data';
-import { collection, addDoc, doc, writeBatch } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
+import type { InvestmentPlan, OfferConfig } from '@/lib/data';
+import { collection, addDoc, doc, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { Switch } from '@/components/ui/switch';
+import { Timestamp } from 'firebase/firestore';
 
 export default function AdminInvestmentsPage() {
   const firestore = useFirestore();
@@ -54,6 +56,19 @@ export default function AdminInvestmentsPage() {
   const [imageUrl, setImageUrl] = React.useState('https://picsum.photos/seed/105/600/400');
   const [isSaving, setIsSaving] = React.useState(false);
 
+  // Offer state
+  const [offerEnabled, setOfferEnabled] = React.useState(false);
+  const [offerHours, setOfferHours] = React.useState(24);
+
+  const offerConfigRef = useMemoFirebase(() => firestore ? doc(firestore, 'app_config', 'offer') : null, [firestore]);
+  const { data: offerConfig, isLoading: isLoadingOffer } = useDoc<OfferConfig>(offerConfigRef);
+
+  React.useEffect(() => {
+    if (offerConfig) {
+      setOfferEnabled(offerConfig.isEnabled);
+      // If there's an end time, you could calculate remaining hours, but for simplicity, we'll just keep the last set value or a default.
+    }
+  }, [offerConfig]);
 
   const plansQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'investment_plans') : null,
@@ -116,6 +131,36 @@ export default function AdminInvestmentsPage() {
         setIsSaving(false);
     }
   }
+
+  const handleOfferUpdate = async () => {
+    if (!firestore) return;
+
+    try {
+        let endTime: Timestamp | null = null;
+        if (offerEnabled && offerHours > 0) {
+            const now = new Date();
+            now.setHours(now.getHours() + offerHours);
+            endTime = Timestamp.fromDate(now);
+        }
+
+        await setDoc(doc(firestore, 'app_config', 'offer'), {
+            isEnabled: offerEnabled,
+            endTime: endTime
+        });
+        
+        toast({
+            title: 'Offer Updated',
+            description: `The limited-time offer has been ${offerEnabled ? 'activated' : 'deactivated'}.`
+        });
+
+    } catch (e: any) {
+         toast({
+            variant: 'destructive',
+            title: 'Error updating offer',
+            description: e.message || 'Could not save the offer configuration.',
+        });
+    }
+  };
 
 
   return (
@@ -213,7 +258,7 @@ export default function AdminInvestmentsPage() {
                 </CardContent>
             </Card>
         </div>
-        <div>
+        <div className="space-y-8">
             <Card>
                 <CardHeader>
                     <CardTitle>Categories</CardTitle>
@@ -271,6 +316,46 @@ export default function AdminInvestmentsPage() {
                     </Table>
                    </div>
                 </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Timer className="w-5 h-5" />
+                    Limited-Time Offer
+                  </CardTitle>
+                  <CardDescription>Enable a countdown timer for all investment plans.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <Label htmlFor="offer-switch" className="flex flex-col space-y-1">
+                      <span>Enable Offer</span>
+                      <span className="font-normal leading-snug text-muted-foreground">
+                        Show a countdown on all plans.
+                      </span>
+                    </Label>
+                    <Switch
+                      id="offer-switch"
+                      checked={offerEnabled}
+                      onCheckedChange={setOfferEnabled}
+                      disabled={isLoadingOffer}
+                    />
+                  </div>
+                  {offerEnabled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="offer-hours">Offer Duration (hours)</Label>
+                      <Input
+                        id="offer-hours"
+                        type="number"
+                        value={offerHours}
+                        onChange={(e) => setOfferHours(Number(e.target.value))}
+                        placeholder="e.g., 24"
+                      />
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter>
+                  <Button className="w-full" onClick={handleOfferUpdate}>Save Offer Settings</Button>
+                </CardFooter>
             </Card>
         </div>
       </div>

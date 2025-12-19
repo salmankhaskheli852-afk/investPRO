@@ -54,6 +54,11 @@ export type AdminWallet = {
     isBank?: boolean;
 }
 
+export type OfferConfig = {
+    isEnabled: boolean;
+    endTime: Timestamp | null;
+}
+
 const findImage = (id: string) => PlaceHolderImages.find(img => img.id === id);
 
 export const planCategories: PlanCategory[] = [
