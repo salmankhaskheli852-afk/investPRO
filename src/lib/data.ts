@@ -10,6 +10,7 @@ export type InvestmentPlan = {
   name: string;
   price: number;
   dailyIncome: number;
+  incomePeriod: number;
   totalIncome: number;
   imageUrl: string;
   imageHint: string;
@@ -55,8 +56,9 @@ export const investmentPlans: InvestmentPlan[] = [
   {
     id: 'plan-1',
     name: 'Starter Pack',
-    price: 100,
-    dailyIncome: 2.5,
+    price: 1580,
+    dailyIncome: 65,
+    incomePeriod: 60,
     totalIncome: 150,
     imageUrl: findImage('plan-starter')?.imageUrl || '',
     imageHint: findImage('plan-starter')?.imageHint || '',
@@ -66,8 +68,9 @@ export const investmentPlans: InvestmentPlan[] = [
   {
     id: 'plan-2',
     name: 'Growth Engine',
-    price: 500,
-    dailyIncome: 3.0,
+    price: 3160,
+    dailyIncome: 190,
+    incomePeriod: 62,
     totalIncome: 900,
     imageUrl: findImage('plan-standard')?.imageUrl || '',
     imageHint: findImage('plan-standard')?.imageHint || '',
@@ -77,8 +80,9 @@ export const investmentPlans: InvestmentPlan[] = [
   {
     id: 'plan-3',
     name: 'Premium Yield',
-    price: 2000,
-    dailyIncome: 3.5,
+    price: 11800,
+    dailyIncome: 850,
+    incomePeriod: 57,
     totalIncome: 4200,
     imageUrl: findImage('plan-premium')?.imageUrl || '',
     imageHint: findImage('plan-premium')?.imageHint || '',
@@ -88,8 +92,9 @@ export const investmentPlans: InvestmentPlan[] = [
   {
     id: 'plan-4',
     name: 'VIP Portfolio',
-    price: 10000,
-    dailyIncome: 4.0,
+    price: 31800,
+    dailyIncome: 2353,
+    incomePeriod: 60, // Assuming a value
     totalIncome: 24000,
     imageUrl: findImage('plan-vip')?.imageUrl || '',
     imageHint: findImage('plan-vip')?.imageHint || '',

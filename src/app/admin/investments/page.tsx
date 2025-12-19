@@ -72,16 +72,16 @@ export default function AdminInvestmentsPage() {
                 </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="price" className="text-right">Price (PKR)</Label>
+                <Label htmlFor="price" className="text-right">Product Price (Rs)</Label>
                 <Input id="price" type="number" defaultValue="1000" className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="daily" className="text-right">Daily Income (%)</Label>
-                <Input id="daily" type="number" defaultValue="3" className="col-span-3" />
+                <Label htmlFor="daily" className="text-right">Daily Income (Rs)</Label>
+                <Input id="daily" type="number" defaultValue="65" className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="total" className="text-right">Total Income (PKR)</Label>
-                <Input id="total" type="number" defaultValue="1800" className="col-span-3" />
+                <Label htmlFor="period" className="text-right">Income Period</Label>
+                <Input id="period" type="number" defaultValue="60" className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="image" className="text-right">Image URL</Label>
@@ -106,11 +106,8 @@ export default function AdminInvestmentsPage() {
                 <Table>
                     <TableHeader>
                     <TableRow>
-                        <TableHead>Image</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead>Daily</TableHead>
+                        <TableHead>Plan</TableHead>
+                        <TableHead>Details</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                     </TableHeader>
@@ -119,34 +116,39 @@ export default function AdminInvestmentsPage() {
                         const category = planCategories.find(c => c.id === plan.categoryId);
                         return (
                             <TableRow key={plan.id}>
-                            <TableCell>
-                                <Image
-                                src={plan.imageUrl}
-                                alt={plan.name}
-                                width={64}
-                                height={48}
-                                className="rounded-md object-cover"
-                                data-ai-hint={plan.imageHint}
-                                />
-                            </TableCell>
-                            <TableCell className="font-medium">{plan.name}</TableCell>
-                            <TableCell>
-                                <Badge variant="outline">{category?.name}</Badge>
-                            </TableCell>
-                            <TableCell>{plan.price.toLocaleString()} PKR</TableCell>
-                            <TableCell>
-                                <Badge variant="secondary">{plan.dailyIncome}%</Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                    <Button variant="ghost" size="icon">
-                                        <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-4">
+                                        <Image
+                                        src={plan.imageUrl}
+                                        alt={plan.name}
+                                        width={80}
+                                        height={60}
+                                        className="rounded-md object-cover"
+                                        data-ai-hint={plan.imageHint}
+                                        />
+                                        <div>
+                                            <div className="font-medium">{plan.name}</div>
+                                            <Badge variant="outline">{category?.name}</Badge>
+                                        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <div className="text-sm">
+                                        <div className="flex justify-between"><span>Product price:</span> <span className="font-medium">{plan.price.toLocaleString()} Rs</span></div>
+                                        <div className="flex justify-between"><span>Daily income:</span> <span className="font-medium">{plan.dailyIncome.toLocaleString()} Rs</span></div>
+                                        <div className="flex justify-between"><span>Income period:</span> <span className="font-medium">{plan.incomePeriod}</span></div>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                        <Button variant="ghost" size="icon">
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </TableCell>
                             </TableRow>
                         );
                     })}
