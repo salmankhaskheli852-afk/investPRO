@@ -1,12 +1,9 @@
+'use client';
+
 import { Sidebar, SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav, type NavItem } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
 import { LayoutDashboard, TrendingUp, Wallet } from 'lucide-react';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'User | InvesPro',
-};
 
 const navItems: NavItem[] = [
   { href: '/user', label: 'Dashboard', icon: LayoutDashboard },
