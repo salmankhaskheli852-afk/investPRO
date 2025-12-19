@@ -11,12 +11,20 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, MoreHorizontal } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Wallet } from '@/lib/data';
 import { collection, query } from 'firebase/firestore';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 function UserRow({ user }: { user: User }) {
   const firestore = useFirestore();
@@ -50,18 +58,27 @@ function UserRow({ user }: { user: User }) {
       </TableCell>
       <TableCell>{'N/A'}</TableCell>
       <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="ghost" size="icon">
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">User Actions</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>View Details</DropdownMenuItem>
+            <DropdownMenuItem>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit User
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete User
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
     </TableRow>
   );
