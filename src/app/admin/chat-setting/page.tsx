@@ -9,13 +9,11 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-
-type ChatSettings = {
-  whatsappNumber?: string;
-};
+import type { ChatSettings } from '@/lib/data';
 
 export default function ChatSettingPage() {
   const [whatsappNumber, setWhatsappNumber] = React.useState('');
+  const [whatsappCommunityLink, setWhatsappCommunityLink] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -29,6 +27,7 @@ export default function ChatSettingPage() {
   React.useEffect(() => {
     if (chatSettings) {
       setWhatsappNumber(chatSettings.whatsappNumber || '');
+      setWhatsappCommunityLink(chatSettings.whatsappCommunityLink || '');
     }
   }, [chatSettings]);
 
@@ -36,10 +35,10 @@ export default function ChatSettingPage() {
     if (!settingsRef) return;
     setIsSaving(true);
     try {
-      await setDoc(settingsRef, { whatsappNumber }, { merge: true });
+      await setDoc(settingsRef, { whatsappNumber, whatsappCommunityLink }, { merge: true });
       toast({
         title: 'Settings Saved',
-        description: 'The WhatsApp number has been updated successfully.',
+        description: 'The chat settings have been updated successfully.',
       });
     } catch (e: any) {
       toast({
@@ -56,14 +55,14 @@ export default function ChatSettingPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-headline">WhatsApp Chat Settings</h1>
-        <p className="text-muted-foreground">Manage your customer support contact number.</p>
+        <p className="text-muted-foreground">Manage your customer support and community links.</p>
       </div>
 
       <Card className="max-w-2xl">
         <CardHeader>
-          <CardTitle>Customer Support Number</CardTitle>
+          <CardTitle>Contact & Community</CardTitle>
           <CardDescription>
-            Provide a WhatsApp number for users to contact you directly. This will appear in a chat bubble on the user's screen.
+            Provide WhatsApp contact information for your users.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -78,6 +77,19 @@ export default function ChatSettingPage() {
             />
              <p className="text-xs text-muted-foreground">
                 Enter the number including the country code (e.g., +92 for Pakistan).
+             </p>
+          </div>
+           <div className="space-y-2">
+            <Label htmlFor="whatsapp-community-link">WhatsApp Community Link</Label>
+            <Input
+              id="whatsapp-community-link"
+              placeholder="https://chat.whatsapp.com/YourCommunityID"
+              value={whatsappCommunityLink}
+              onChange={(e) => setWhatsappCommunityLink(e.target.value)}
+              disabled={isLoading}
+            />
+             <p className="text-xs text-muted-foreground">
+                Provide the full invitation link for your WhatsApp community group.
              </p>
           </div>
           <Button onClick={handleSave} disabled={isSaving || isLoading}>

@@ -78,6 +78,7 @@ export type OfferConfig = {
 
 export type ChatSettings = {
     whatsappNumber?: string;
+    whatsappCommunityLink?: string;
 }
 
 const findImage = (id: string) => PlaceHolderImages.find(img => img.id === id);
