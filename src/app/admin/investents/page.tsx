@@ -190,15 +190,15 @@ const PlanFormDialog = ({
                         Fill in the details for the plan. Click save when you're done.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="grid max-h-[70vh] gap-4 overflow-y-auto py-4 pr-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="name" className="text-right">Name</Label>
-                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
+                <div className="grid max-h-[70vh] gap-6 overflow-y-auto py-4 pr-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Name</Label>
+                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="category" className="text-right">Category</Label>
+                    <div className="space-y-2">
+                        <Label htmlFor="category">Category</Label>
                         <Select value={categoryId} onValueChange={setCategoryId}>
-                            <SelectTrigger className="col-span-3">
+                            <SelectTrigger id="category">
                                 <SelectValue placeholder="Select a category" />
                             </SelectTrigger>
                             <SelectContent>
@@ -208,25 +208,25 @@ const PlanFormDialog = ({
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="price" className="text-right">Product Price (Rs)</Label>
-                        <Input id="price" type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} className="col-span-3" />
+                    <div className="space-y-2">
+                        <Label htmlFor="price">Product Price (Rs)</Label>
+                        <Input id="price" type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} />
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="daily-percentage" className="text-right">Daily Income (%)</Label>
-                        <Input id="daily-percentage" type="number" value={dailyPercentage} onChange={(e) => setDailyPercentage(Number(e.target.value))} className="col-span-3" />
+                    <div className="space-y-2">
+                        <Label htmlFor="daily-percentage">Daily Income (%)</Label>
+                        <Input id="daily-percentage" type="number" value={dailyPercentage} onChange={(e) => setDailyPercentage(Number(e.target.value))} />
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="period" className="text-right">Income Period</Label>
-                        <Input id="period" type="number" value={period} onChange={(e) => setPeriod(Number(e.target.value))} className="col-span-3" />
+                    <div className="space-y-2">
+                        <Label htmlFor="period">Income Period (days)</Label>
+                        <Input id="period" type="number" value={period} onChange={(e) => setPeriod(Number(e.target.value))} />
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="image" className="text-right">Image URL</Label>
-                        <Input id="image" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="col-span-3" />
+                    <div className="space-y-2">
+                        <Label htmlFor="image">Image URL</Label>
+                        <Input id="image" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="image-hint" className="text-right">Image Hint</Label>
-                        <Input id="image-hint" value={imageHint} onChange={(e) => setImageHint(e.target.value)} className="col-span-3" />
+                    <div className="space-y-2">
+                        <Label htmlFor="image-hint">Image Hint</Label>
+                        <Input id="image-hint" value={imageHint} onChange={(e) => setImageHint(e.target.value)} />
                     </div>
 
                     <div className="mt-4 pt-4 border-t">
@@ -242,15 +242,14 @@ const PlanFormDialog = ({
                             />
                         </div>
                         {offerEnabled && (
-                            <div className="mt-4 grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="offer-hours" className="text-right">Duration (hours)</Label>
+                            <div className="mt-4 space-y-2">
+                                <Label htmlFor="offer-hours">Duration (hours)</Label>
                                 <Input
                                     id="offer-hours"
                                     type="number"
                                     value={offerHours}
                                     onChange={(e) => setOfferHours(Number(e.target.value))}
                                     placeholder="e.g., 24"
-                                    className="col-span-3"
                                 />
                             </div>
                         )}
@@ -391,9 +390,9 @@ export default function AdminInvestmentsPage() {
                                   <DialogTitle>Add New Category</DialogTitle>
                               </DialogHeader>
                               <div className="grid gap-4 py-4">
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label htmlFor="category-name" className="text-right">Name</Label>
-                                  <Input id="category-name" placeholder="e.g., High-Risk" className="col-span-3" />
+                                  <div className="space-y-2">
+                                  <Label htmlFor="category-name">Name</Label>
+                                  <Input id="category-name" placeholder="e.g., High-Risk" />
                                   </div>
                               </div>
                               <DialogFooter>
