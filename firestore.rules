@@ -51,13 +51,6 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
-    // This rule is for the top-level 'transactions' collection for non-admins.
-    // It's very restrictive by design. Only admins can list this collection.
-    // Users can only read their own transactions from their subcollection.
-    match /transactions/{transactionId} {
-        allow read: if isUserAuthenticated() && request.auth.uid == resource.data.details.userId;
-    }
-
     // Allow any authenticated user to read chat settings for the WhatsApp widget
     match /app_config/chat_settings {
       allow get: if isUserAuthenticated();
