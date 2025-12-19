@@ -51,12 +51,6 @@ service cloud.firestore {
     match /users/{userId}/wallets/main/transactions/{transactionId} {
       allow read, create, update: if isOwner(userId);
     }
-    
-    // This rule allows a user to create a corresponding transaction in the global collection.
-    // Admins can read/write them via the global admin rule.
-    match /transactions/{transactionId} {
-        allow create: if isUserAuthenticated() && request.resource.data.details.userId == request.auth.uid;
-    }
 
     // Allow any authenticated user to see available withdrawal methods
     match /withdrawal_methods/{methodId} {
