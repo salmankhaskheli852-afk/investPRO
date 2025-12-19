@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShieldCheck, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
-import { useUser } from '@/firebase';
+import { useUser, useDoc } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import React from 'react';
 import { signInWithGoogle } from '@/firebase/auth/sign-in';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, getDoc, serverTimestamp, collection } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
+import type { User } from '@/lib/data';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -30,9 +31,35 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 const ADMIN_EMAIL = 'salmankhaskheli885@gmail.com';
 
-export default function Home() {
+function LoggedInRedirect() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const firestore = useFirestore();
+
+  const userDocRef = useMemoFirebase(
+    () => (user && firestore ? doc(firestore, 'users', user.uid) : null),
+    [user, firestore]
+  );
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<User>(userDocRef);
+
+  React.useEffect(() => {
+    if (!isUserLoading && !isUserDataLoading && userData) {
+      if (userData.role === 'admin') {
+        router.push('/admin');
+      } else if (userData.role === 'agent') {
+        router.push('/agent');
+      } else {
+        router.push('/user');
+      }
+    }
+  }, [userData, isUserLoading, isUserDataLoading, router]);
+
+  // Render nothing while checking for user data
+  return null;
+}
+
+export default function Home() {
+  const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
 
@@ -78,17 +105,7 @@ export default function Home() {
       await createUserProfile(result.user);
     }
   };
-
-  React.useEffect(() => {
-    if (!isUserLoading && user) {
-        if (user.email === ADMIN_EMAIL) {
-          router.push('/admin');
-        } else {
-          router.push('/user');
-        }
-    }
-  }, [user, isUserLoading, router]);
-
+  
   if (isUserLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
@@ -98,7 +115,7 @@ export default function Home() {
   }
   
   if (user) {
-      return null;
+      return <LoggedInRedirect />;
   }
 
   return (

@@ -11,9 +11,8 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { User, Transaction } from '@/lib/data';
 import { collection, query, where, doc, writeBatch } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -79,7 +78,6 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
           <div>
             <div className="font-medium">{user?.name}</div>
             <div className="text-sm text-muted-foreground">{user?.email}</div>
-            <div className="text-xs text-muted-foreground">{user?.id}</div>
           </div>
         </div>
       </TableCell>
@@ -119,14 +117,21 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
   );
 }
 
-export default function AdminWithdrawalsPage() {
+export default function AgentWithdrawalsPage() {
+  const { user: agentUser } = useUser();
   const firestore = useFirestore();
 
-  const usersQuery = useMemoFirebase(
+  const agentDocRef = useMemoFirebase(
+    () => (agentUser && firestore ? doc(firestore, 'users', agentUser.uid) : null),
+    [agentUser, firestore]
+  );
+  const { data: agentData, isLoading: isLoadingAgent } = useDoc<User>(agentDocRef);
+
+  const allUsersQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'users') : null,
     [firestore]
   );
-  const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(allUsersQuery);
 
   const withdrawalsQuery = useMemoFirebase(
     () => firestore ? query(collection(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null,
@@ -134,9 +139,18 @@ export default function AdminWithdrawalsPage() {
   );
   const { data: withdrawalRequests, isLoading: isLoadingWithdrawals } = useCollection<Transaction>(withdrawalsQuery);
   
-  const findUserForTx = (tx: Transaction) => users?.find(u => u.id === tx.details?.userId);
+  const findUserForTx = (tx: Transaction) => allUsers?.find(u => u.id === tx.details?.userId);
 
-  const isLoading = isLoadingUsers || isLoadingWithdrawals;
+  const isLoading = isLoadingUsers || isLoadingWithdrawals || isLoadingAgent;
+  
+  if (agentData && !agentData.permissions?.canManageWithdrawalRequests) {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold">Access Denied</h1>
+        <p className="text-muted-foreground">You do not have permission to manage withdrawal requests.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

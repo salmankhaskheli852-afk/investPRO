@@ -11,16 +11,15 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import type { User, Transaction } from '@/lib/data';
+import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import type { User, Transaction, AdminWallet } from '@/lib/data';
 import { collection, query, where, doc, writeBatch } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X } from 'lucide-react';
 
-function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | undefined }) {
+function DepositRequestRow({ tx, user }: { tx: Transaction; user: User | undefined }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = React.useState(false);
@@ -28,32 +27,26 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
   const handleUpdateStatus = async (newStatus: 'completed' | 'failed') => {
     if (!firestore || !user) return;
     setIsProcessing(true);
-    
-    // This is the reference to the transaction in the top-level /transactions collection
-    const globalTransactionRef = doc(firestore, 'transactions', tx.id);
-    // This is the reference to the transaction in the user's subcollection
-    const userTransactionRef = doc(firestore, 'users', user.id, 'wallets', 'main', 'transactions', tx.id);
+
+    const transactionRef = doc(firestore, 'users', user.id, 'wallets', 'main', 'transactions', tx.id);
     const walletRef = doc(firestore, 'users', user.id, 'wallets', 'main');
 
     try {
       const batch = writeBatch(firestore);
 
-      if (newStatus === 'failed') {
+      if (newStatus === 'completed') {
         const walletSnapshot = await batch.get(walletRef);
         const walletData = walletSnapshot.data();
         const currentBalance = walletData?.balance || 0;
         batch.update(walletRef, { balance: currentBalance + tx.amount });
       }
 
-      // Update both transaction documents
-      batch.update(globalTransactionRef, { status: newStatus });
-      batch.update(userTransactionRef, { status: newStatus });
-
+      batch.update(transactionRef, { status: newStatus });
       await batch.commit();
 
       toast({
         title: `Request ${newStatus}`,
-        description: `The withdrawal request for ${tx.amount} PKR has been ${newStatus}.`,
+        description: `The deposit request for ${tx.amount} PKR has been ${newStatus}.`,
       });
     } catch (e: any) {
       toast({
@@ -79,19 +72,16 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
           <div>
             <div className="font-medium">{user?.name}</div>
             <div className="text-sm text-muted-foreground">{user?.email}</div>
-            <div className="text-xs text-muted-foreground">{user?.id}</div>
           </div>
         </div>
       </TableCell>
       <TableCell className="font-medium">{tx.amount.toLocaleString()} PKR</TableCell>
       <TableCell>
-        <div className="font-medium">{details.receiverName}</div>
-        <div className="text-sm text-muted-foreground">{details.receiverAccount}</div>
-        <div className="text-xs capitalize">{details.method}</div>
+        <div className="font-medium">{details.senderName}</div>
+        <div className="text-sm text-muted-foreground">{details.senderAccount}</div>
+        <div className="text-xs text-muted-foreground">TID: {details.tid}</div>
       </TableCell>
-      <TableCell>
-        {tx.date ? format(tx.date.toDate(), 'PPp') : 'N/A'}
-      </TableCell>
+      <TableCell>{tx.date ? format(tx.date.toDate(), 'PPp') : 'N/A'}</TableCell>
       <TableCell className="text-right">
         <div className="flex gap-2 justify-end">
           <Button
@@ -110,7 +100,7 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
             onClick={() => handleUpdateStatus('failed')}
             disabled={isProcessing}
           >
-             <X className="mr-2 h-4 w-4" />
+            <X className="mr-2 h-4 w-4" />
             Reject
           </Button>
         </div>
@@ -119,36 +109,60 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
   );
 }
 
-export default function AdminWithdrawalsPage() {
+export default function AgentDepositsPage() {
+  const { user: agentUser } = useUser();
   const firestore = useFirestore();
+
+  const agentDocRef = useMemoFirebase(
+    () => (agentUser && firestore ? doc(firestore, 'users', agentUser.uid) : null),
+    [agentUser, firestore]
+  );
+  const { data: agentData, isLoading: isLoadingAgent } = useDoc<User>(agentDocRef);
 
   const usersQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'users') : null,
     [firestore]
   );
-  const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
-  const withdrawalsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null,
-    [firestore]
+  const depositsQuery = useMemoFirebase(
+    () => {
+      if (!firestore || !agentData?.assignedWallets || agentData.assignedWallets.length === 0) return null;
+      return query(
+        collection(firestore, 'transactions'), 
+        where('type', '==', 'deposit'), 
+        where('status', '==', 'pending'),
+        where('details.adminWalletId', 'in', agentData.assignedWallets)
+      );
+    },
+    [firestore, agentData]
   );
-  const { data: withdrawalRequests, isLoading: isLoadingWithdrawals } = useCollection<Transaction>(withdrawalsQuery);
+  const { data: depositRequests, isLoading: isLoadingDeposits } = useCollection<Transaction>(depositsQuery);
   
-  const findUserForTx = (tx: Transaction) => users?.find(u => u.id === tx.details?.userId);
+  const findUserForTx = (tx: Transaction) => allUsers?.find(u => u.id === tx.details?.userId);
 
-  const isLoading = isLoadingUsers || isLoadingWithdrawals;
+  const isLoading = isLoadingUsers || isLoadingDeposits || isLoadingAgent;
+
+  if (agentData && !agentData.permissions?.canManageDepositRequests) {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold">Access Denied</h1>
+        <p className="text-muted-foreground">You do not have permission to manage deposit requests.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold font-headline">Withdrawal Requests</h1>
-        <p className="text-muted-foreground">Approve or reject user withdrawal requests.</p>
+        <h1 className="text-3xl font-bold font-headline">Deposit Requests</h1>
+        <p className="text-muted-foreground">Approve or reject user deposit requests for your assigned accounts.</p>
       </div>
 
       <Card>
         <CardHeader>
-            <CardTitle>Pending Requests</CardTitle>
-            <CardDescription>Review the following withdrawal requests.</CardDescription>
+          <CardTitle>Pending Requests</CardTitle>
+          <CardDescription>Review the following deposit requests.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -156,7 +170,7 @@ export default function AdminWithdrawalsPage() {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Account Details</TableHead>
+                <TableHead>Sender Details</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -168,14 +182,14 @@ export default function AdminWithdrawalsPage() {
                     Loading requests...
                   </TableCell>
                 </TableRow>
-              ) : withdrawalRequests && withdrawalRequests.length > 0 ? (
-                withdrawalRequests.map((tx) => (
-                  <WithdrawalRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} />
+              ) : depositRequests && depositRequests.length > 0 ? (
+                depositRequests.map((tx) => (
+                  <DepositRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} />
                 ))
               ) : (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center">
-                    No pending withdrawal requests.
+                    No pending deposit requests for your accounts.
                   </TableCell>
                 </TableRow>
               )}
