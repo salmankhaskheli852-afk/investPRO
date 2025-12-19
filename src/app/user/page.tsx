@@ -119,18 +119,35 @@ export default function UserDashboardPage() {
     }
   }, [activePlans]);
 
-  if (isUserLoading || isUserDocLoading || !user) {
+  if (isUserLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <p>Loading...</p>
       </div>
     );
   }
+
+  // After auth is checked, if there's no user, we don't need to render anything
+  // as the useEffect above will trigger a redirect.
+  if (!user) {
+    return null;
+  }
   
+  // Now, if we have a user, we wait for their document.
+  if (isUserDocLoading) {
+     return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <p>Loading user profile...</p>
+      </div>
+    );
+  }
+
+  // If loading is finished but there's no userData, it might still be creating.
+  // Or there was an error. We give it a moment, then show an error if it persists.
   if (!userData) {
       return (
         <div className="flex min-h-screen flex-col items-center justify-center">
-            <p>Could not load user profile. Please try again later.</p>
+            <p>Creating profile... If this takes too long, please refresh.</p>
         </div>
       )
   }
