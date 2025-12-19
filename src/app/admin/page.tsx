@@ -57,7 +57,7 @@ export default function AdminDashboardPage() {
   const transactionsQuery = useMemoFirebase(
     () => firestore && user
       ? query(
-          collection(firestore, 'transactions'),
+          collectionGroup(firestore, 'transactions'),
           orderBy('date', 'desc'),
           limit(5)
         ) 
