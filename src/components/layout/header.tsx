@@ -16,11 +16,18 @@ import Link from 'next/link';
 import { useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+
 
 export function Header() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -28,33 +35,12 @@ export function Header() {
     router.push('/');
   };
 
-  return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6">
-      <div className="flex items-center gap-2">
-        <SidebarTrigger className="md:hidden" />
-        <Link href="/" className="flex items-center gap-2">
-           <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-6 w-6 text-primary"
-          >
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
-          <span className="font-headline text-lg font-semibold text-primary">InvesPro</span>
-        </Link>
-      </div>
-      <div className="flex items-center gap-4">
-        <div className="hidden items-center gap-1.5 sm:flex">
-          <ShieldCheck className="h-5 w-5 text-green-600" />
-          <span className="text-sm font-medium text-green-600">Verified by Gov</span>
-        </div>
+  const renderUserMenu = () => {
+    if (!hasMounted) {
+       return <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />;
+    }
+    
+    return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full">
@@ -98,6 +84,37 @@ export function Header() {
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+    )
+  }
+
+  return (
+    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6">
+      <div className="flex items-center gap-2">
+        <SidebarTrigger className="md:hidden" />
+        <Link href="/" className="flex items-center gap-2">
+           <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-6 w-6 text-primary"
+          >
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+          <span className="font-headline text-lg font-semibold text-primary">InvesPro</span>
+        </Link>
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="hidden items-center gap-1.5 sm:flex">
+          <ShieldCheck className="h-5 w-5 text-green-600" />
+          <span className="text-sm font-medium text-green-600">Verified by Gov</span>
+        </div>
+        {renderUserMenu()}
       </div>
     </header>
   );
