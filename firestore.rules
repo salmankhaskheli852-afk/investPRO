@@ -29,14 +29,11 @@ service cloud.firestore {
 
     // Rules for the 'users' collection
     match /users/{userId} {
-      // A user can read their own profile.
-      allow get: if isOwner(userId);
+      // A user can read and update their own profile.
+      allow get, update: if isOwner(userId);
       
       // An authenticated user can create their own profile.
       allow create: if isUserAuthenticated();
-      
-      // A user can update their own profile.
-      allow update: if isOwner(userId);
     }
     
     // Rules for 'investment_plans' for non-admins
@@ -45,15 +42,25 @@ service cloud.firestore {
         allow read: if isUserAuthenticated();
     }
 
-    // Rules for user-specific subcollections like wallets and transactions
-    match /users/{userId}/{document=**} {
-      // A user can only access their own subcollections (wallets, transactions, etc.).
-      allow read, write: if isOwner(userId);
+    // This rule allows a user to read, create, and update their own transactions.
+    match /users/{userId}/wallets/main/transactions/{transactionId} {
+      allow read, create, update: if isOwner(userId);
+    }
+    
+    // This rule allows a user to create a corresponding transaction in the global collection.
+    // Admins can read/write them via the global admin rule.
+    match /transactions/{transactionId} {
+        allow create: if isUserAuthenticated() && request.resource.data.details.userId == request.auth.uid;
     }
 
     // Allow any authenticated user to see available withdrawal methods
     match /withdrawal_methods/{methodId} {
       allow read: if isUserAuthenticated();
+    }
+    
+    // Allow any authenticated user to read admin wallet details for making a deposit
+    match /admin_wallets/{walletId} {
+        allow read: if isUserAuthenticated();
     }
 
     // Allow any authenticated user to read chat settings for the WhatsApp widget
