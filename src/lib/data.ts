@@ -36,7 +36,7 @@ export type User = {
   email: string;
   avatarUrl: string;
   investments: string[]; // array of plan IDs
-  agentId?: string;
+  agentId: string | null; // Can be null if no agent is assigned
   role: 'user' | 'agent' | 'admin';
   assignedWallets?: string[]; // array of admin wallet IDs
   permissions?: AgentPermissions;

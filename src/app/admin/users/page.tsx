@@ -11,12 +11,12 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Edit, Trash2, MoreHorizontal, Eye, ShieldCheck } from 'lucide-react';
+import { Edit, Trash2, MoreHorizontal, Eye, ShieldCheck, UserPlus } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Wallet } from '@/lib/data';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,8 +27,19 @@ import {
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
 import { EditUserRoleDialog } from './edit-user-role-dialog';
+import { AssignAgentDialog } from './assign-agent-dialog';
 
-function UserRow({ user, onEditRole }: { user: User; onEditRole: (user: User) => void; }) {
+function UserRow({ 
+  user, 
+  agents,
+  onEditRole,
+  onAssignAgent,
+}: { 
+  user: User; 
+  agents: User[];
+  onEditRole: (user: User) => void;
+  onAssignAgent: (user: User) => void;
+}) {
   const firestore = useFirestore();
   const walletsQuery = useMemoFirebase(
     () => firestore ? query(collection(firestore, 'users', user.id, 'wallets')) : null,
@@ -37,6 +48,7 @@ function UserRow({ user, onEditRole }: { user: User; onEditRole: (user: User) =>
   const { data: wallets, isLoading } = useCollection<Wallet>(walletsQuery);
 
   const wallet = wallets?.[0];
+  const assignedAgent = agents.find(agent => agent.id === user.agentId);
 
   return (
     <TableRow key={user.id}>
@@ -63,7 +75,7 @@ function UserRow({ user, onEditRole }: { user: User; onEditRole: (user: User) =>
           {user.role}
         </Badge>
       </TableCell>
-      <TableCell>{'N/A'}</TableCell>
+      <TableCell>{assignedAgent?.name || <span className='text-muted-foreground'>N/A</span>}</TableCell>
       <TableCell className="text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -85,6 +97,10 @@ function UserRow({ user, onEditRole }: { user: User; onEditRole: (user: User) =>
               <ShieldCheck className="mr-2 h-4 w-4" />
               Change Role
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onAssignAgent(user)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Assign Agent
+            </DropdownMenuItem>
             <DropdownMenuItem>
               <Edit className="mr-2 h-4 w-4" />
               Edit User
@@ -102,20 +118,34 @@ function UserRow({ user, onEditRole }: { user: User; onEditRole: (user: User) =>
 
 export default function AdminUsersPage() {
   const firestore = useFirestore();
+  
   const usersQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'users') : null,
+    () => firestore ? query(collection(firestore, 'users'), where('role', '==', 'user')) : null,
     [firestore]
   );
-  const { data: users, isLoading } = useCollection<User>(usersQuery);
+  const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+
+  const agentsQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'users'), where('role', '==', 'agent')) : null,
+    [firestore]
+  );
+  const { data: agents, isLoading: isLoadingAgents } = useCollection<User>(agentsQuery);
 
   const [isRoleDialogOpen, setIsRoleDialogOpen] = React.useState(false);
+  const [isAssignAgentDialogOpen, setIsAssignAgentDialogOpen] = React.useState(false);
   const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
 
   const handleEditRoleClick = (user: User) => {
     setSelectedUser(user);
     setIsRoleDialogOpen(true);
   };
+  
+  const handleAssignAgentClick = (user: User) => {
+    setSelectedUser(user);
+    setIsAssignAgentDialogOpen(true);
+  }
 
+  const isLoading = isLoadingUsers || isLoadingAgents;
 
   return (
     <>
@@ -153,7 +183,7 @@ export default function AdminUsersPage() {
                     </TableCell>
                   </TableRow>
                 )}
-                {users?.map((user) => <UserRow key={user.id} user={user} onEditRole={handleEditRoleClick} />)}
+                {users?.map((user) => <UserRow key={user.id} user={user} agents={agents || []} onEditRole={handleEditRoleClick} onAssignAgent={handleAssignAgentClick} />)}
               </TableBody>
             </Table>
           </CardContent>
@@ -165,6 +195,15 @@ export default function AdminUsersPage() {
           user={selectedUser}
           isOpen={isRoleDialogOpen}
           onOpenChange={setIsRoleDialogOpen}
+        />
+      )}
+
+      {selectedUser && agents && (
+        <AssignAgentDialog
+          user={selectedUser}
+          agents={agents}
+          isOpen={isAssignAgentDialogOpen}
+          onOpenChange={setIsAssignAgentDialogOpen}
         />
       )}
     </>
