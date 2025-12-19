@@ -57,12 +57,6 @@ export default function AdminWalletPage() {
   const [editWalletAddress, setEditWalletAddress] = React.useState('');
   const [editIsBank, setEditIsBank] = React.useState(false);
 
-  // Withdrawal Method state
-  const [isMethodDialogOpen, setIsMethodDialogOpen] = React.useState(false);
-  const [editingMethod, setEditingMethod] = React.useState<WithdrawalMethod | null>(null);
-  const [methodName, setMethodName] = React.useState('');
-
-
   const adminWalletsQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'admin_wallets') : null,
     [firestore]
@@ -180,45 +174,8 @@ export default function AdminWalletPage() {
       });
     }
   };
-
-  // --- Withdrawal Method Functions ---
-  const handleMethodClick = (method: WithdrawalMethod | null) => {
-    setEditingMethod(method);
-    setMethodName(method ? method.name : '');
-    setIsMethodDialogOpen(true);
-  };
-
-  const handleSaveMethod = async () => {
-    if (!firestore || !methodName) return;
-    setIsSaving(true);
-    try {
-      if (editingMethod) {
-        // Update existing method
-        await updateDoc(doc(firestore, 'withdrawal_methods', editingMethod.id), { name: methodName });
-        toast({ title: 'Method Updated' });
-      } else {
-        // Add new method
-        const newDocRef = doc(collection(firestore, 'withdrawal_methods'));
-        await setDoc(newDocRef, { id: newDocRef.id, name: methodName, isEnabled: true });
-        toast({ title: 'Method Added' });
-      }
-      setIsMethodDialogOpen(false);
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Error saving method', description: e.message });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleDeleteMethod = async (method: WithdrawalMethod) => {
-    if (!firestore) return;
-    try {
-      await deleteDoc(doc(firestore, 'withdrawal_methods', method.id));
-      toast({ title: 'Method Deleted' });
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Error deleting method', description: e.message });
-    }
-  };
+  
+  const findMethod = (name: string) => withdrawalMethods?.find(m => m.name.toLowerCase() === name.toLowerCase());
 
   return (
     <div className="space-y-8">
@@ -230,55 +187,48 @@ export default function AdminWalletPage() {
       </div>
       
       <Card>
-        <CardHeader  className="flex flex-row items-center justify-between">
-          <div>
+        <CardHeader>
             <CardTitle>Withdrawal Method Settings</CardTitle>
             <CardDescription>Enable or disable withdrawal options for all users.</CardDescription>
-          </div>
-          <Button onClick={() => handleMethodClick(null)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Method
-          </Button>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {isLoadingMethods ? <p>Loading withdrawal methods...</p> : withdrawalMethods?.map(method => (
-            <div key={method.id} className="flex flex-col justify-between rounded-lg border p-4 space-y-4">
-              <div className='flex items-start justify-between'>
-                <div className="space-y-0.5">
-                  <Label htmlFor={`method-${method.id}`} className="text-base">{method.name}</Label>
+            {isLoadingMethods ? <p>Loading withdrawal methods...</p> : (
+              <>
+                <div className="flex flex-col justify-between rounded-lg border p-4 space-y-4">
+                  <Label htmlFor="method-jazzcash" className="text-base font-medium">JazzCash</Label>
+                  <Switch 
+                    id="method-jazzcash" 
+                    checked={findMethod('jazzcash')?.isEnabled ?? false}
+                    onCheckedChange={() => {
+                        const method = findMethod('jazzcash');
+                        if (method) handleToggle('withdrawal_methods', method.id, method.isEnabled);
+                    }}
+                  />
                 </div>
-                <Switch 
-                  id={`method-${method.id}`} 
-                  checked={method.isEnabled}
-                  onCheckedChange={() => handleToggle('withdrawal_methods', method.id, method.isEnabled)}
-                />
-              </div>
-              <div className="flex items-center justify-end gap-2">
-                <Button variant="ghost" size="icon" onClick={() => handleMethodClick(method)}>
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete {method.name}?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently remove this withdrawal option for all users.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDeleteMethod(method)}>Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </div>
-          ))}
+                <div className="flex flex-col justify-between rounded-lg border p-4 space-y-4">
+                  <Label htmlFor="method-easypaisa" className="text-base font-medium">Easypaisa</Label>
+                  <Switch 
+                    id="method-easypaisa" 
+                    checked={findMethod('easypaisa')?.isEnabled ?? false}
+                    onCheckedChange={() => {
+                        const method = findMethod('easypaisa');
+                        if (method) handleToggle('withdrawal_methods', method.id, method.isEnabled);
+                    }}
+                  />
+                </div>
+                <div className="flex flex-col justify-between rounded-lg border p-4 space-y-4">
+                  <Label htmlFor="method-bank" className="text-base font-medium">Bank Transfer</Label>
+                  <Switch 
+                    id="method-bank" 
+                    checked={findMethod('bank transfer')?.isEnabled ?? false}
+                    onCheckedChange={() => {
+                        const method = findMethod('bank transfer');
+                        if (method) handleToggle('withdrawal_methods', method.id, method.isEnabled);
+                    }}
+                  />
+                </div>
+              </>
+            )}
         </CardContent>
       </Card>
 
@@ -434,28 +384,8 @@ export default function AdminWalletPage() {
          </Dialog>
       )}
 
-      <Dialog open={isMethodDialogOpen} onOpenChange={setIsMethodDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{editingMethod ? 'Edit' : 'Add'} Withdrawal Method</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-2">
-            <Label htmlFor="method-name">Method Name</Label>
-            <Input
-              id="method-name"
-              value={methodName}
-              onChange={(e) => setMethodName(e.target.value)}
-              placeholder="e.g., NayaPay"
-            />
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-            <Button onClick={handleSaveMethod} disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save Method'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
+
+    
