@@ -3,15 +3,11 @@
 
 import React from 'react';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import type { InvestmentPlan, User, Transaction } from '@/lib/data';
-import { DollarSign, TrendingUp, Users as UsersIcon, UserCog, Activity } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { collection, collectionGroup, query, orderBy, limit, where } from 'firebase/firestore';
-import { format } from 'date-fns';
+import type { InvestmentPlan, User } from '@/lib/data';
+import { DollarSign, TrendingUp, Users as UsersIcon, UserCog } from 'lucide-react';
+import { collection, query, where } from 'firebase/firestore';
+
 
 const mockRevenueData = [
   { name: 'Jan', revenue: 20000 },
@@ -54,36 +50,6 @@ export default function AdminDashboardPage() {
   );
   const { data: investmentPlans, isLoading: isLoadingPlans } = useCollection<InvestmentPlan>(plansQuery);
   
-  const transactionsQuery = useMemoFirebase(
-    () => firestore && user
-      ? query(
-          collectionGroup(firestore, 'transactions'),
-          orderBy('date', 'desc'),
-          limit(5)
-        ) 
-      : null,
-    [firestore, user]
-  );
-  const { data: recentTransactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(transactionsQuery);
-  
-  const getTransactionUser = (tx: Transaction) => {
-    if (!allUsers || !tx.details?.userId) return null;
-    return allUsers.find(u => u.id === tx.details.userId);
-  };
-  
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-500/20 text-green-700';
-      case 'pending':
-        return 'bg-amber-500/20 text-amber-700';
-      case 'failed':
-        return 'bg-red-500/20 text-red-700';
-      default:
-        return '';
-    }
-  };
-
 
   return (
     <div className="space-y-8">
@@ -124,67 +90,6 @@ export default function AdminDashboardPage() {
         />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="w-5 h-5" />
-            Recent Transactions
-          </CardTitle>
-          <CardDescription>An overview of the latest financial activities.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoadingTransactions && (
-                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    Loading transactions...
-                  </TableCell>
-                </TableRow>
-              )}
-              {recentTransactions?.map((tx) => {
-                const user = getTransactionUser(tx);
-                return (
-                  <TableRow key={tx.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={user?.avatarUrl} alt={user?.name} />
-                          <AvatarFallback>{user?.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{user?.name}</div>
-                          <div className="text-xs text-muted-foreground">{user?.email}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="capitalize">{tx.type}</TableCell>
-                    <TableCell className="text-right font-medium">{tx.amount.toLocaleString()} PKR</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={tx.status === 'completed' ? 'default' : 'secondary'}
-                        className={getStatusBadge(tx.status)}
-                      >
-                        {tx.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{tx.date ? format(tx.date.toDate(), 'PPp') : 'N/A'}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </div>
   );
 }
