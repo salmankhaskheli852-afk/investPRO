@@ -4,9 +4,9 @@ import React from 'react';
 import { Sidebar, SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav, type NavItem } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
-import { LayoutDashboard, Users, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { LayoutDashboard, Users, ArrowDownToLine, ArrowUpFromLine, MessageCircle } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import type { User } from '@/lib/data';
+import type { User, ChatSettings } from '@/lib/data';
 import { doc } from 'firebase/firestore';
 
 function AgentNav() {
@@ -18,6 +18,12 @@ function AgentNav() {
     [user, firestore]
   );
   const { data: agentData } = useDoc<User>(userDocRef);
+  
+  const chatSettingsRef = useMemoFirebase(
+      () => firestore ? doc(firestore, 'app_config', 'chat_settings') : null,
+      [firestore]
+  );
+  const { data: chatSettings } = useDoc<ChatSettings>(chatSettingsRef);
 
   const navItems = React.useMemo(() => {
     const items: NavItem[] = [
@@ -31,11 +37,14 @@ function AgentNav() {
     if (agentData?.permissions?.canManageWithdrawalRequests) {
       items.push({ href: '/agent/withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine });
     }
+    if (chatSettings?.isChatEnabled) {
+      items.push({ href: '/agent/live-chat', label: 'Live Chat', icon: MessageCircle });
+    }
     
     // You can add more items based on other permissions like canViewDepositHistory etc.
 
     return items;
-  }, [agentData]);
+  }, [agentData, chatSettings]);
 
   return <SidebarNav navItems={navItems} />;
 }

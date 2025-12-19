@@ -1,4 +1,3 @@
-
 import { PlaceHolderImages } from "./placeholder-images";
 import { Timestamp } from "firebase/firestore";
 
@@ -75,6 +74,32 @@ export type OfferConfig = {
     endTime: Timestamp | null;
 }
 
+export type ChatSettings = {
+    isChatEnabled: boolean;
+    whatsappNumber?: string;
+}
+
+export type ChatRoom = {
+    id: string;
+    userId: string;
+    userName: string;
+    agentId?: string;
+    createdAt: Timestamp;
+    lastMessage?: string;
+    lastMessageAt?: Timestamp;
+    isResolved: boolean;
+};
+
+export type ChatMessage = {
+    id: string;
+    roomId: string;
+    senderId: string;
+    text?: string;
+    imageUrl?: string;
+    createdAt: Timestamp;
+};
+
+
 const findImage = (id: string) => PlaceHolderImages.find(img => img.id === id);
 
 export const planCategories: PlanCategory[] = [
@@ -132,36 +157,4 @@ export const investmentPlans: InvestmentPlan[] = [
     color: 'from-amber-500 to-amber-600',
     categoryId: 'cat-2',
   },
-];
-
-
-export const adminWallets: AdminWallet[] = [
-    {
-        id: 'easypaisa',
-        walletName: "Easypaisa",
-        name: "you",
-        number: "03087554721",
-        isEnabled: true,
-    },
-    {
-        id: 'jazzcash',
-        walletName: "JazzCash",
-        name: "salman shop",
-        number: "03433273391",
-        isEnabled: true,
-    },
-    {
-      id: 'bank',
-      walletName: 'Bank',
-      name: 'Meezan Bank',
-      number: '0308237554721',
-      isBank: true,
-      isEnabled: true,
-    }
-];
-
-export const withdrawalMethods: WithdrawalMethod[] = [
-    { id: 'jazzcash', name: 'JazzCash', isEnabled: true },
-    { id: 'easypaisa', name: 'Easypaisa', isEnabled: true },
-    { id: 'bank', name: 'Bank Transfer', isEnabled: true },
 ];
