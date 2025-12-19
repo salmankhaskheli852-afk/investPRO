@@ -21,7 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { AdminWallet, WithdrawalMethod } from '@/lib/data';
-import { collection, doc, addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, addDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -387,5 +387,7 @@ export default function AdminWalletPage() {
     </div>
   );
 }
+
+    
 
     
