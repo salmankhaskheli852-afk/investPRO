@@ -149,7 +149,7 @@ export function InvestmentPlanCard({
             transaction.update(userRef, {
                 investments: arrayUnion({
                     planId: plan.id,
-                    purchaseDate: Timestamp.now() // Use client-side timestamp in transactions
+                    purchaseDate: Timestamp.now()
                 })
             });
 
@@ -163,7 +163,7 @@ export function InvestmentPlanCard({
                 type: 'investment',
                 amount: plan.price,
                 status: 'completed',
-                date: serverTimestamp(), // OK here as it's a new doc, not an arrayUnion
+                date: serverTimestamp(),
                 details: {
                     planId: plan.id,
                     planName: plan.name
