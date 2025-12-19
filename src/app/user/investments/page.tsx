@@ -3,10 +3,12 @@
 
 import React from 'react';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
-import { investmentPlans, planCategories } from '@/lib/data';
+import { investmentPlans, planCategories, users } from '@/lib/data';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function UserInvestmentsPage() {
+  const user = users[0]; // Mock current user
+
   return (
     <div className="space-y-8">
       <div>
@@ -15,7 +17,7 @@ export default function UserInvestmentsPage() {
       </div>
 
       <Tabs defaultValue={planCategories[0]?.id || ''} className="w-full">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-2">
           {planCategories.map(category => (
             <TabsTrigger key={category.id} value={category.id}>
               {category.name}
@@ -27,9 +29,14 @@ export default function UserInvestmentsPage() {
           const plansInCategory = investmentPlans.filter(plan => plan.categoryId === category.id);
           return (
             <TabsContent key={category.id} value={category.id}>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pt-4">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 pt-4">
                 {plansInCategory.map((plan) => (
-                  <InvestmentPlanCard key={plan.id} plan={plan} />
+                  <InvestmentPlanCard 
+                    key={plan.id} 
+                    plan={plan} 
+                    userWalletBalance={user.walletBalance}
+                    isPurchased={user.investments.includes(plan.id)}
+                  />
                 ))}
               </div>
             </TabsContent>
