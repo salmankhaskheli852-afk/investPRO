@@ -92,7 +92,7 @@ export default function AdminInvestmentsPage() {
             name,
             categoryId,
             price,
-            dailyIncomePercentage,
+            dailyIncomePercentage: dailyPercentage,
             incomePeriod: period,
             imageUrl,
             totalIncome: totalIncome,
