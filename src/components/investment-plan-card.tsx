@@ -65,13 +65,10 @@ function CountdownTimer({ endTime }: { endTime: { seconds: number; nanoseconds: 
   }, [endTime]);
 
   return (
-    <div className="absolute top-0 left-0 w-full bg-gradient-to-t from-transparent to-black/70 p-2 text-white">
-      <div className="flex items-center justify-center gap-2">
-        <Timer className="w-5 h-5 text-amber-300" />
-        <p className="font-bold text-sm">Offer Ends In:</p>
-        <div className="flex items-center gap-1 font-mono text-lg font-bold">
-            <span>{timeLeft.hours}</span>:<span>{timeLeft.minutes}</span>:<span>{timeLeft.seconds}</span>
-        </div>
+    <div className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm text-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1.5 z-10">
+      <Timer className="w-4 h-4 text-primary" />
+      <div className="flex items-center gap-0.5 font-mono text-sm font-bold">
+          <span>{timeLeft.hours}</span>:<span>{timeLeft.minutes}</span>:<span>{timeLeft.seconds}</span>
       </div>
     </div>
   );
@@ -286,26 +283,26 @@ export function InvestmentPlanCard({
             className="object-cover"
             data-ai-hint={plan.imageHint}
           />
-          {isPurchased && showAsPurchased && (
+          {isPurchased && showAsPurchased && !isOfferActive && (
               <div className="absolute top-2 right-2 bg-primary/80 backdrop-blur-sm text-primary-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                   <CheckCircle className="w-3 h-3" />
                   <span>Purchased</span>
               </div>
           )}
-          {isPurchased && !showAsPurchased && (
+          {isPurchased && !showAsPurchased && !isOfferActive && (
             <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
               <CheckCircle className="w-3 h-3" />
               <span>Active</span>
             </div>
           )}
           {isOfferExpired && !isSoldOut && (
-              <div className="absolute top-2 right-2 bg-destructive/80 backdrop-blur-sm text-destructive-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+              <div className="absolute top-2 left-2 bg-destructive/80 backdrop-blur-sm text-destructive-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                   <XCircle className="w-3 h-3" />
                   <span>Closed</span>
               </div>
           )}
           {isSoldOut && (
-              <div className="absolute top-2 right-2 bg-slate-500/80 backdrop-blur-sm text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+              <div className="absolute top-2 left-2 bg-slate-500/80 backdrop-blur-sm text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                   <PackageX className="w-3 h-3" />
                   <span>Sold Out</span>
               </div>
