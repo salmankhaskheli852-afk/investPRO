@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -9,9 +10,10 @@ import { useRouter } from 'next/navigation';
 import React from 'react';
 import { signInWithGoogle } from '@/firebase/auth/sign-in';
 import { useAuth, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, getDoc, serverTimestamp, collection } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { User } from '@/lib/data';
+import { adminWallets, withdrawalMethods } from '@/lib/data';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -63,14 +65,44 @@ export default function Home() {
   const auth = useAuth();
   const firestore = useFirestore();
 
+  const seedInitialData = async () => {
+    if (!firestore) return;
+    const batch = writeBatch(firestore);
+
+    // Seed admin wallets
+    const adminWalletsCollection = collection(firestore, 'admin_wallets');
+    const adminWalletsSnapshot = await getDoc(doc(adminWalletsCollection, adminWallets[0].id));
+    if (!adminWalletsSnapshot.exists()) {
+        adminWallets.forEach(wallet => {
+            const docRef = doc(adminWalletsCollection, wallet.id);
+            batch.set(docRef, wallet);
+        });
+    }
+
+    // Seed withdrawal methods
+    const withdrawalMethodsCollection = collection(firestore, 'withdrawal_methods');
+    const withdrawalMethodsSnapshot = await getDoc(doc(withdrawalMethodsCollection, withdrawalMethods[0].id));
+    if (!withdrawalMethodsSnapshot.exists()) {
+        withdrawalMethods.forEach(method => {
+            const docRef = doc(withdrawalMethodsCollection, method.id);
+            batch.set(docRef, method);
+        });
+    }
+
+    await batch.commit();
+  };
+
   const createUserProfile = async (firebaseUser: FirebaseUser) => {
     if (!firestore) return;
     const userRef = doc(firestore, 'users', firebaseUser.uid);
     const userDoc = await getDoc(userRef);
 
     if (!userDoc.exists()) {
-      // Determine role based on email
+      // Seed initial data if it's the first time for an admin
       const role = firebaseUser.email === ADMIN_EMAIL ? 'admin' : 'user';
+      if (role === 'admin') {
+          await seedInitialData();
+      }
 
       // Create user profile
       await setDoc(userRef, {
