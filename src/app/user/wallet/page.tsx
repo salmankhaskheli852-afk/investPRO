@@ -104,7 +104,7 @@ const AddNewWithdrawalAccountForm = ({ onSave, onCancel }: { onSave: (data: Omit
 
               <div className="space-y-2">
                   <Label htmlFor="withdraw-account-holder">Account Holder Name</Label>
-                  <Input id="withdraw-account-holder" placeholder="Your Name" value={withdrawHolderName} onChange={e => setWithdrawHolderName(e.target.value)} />
+                  <Input id="withdraw-account-holder" type="text" placeholder="Your Name" value={withdrawHolderName} onChange={e => setWithdrawHolderName(e.target.value)} />
               </div>
               <div className="space-y-2">
                   <Label htmlFor="withdraw-account-number">{withdrawMethod === 'Bank' ? 'Account Number / IBAN' : 'Account Number'}</Label>
