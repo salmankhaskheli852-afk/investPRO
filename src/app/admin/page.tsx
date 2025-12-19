@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -5,7 +6,7 @@ import { DashboardStatsCard } from '@/components/dashboard-stats-card';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { InvestmentPlan, User, Transaction } from '@/lib/data';
 import { DollarSign, TrendingUp, Users as UsersIcon, UserCog, Activity } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -33,34 +34,35 @@ const mockUsersData = [
 
 export default function AdminDashboardPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const usersQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'users') : null,
-    [firestore]
+    () => firestore && user ? collection(firestore, 'users') : null,
+    [firestore, user]
   );
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
   const agentsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'users'), where('role', '==', 'agent')) : null,
-    [firestore]
+    () => firestore && user ? query(collection(firestore, 'users'), where('role', '==', 'agent')) : null,
+    [firestore, user]
   );
   const { data: agents, isLoading: isLoadingAgents } = useCollection<User>(agentsQuery);
 
   const plansQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'investment_plans') : null,
-    [firestore]
+    () => firestore && user ? collection(firestore, 'investment_plans') : null,
+    [firestore, user]
   );
   const { data: investmentPlans, isLoading: isLoadingPlans } = useCollection<InvestmentPlan>(plansQuery);
   
   const transactionsQuery = useMemoFirebase(
-    () => firestore 
+    () => firestore && user
       ? query(
           collection(firestore, 'transactions'),
           orderBy('date', 'desc'),
           limit(5)
         ) 
       : null,
-    [firestore]
+    [firestore, user]
   );
   const { data: recentTransactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(transactionsQuery);
   
