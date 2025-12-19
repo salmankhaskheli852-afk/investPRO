@@ -54,8 +54,8 @@ export default function AgentUsersPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>${user.walletBalance.toLocaleString()}</TableCell>
-                    <TableCell>${totalInvested.toLocaleString()}</TableCell>
+                    <TableCell>{user.walletBalance.toLocaleString()} PKR</TableCell>
+                    <TableCell>{totalInvested.toLocaleString()} PKR</TableCell>
                     <TableCell>
                       <Badge variant="outline">{user.investments.length}</Badge>
                     </TableCell>

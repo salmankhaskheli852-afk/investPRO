@@ -43,7 +43,7 @@ export function InvestmentPlanCard({ plan }: InvestmentPlanCardProps) {
       </div>
       <CardContent className="flex-grow p-6 space-y-4">
         <div className="flex items-baseline justify-center">
-          <span className="text-4xl font-bold text-primary">${plan.price}</span>
+          <span className="text-4xl font-bold text-primary">{plan.price} PKR</span>
           <span className="ml-1 text-muted-foreground">/ investment</span>
         </div>
         <div className="space-y-3 pt-4 text-sm">
@@ -59,14 +59,14 @@ export function InvestmentPlanCard({ plan }: InvestmentPlanCardProps) {
               <TrendingUp className="w-4 h-4 text-accent" />
               <span>Total Income</span>
             </div>
-            <span className="font-semibold text-foreground">${plan.totalIncome}</span>
+            <span className="font-semibold text-foreground">{plan.totalIncome} PKR</span>
           </div>
            <div className="flex justify-between items-center">
             <div className="flex items-center gap-2 text-muted-foreground">
               <CircleDollarSign className="w-4 h-4 text-accent" />
               <span>Net Profit</span>
             </div>
-            <span className="font-semibold text-green-600">${plan.totalIncome - plan.price}</span>
+            <span className="font-semibold text-green-600">{plan.totalIncome - plan.price} PKR</span>
           </div>
         </div>
       </CardContent>

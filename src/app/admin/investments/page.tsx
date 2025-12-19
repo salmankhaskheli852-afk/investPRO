@@ -52,7 +52,7 @@ export default function AdminInvestmentsPage() {
                 <Input id="name" defaultValue="New Plan" className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="price" className="text-right">Price ($)</Label>
+                <Label htmlFor="price" className="text-right">Price (PKR)</Label>
                 <Input id="price" type="number" defaultValue="1000" className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -60,7 +60,7 @@ export default function AdminInvestmentsPage() {
                 <Input id="daily" type="number" defaultValue="3" className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="total" className="text-right">Total Income ($)</Label>
+                <Label htmlFor="total" className="text-right">Total Income (PKR)</Label>
                 <Input id="total" type="number" defaultValue="1800" className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -102,11 +102,11 @@ export default function AdminInvestmentsPage() {
                     />
                   </TableCell>
                   <TableCell className="font-medium">{plan.name}</TableCell>
-                  <TableCell>${plan.price.toLocaleString()}</TableCell>
+                  <TableCell>{plan.price.toLocaleString()} PKR</TableCell>
                   <TableCell>
                     <Badge variant="secondary">{plan.dailyIncome}%</Badge>
                   </TableCell>
-                  <TableCell>${plan.totalIncome.toLocaleString()}</TableCell>
+                  <TableCell>{plan.totalIncome.toLocaleString()} PKR</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
                         <Button variant="ghost" size="icon">

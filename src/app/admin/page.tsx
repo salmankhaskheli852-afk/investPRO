@@ -24,7 +24,7 @@ export default function AdminDashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <DashboardStatsCard
           title="Total Revenue"
-          value={`$${totalInvestment.toLocaleString()}`}
+          value={`${totalInvestment.toLocaleString()} PKR`}
           description="Total amount invested by users"
           Icon={DollarSign}
         />
@@ -85,7 +85,7 @@ export default function AdminDashboardPage() {
                       </div>
                     </TableCell>
                     <TableCell className="capitalize">{tx.type}</TableCell>
-                    <TableCell className="text-right font-medium">${tx.amount.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-medium">{tx.amount.toLocaleString()} PKR</TableCell>
                     <TableCell>
                       <Badge
                         variant={

@@ -50,7 +50,7 @@ export default function AdminUsersPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>${user.walletBalance.toLocaleString()}</TableCell>
+                    <TableCell>{user.walletBalance.toLocaleString()} PKR</TableCell>
                     <TableCell>
                       <Badge variant="outline">{user.investments.length} plans</Badge>
                     </TableCell>

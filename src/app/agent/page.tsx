@@ -28,7 +28,7 @@ export default function AgentDashboardPage() {
         />
         <DashboardStatsCard
           title="Total Commission"
-          value={`$${totalCommission.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={`${totalCommission.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PKR`}
           description="Your estimated earnings"
           Icon={DollarSign}
         />
@@ -67,7 +67,7 @@ export default function AgentDashboardPage() {
                       </div>
                     </TableCell>
                     <TableCell className="capitalize">{tx.type}</TableCell>
-                    <TableCell className="text-right font-medium">${tx.amount.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-medium">{tx.amount.toLocaleString()} PKR</TableCell>
                     <TableCell>
                       <Badge
                         variant={tx.status === 'completed' ? 'default' : 'secondary'}

@@ -18,13 +18,13 @@ export default function UserDashboardPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <DashboardStatsCard
           title="Wallet Balance"
-          value={`$${user.walletBalance.toLocaleString()}`}
+          value={`${user.walletBalance.toLocaleString()} PKR`}
           description="Available funds for investment or withdrawal"
           Icon={DollarSign}
         />
         <DashboardStatsCard
           title="Total Invested"
-          value={`$${totalInvestment.toLocaleString()}`}
+          value={`${totalInvestment.toLocaleString()} PKR`}
           description={`${activePlans.length} active plans`}
           Icon={TrendingUp}
         />
@@ -55,7 +55,7 @@ export default function UserDashboardPage() {
                       <h3 className="font-semibold">{plan.name}</h3>
                       <Badge variant="secondary" className="bg-green-100 text-green-800">Active</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground">${plan.price} Investment</p>
+                    <p className="text-sm text-muted-foreground">{plan.price} PKR Investment</p>
                     <div className="mt-2 space-y-1">
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Progress</span>
@@ -63,10 +63,10 @@ export default function UserDashboardPage() {
                       </div>
                       <Progress value={progress} className="h-2" />
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Earned: ~$
-                          {(plan.totalIncome - plan.price) / 2}
+                        <span>Earned: ~
+                          {(plan.totalIncome - plan.price) / 2} PKR
                         </span>
-                        <span>Total Profit: ${plan.totalIncome - plan.price}</span>
+                        <span>Total Profit: {plan.totalIncome - plan.price} PKR</span>
                       </div>
                     </div>
                   </div>
