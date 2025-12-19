@@ -154,7 +154,7 @@ const PlanFormDialog = ({
 
             if (isEditMode && planToEdit) {
                 const planRef = doc(firestore, 'investment_plans', planToEdit.id);
-                await updateDoc(planRef, planData);
+                await updateDoc(planRef, { ...planData, offerEndTime: offerEndTime ?? null }); // Ensure null is passed if disabled
                 toast({
                     title: 'Plan Updated!',
                     description: `${name} has been successfully updated.`,
@@ -416,10 +416,23 @@ export default function AdminInvestmentsPage() {
     if (!investmentPlans) return [];
     
     const now = Timestamp.now();
-    const activePlans = investmentPlans.filter(p => !p.offerEndTime || p.offerEndTime > now);
-    const closedPlans = investmentPlans.filter(p => p.offerEndTime && p.offerEndTime <= now);
+    
+    // Plans with active offers, sorted by creation date descending
+    const activeOfferPlans = investmentPlans
+      .filter(p => p.isOfferEnabled && p.offerEndTime && p.offerEndTime > now)
+      .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
 
-    return [...activePlans, ...closedPlans];
+    // Regular plans (no offer or offer not enabled), sorted by creation date descending
+    const regularPlans = investmentPlans
+      .filter(p => !p.isOfferEnabled || !p.offerEndTime)
+      .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+
+    // Closed plans, sorted by creation date descending
+    const closedPlans = investmentPlans
+      .filter(p => p.isOfferEnabled && p.offerEndTime && p.offerEndTime <= now)
+      .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+
+    return [...activeOfferPlans, ...regularPlans, ...closedPlans];
   }, [investmentPlans]);
 
   return (

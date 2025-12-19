@@ -46,10 +46,11 @@ function CountdownTimer({ endTime }: { endTime: { seconds: number; nanoseconds: 
       if (difference <= 0) {
         clearInterval(interval);
         setTimeLeft({ hours: '00', minutes: '00', seconds: '00' });
+        // Optional: Trigger a refetch or state update to mark the plan as expired globally
         return;
       }
 
-      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+      const hours = Math.floor((difference / (1000 * 60 * 60)));
       const minutes = Math.floor((difference / 1000 / 60) % 60);
       const seconds = Math.floor((difference / 1000) % 60);
 
@@ -332,5 +333,3 @@ export function InvestmentPlanCard({
     </div>
   );
 }
-
-    
