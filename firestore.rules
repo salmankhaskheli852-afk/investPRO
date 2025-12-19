@@ -4,9 +4,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if the user is the designated admin.
+    // Helper function to check if the user is the designated admin or a super-agent.
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == 'salmankhaskheli885@gmail.com';
+      return request.auth != null && 
+             (request.auth.token.email == 'salmankhaskheli885@gmail.com' ||
+              request.auth.token.email == 'salmankhaskheli852@gmail.com');
     }
 
     // Grant ADMIN total and complete access to ALL documents in the database.
