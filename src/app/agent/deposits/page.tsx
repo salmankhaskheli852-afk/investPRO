@@ -131,20 +131,20 @@ export default function AgentDepositsPage() {
   const { data: agentData, isLoading: isLoadingAgent } = useDoc<User>(agentDocRef);
 
   const usersQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'users') : null,
-    [firestore]
+    () => (firestore && agentUser ? collection(firestore, 'users') : null),
+    [firestore, agentUser]
   );
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
   const adminWalletsQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'admin_wallets') : null,
-    [firestore]
+    () => (firestore && agentUser ? collection(firestore, 'admin_wallets') : null),
+    [firestore, agentUser]
   );
   const { data: adminWallets, isLoading: isLoadingWallets } = useCollection<AdminWallet>(adminWalletsQuery);
 
   const depositsQuery = useMemoFirebase(
     () => {
-      if (!firestore) return null;
+      if (!firestore || !agentUser) return null;
       // Agent sees all deposit requests, same as admin
       return query(
         collection(firestore, 'transactions'), 
@@ -152,7 +152,7 @@ export default function AgentDepositsPage() {
         where('status', '==', 'pending')
       );
     },
-    [firestore]
+    [firestore, agentUser]
   );
   const { data: depositRequests, isLoading: isLoadingDeposits } = useCollection<Transaction>(depositsQuery);
   

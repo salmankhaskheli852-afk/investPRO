@@ -13,9 +13,9 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { User, Transaction, AppSettings } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment, updateDoc } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment, updateDoc, runTransaction } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Search } from 'lucide-react';
@@ -25,6 +25,7 @@ function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = React.useState(false);
+  const { user: adminUser } = useUser();
   
   const settingsRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
@@ -33,7 +34,7 @@ function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User
   const { data: appSettings } = useDoc<AppSettings>(settingsRef);
 
   const handleUpdateStatus = async (newStatus: 'completed' | 'failed') => {
-    if (!firestore || !user) return;
+    if (!firestore || !user || !adminUser) return;
     setIsProcessing(true);
 
     const globalTransactionRef = doc(firestore, 'transactions', tx.id);
@@ -173,17 +174,18 @@ function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User
 
 export default function AdminDepositsPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const usersQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'users') : null,
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'users') : null),
+    [firestore, user]
   );
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
   const depositsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'pending')) : null,
-    [firestore]
+    () => (firestore && user ? query(collection(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'pending')) : null),
+    [firestore, user]
   );
   const { data: depositRequests, isLoading: isLoadingDeposits, forceRefetch } = useCollection<Transaction>(depositsQuery);
   

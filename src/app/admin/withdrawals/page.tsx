@@ -13,7 +13,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { User, Transaction } from '@/lib/data';
 import { collection, query, where, doc, writeBatch, getDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -122,17 +122,18 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
 
 export default function AdminWithdrawalsPage() {
   const firestore = useFirestore();
+  const { user: adminUser } = useUser();
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const usersQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'users') : null,
-    [firestore]
+    () => (firestore && adminUser ? collection(firestore, 'users') : null),
+    [firestore, adminUser]
   );
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
   const withdrawalsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null,
-    [firestore]
+    () => (firestore && adminUser ? query(collection(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null),
+    [firestore, adminUser]
   );
   const { data: withdrawalRequests, isLoading: isLoadingWithdrawals } = useCollection<Transaction>(withdrawalsQuery);
   
