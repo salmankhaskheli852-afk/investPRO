@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Edit, Trash2, RefreshCcw } from 'lucide-react';
+import { ArrowLeft, DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Edit, Trash2, RefreshCcw, Users, GitBranch } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Transaction, Wallet, InvestmentPlan } from '@/lib/data';
 import { collection, doc, query, orderBy, writeBatch, serverTimestamp, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
@@ -139,6 +139,8 @@ export default function UserDetailsPage() {
 
       if (editingStatField.field === 'balance' && walletDocRef) {
         batch.update(walletDocRef, { balance: numericNewValue });
+      } else if (['referralCount', 'referralIncome'].includes(editingStatField.field)) {
+          batch.update(userDocRef!, { [editingStatField.field]: numericNewValue });
       } else {
         const transactionCollectionRef = collection(firestore, 'users', userId, 'wallets', 'main', 'transactions');
         const diff = numericNewValue - editingStatField.value;
@@ -361,7 +363,7 @@ export default function UserDetailsPage() {
         </div>
        </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <DashboardStatsCard
           title="Wallet Balance"
           value={`${(wallet?.balance || 0).toLocaleString()} PKR`}
@@ -386,8 +388,6 @@ export default function UserDetailsPage() {
           chartData={[]} chartKey=''
           onEdit={() => handleEditStatClick('Total Income', transactionTotals.income, 'income')}
         />
-      </div>
-       <div className="grid gap-4 md:grid-cols-2">
          <DashboardStatsCard
           title="Total Deposit"
           value={`${transactionTotals.deposit.toLocaleString()} PKR`}
@@ -403,6 +403,22 @@ export default function UserDetailsPage() {
           Icon={ArrowUpFromLine}
           chartData={[]} chartKey=''
           onEdit={() => handleEditStatClick('Total Withdraw', transactionTotals.withdraw, 'withdraw')}
+        />
+        <DashboardStatsCard
+          title="Total Referrals"
+          value={(user.referralCount || 0).toString()}
+          description="Friends invited"
+          Icon={Users}
+          chartData={[]} chartKey=''
+          onEdit={() => handleEditStatClick('Total Referrals', user.referralCount || 0, 'referralCount')}
+        />
+        <DashboardStatsCard
+          title="Referral Income"
+          value={`${(user.referralIncome || 0).toLocaleString()} PKR`}
+          description="From commissions"
+          Icon={GitBranch}
+          chartData={[]} chartKey=''
+          onEdit={() => handleEditStatClick('Referral Income', user.referralIncome || 0, 'referralIncome')}
         />
       </div>
 
