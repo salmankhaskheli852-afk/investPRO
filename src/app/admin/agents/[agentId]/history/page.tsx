@@ -25,7 +25,8 @@ interface AgentHistoryPageProps {
   params: { agentId: string };
 }
 
-export default function AgentHistoryPage({ params: { agentId } }: AgentHistoryPageProps) {
+export default function AgentHistoryPage({ params }: AgentHistoryPageProps) {
+  const agentId = params.agentId;
   const firestore = useFirestore();
 
   const agentDocRef = useMemoFirebase(
