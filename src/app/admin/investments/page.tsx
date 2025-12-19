@@ -156,7 +156,7 @@ const PlanFormDialog = ({
                 });
             } else {
                  const newDocRef = doc(collection(firestore, 'investment_plans'));
-                 await updateDoc(doc(firestore, "investment_plans", newDocRef.id), { ...planData, id: newDocRef.id });
+                 await setDoc(newDocRef, { ...planData, id: newDocRef.id });
 
                 toast({
                     title: 'Plan Created!',
@@ -442,3 +442,4 @@ export default function AdminInvestmentsPage() {
     </>
   );
 }
+

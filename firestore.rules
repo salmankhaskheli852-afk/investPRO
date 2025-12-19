@@ -1,10 +1,10 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
     
     // Helper function to check if the user is an authenticated admin.
-    // This checks against a specific, hardcoded admin email address.
     function isAdmin() {
       return request.auth != null && request.auth.token.email == 'salmankhaskheli885@gmail.com';
     }
@@ -20,7 +20,6 @@ service cloud.firestore {
     }
 
     // Grant ADMIN total and complete access to ALL documents in the database.
-    // This rule allows the admin to bypass all other specific rules.
     match /{document=**} {
       allow read, write, list: if isAdmin();
     }
@@ -41,6 +40,8 @@ service cloud.firestore {
     match /investment_plans/{planId} {
         // Any authenticated user can view the investment plans.
         allow read: if isUserAuthenticated();
+        // Only admins can create, update, or delete plans
+        allow write: if isAdmin();
     }
 
     // Rules for user-specific subcollections like wallets and transactions
