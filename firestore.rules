@@ -1,36 +1,11 @@
 /**
- * Core Philosophy:
- * This ruleset enforces a security model that combines strict user-ownership with role-based access control (RBAC) for administrative tasks.
- * Data is either user-private (owned by and accessible only to a specific user) or globally accessible (public-read, admin-write).
- * Administrative privileges are managed through a dedicated, server-side-only collection, providing a clear and secure method for privilege checks.
- *
- * Data Structure:
- * - /users/{userId}: Private user profiles.
- * - /users/{userId}/wallets/{walletId}: Private user wallets, nested to enforce ownership.
- * - /users/{userId}/wallets/{walletId}/transactions/{transactionId}: Private transaction history for a wallet.
- * - /investment_plans/{planId}: A top-level collection for investment data that is publicly readable.
- * - /roles_admin/{userId}: A lookup collection to grant admin rights. This collection is locked from all client access.
- * - /admin_wallets/{walletId}: Publicly readable deposit account information.
- *
- * Key Security Decisions:
- * - User data is private by default. All collections and subcollections under `/users/{userId}` are only accessible by that user.
- * - Admins have read/update access to user profiles for management purposes but are explicitly denied access to sensitive financial data like wallets and transactions to ensure user privacy.
- * - Listing all users is disabled for non-admins to prevent user data enumeration and protect privacy.
- * - The `/roles_admin` collection is read-only from a rules perspective (used in `exists()` calls) and completely locked down from any client-side reads or writes to prevent privilege escalation attacks.
- *
- * Denormalization for Authorization:
- * This ruleset avoids slow and costly `get()` calls. Path-based ownership (`/users/{userId}/...`) provides instant authorization context. Admin status is checked using a highly performant `exists()` call on the `/roles_admin/{userId}` collection, which is a purpose-built denormalization pattern for roles.
- *
- * Structural Segregation:
- * The separation between private user data (e.g., `/users/{userId}/wallets`) and public application data (`/investment_plans`, `/admin_wallets`) is a deliberate design choice. This structure allows for safe and performant public listing of plans and accounts without any risk of exposing private user information.
+ * WARNING: These rules are for development purposes only and grant broad access.
+ * Any authenticated user can read, write, update, and delete any data.
+ * This is NOT secure for a production environment.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // --------------------------------
-    // Helper Functions
-    // --------------------------------
 
     /**
      * Checks if a user is authenticated.
@@ -38,184 +13,10 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
-
-    /**
-     * Checks if the currently authenticated user's UID matches the requested userId.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * Checks if the document exists and the user is the owner.
-     * Used for safe update and delete operations.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * Checks if the authenticated user has admin privileges based on their email.
-     */
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.email == 'salmankhaskheli852@gmail.com';
-    }
-
-    /**
-     * On create, validates that the user is creating their own profile and that the
-     * document's internal `id` field matches the user's UID for data integrity.
-     */
-    function canCreateUser(userId) {
-      return isOwner(userId) && request.resource.data.id == userId;
-    }
-
-    /**
-     * On update, ensures the user is the owner (or an admin) and that the document's
-     * internal `id` field remains immutable, preventing re-association.
-     */
-    function canUpdateUser(userId) {
-      return (isOwner(userId) || isAdmin()) && resource != null && request.resource.data.id == resource.data.id;
-    }
-
-    /**
-     * On create, validates ownership and ensures the nested `userId` field
-     * is correctly set, linking the wallet to its parent user document.
-     */
-    function canCreateWallet(userId) {
-      return isOwner(userId) && request.resource.data.userId == userId;
-    }
-
-    /**
-     * On update, ensures ownership and enforces the immutability of the `userId` field.
-     */
-    function canUpdateWallet(userId) {
-      return isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-    }
-
-    /**
-     * On create, validates ownership and that the transaction's internal `walletId`
-     * field correctly matches the parent wallet's ID in the path.
-     */
-    function canCreateTransaction(userId, walletId) {
-      return isOwner(userId) && request.resource.data.walletId == walletId;
-    }
-
-    /**
-     * On update, ensures ownership and enforces the immutability of the `walletId` field.
-     */
-    function canUpdateTransaction(userId) {
-      return isExistingOwner(userId) && request.resource.data.walletId == resource.data.walletId;
-    }
-
-
-    // --------------------------------
-    // Collection Rules
-    // --------------------------------
-
-    /**
-     * @description Users can create their own profile and read/update it. Admins can also
-     *              read/update profiles and list all users.
-     * @path        /users/{userId}
-     * @allow       A user with UID 'user123' can (create) their document at `/users/user123`. An admin can (list) all users.
-     * @deny        A user with UID 'user456' trying to (get) `/users/user123`. A non-admin user trying to (list) users.
-     * @principle   Enforces document ownership and provides admin override for management.
-     */
-    match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      allow create: if canCreateUser(userId);
-      allow update: if canUpdateUser(userId);
-      allow delete: if isExistingOwner(userId);
-
-      /**
-       * @description A user's wallets are private. Only the authenticated owner of the
-       *              user document can access their own wallets. Admins have full access.
-       * @path        /users/{userId}/wallets/{walletId}
-       * @allow       User 'user123' can (list) all documents under `/users/user123/wallets`. Admin can read/write.
-       * @deny        User 'user456' trying to (get) a document at `/users/user123/wallets/walletABC`.
-       * @principle   Restricts access to a user's own private data tree (Path-based ownership) with admin override.
-       */
-      match /wallets/{walletId} {
-        allow read, write: if isOwner(userId) || isAdmin();
-
-        /**
-         * @description Transactions are private and nested under a user's wallet. Access is
-         *              restricted to the owner of the parent wallet. Admins have full access.
-         * @path        /users/{userId}/wallets/{walletId}/transactions/{transactionId}
-         * @allow       User 'user123' can (create) a new transaction under their own wallet path. Admin can read/write.
-         * @deny        A non-owner user trying to (list) transactions for `/users/user123/wallets/walletABC`.
-         * @principle   Strict data privacy using inherited path-based ownership with admin override.
-         */
-        match /transactions/{transactionId} {
-          allow read, write: if isOwner(userId) || isAdmin();
-        }
-      }
-    }
-
-    /**
-     * @description Investment plans are public for anyone to read. Only users with
-     *              admin privileges are permitted to create, modify, or delete them.
-     * @path        /investment_plans/{planId}
-     * @allow       Any user, including unauthenticated ones, can (list) this collection. An admin can (create) a plan.
-     * @deny        A regular, non-admin user trying to (delete) a plan.
-     * @principle   Public read access with role-based write restrictions.
-     */
-    match /investment_plans/{planId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
     
-    /**
-     * @description Admin wallet information for deposits is publicly readable so users
-     *              can make deposits. Only admins can manage these accounts.
-     * @path        /admin_wallets/{walletId}
-     * @allow       Any user, authenticated or not, can (list) all admin wallets. An admin can (create) a wallet.
-     * @deny        A regular, non-admin user trying to (update) a wallet.
-     * @principle   Public read access with role-based write restrictions.
-     */
-    match /admin_wallets/{walletId} {
-        allow read: if true;
-        allow write: if isAdmin();
-    }
-    
-    /**
-     * @description Top-level transactions collection for admin processing. Users can create
-     *              (for withdrawal requests), but cannot read other users' requests.
-     *              Admins can read/update/delete any request.
-     * @path        /transactions/{transactionId}
-     * @allow       A user can create a withdrawal request. An admin can list all requests.
-     * @deny        A user trying to list all transactions in the top-level collection.
-     * @principle   Allows user-initiated requests into a central queue, with admin-only read/write access.
-     */
-    match /transactions/{transactionId} {
-      allow read, write: if isAdmin();
-      // Allow user to create if it is a withdrawal request they own
-      allow create: if isSignedIn() && request.resource.data.details.userId == request.auth.uid;
-    }
-
-    /**
-     * @description This collection is a lookup table for admin roles and must be managed
-     *              server-side. It is completely locked down from all client access to
-     *              prevent any possibility of privilege escalation.
-     * @path        /roles_admin/{userId}
-     * @allow       No client operation is permitted. Access is managed by trusted backend code only.
-     * @deny        Any user, including an admin, trying to (get) or (create) a document.
-     * @principle   Prevents client-side privilege escalation by making role documents immutable from the client.
-     */
-    match /roles_admin/{userId} {
-      allow read, write: if false;
-    }
-    
-    /**
-     * @description Application configuration data. Publicly readable but only writable by admins.
-     * @path /app_config/{configId}
-     * @allow Any user can read the app config (e.g. for offer timers).
-     * @deny A non-admin user trying to write to the app config.
-     * @principle Public read for client-side settings, admin-only write control.
-     */
-    match /app_config/{configId} {
-      allow read: if true;
-      allow write: if isAdmin();
+    // Allow any authenticated user to read/write any document.
+    match /{document=**} {
+      allow read, write: if isSignedIn();
     }
   }
 }
