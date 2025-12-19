@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Edit, Trash2, MoreHorizontal, Eye, ShieldCheck, UserPlus, Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -125,6 +125,8 @@ export default function AdminUsersPage() {
   const [isRoleDialogOpen, setIsRoleDialogOpen] = React.useState(false);
   const [isAssignAgentDialogOpen, setIsAssignAgentDialogOpen] = React.useState(false);
   const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const usersPerPage = 10;
 
   const usersQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'users') : null,
@@ -156,6 +158,17 @@ export default function AdminUsersPage() {
       user.email.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [users, searchQuery]);
+  
+  const paginatedUsers = React.useMemo(() => {
+    const startIndex = (currentPage - 1) * usersPerPage;
+    return filteredUsers.slice(startIndex, startIndex + usersPerPage);
+  }, [filteredUsers, currentPage, usersPerPage]);
+
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  },[searchQuery]);
 
   const isLoading = isLoadingUsers || isLoadingAgents;
 
@@ -199,17 +212,42 @@ export default function AdminUsersPage() {
                     </TableCell>
                   </TableRow>
                 )}
-                {!isLoading && filteredUsers.length === 0 && (
+                {!isLoading && paginatedUsers.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
                       No users found.
                     </TableCell>
                   </TableRow>
                 )}
-                {filteredUsers?.map((user) => <UserRow key={user.id} user={user} agents={agents || []} onEditRole={handleEditRoleClick} onAssignAgent={handleAssignAgentClick} />)}
+                {paginatedUsers?.map((user) => <UserRow key={user.id} user={user} agents={agents || []} onEditRole={handleEditRoleClick} onAssignAgent={handleAssignAgentClick} />)}
               </TableBody>
             </Table>
           </CardContent>
+          {totalPages > 1 && (
+            <CardFooter className="flex justify-between items-center">
+              <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </CardFooter>
+          )}
         </Card>
         </div>
       </div>
