@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Edit, Trash2, MoreHorizontal, Eye } from 'lucide-react';
+import { Edit, Trash2, MoreHorizontal, Eye, ShieldCheck } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
@@ -26,8 +26,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
+import { EditUserRoleDialog } from './edit-user-role-dialog';
 
-function UserRow({ user }: { user: User }) {
+function UserRow({ user, onEditRole }: { user: User; onEditRole: (user: User) => void; }) {
   const firestore = useFirestore();
   const walletsQuery = useMemoFirebase(
     () => firestore ? query(collection(firestore, 'users', user.id, 'wallets')) : null,
@@ -57,6 +58,11 @@ function UserRow({ user }: { user: User }) {
       <TableCell>
         <Badge variant="outline">{user.investments?.length || 0} plans</Badge>
       </TableCell>
+       <TableCell className="capitalize">
+        <Badge variant={user.role === 'admin' ? 'default' : user.role === 'agent' ? 'secondary' : 'outline'}>
+          {user.role}
+        </Badge>
+      </TableCell>
       <TableCell>{'N/A'}</TableCell>
       <TableCell className="text-right">
         <DropdownMenu>
@@ -74,6 +80,10 @@ function UserRow({ user }: { user: User }) {
                 <Eye className="mr-2 h-4 w-4" />
                 View Details
               </Link>
+            </DropdownMenuItem>
+             <DropdownMenuItem onClick={() => onEditRole(user)}>
+              <ShieldCheck className="mr-2 h-4 w-4" />
+              Change Role
             </DropdownMenuItem>
             <DropdownMenuItem>
               <Edit className="mr-2 h-4 w-4" />
@@ -98,45 +108,65 @@ export default function AdminUsersPage() {
   );
   const { data: users, isLoading } = useCollection<User>(usersQuery);
 
+  const [isRoleDialogOpen, setIsRoleDialogOpen] = React.useState(false);
+  const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
+
+  const handleEditRoleClick = (user: User) => {
+    setSelectedUser(user);
+    setIsRoleDialogOpen(true);
+  };
+
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold font-headline">Manage Users</h1>
-        <p className="text-muted-foreground">View and manage user accounts.</p>
+    <>
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold font-headline">Manage Users</h1>
+          <p className="text-muted-foreground">View and manage user accounts and roles.</p>
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Wallet Balance</TableHead>
+                  <TableHead>Investments</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Agent</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      Loading users...
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!isLoading && users?.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      No users found.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {users?.map((user) => <UserRow key={user.id} user={user} onEditRole={handleEditRoleClick} />)}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Wallet Balance</TableHead>
-                <TableHead>Investments</TableHead>
-                <TableHead>Agent</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    Loading users...
-                  </TableCell>
-                </TableRow>
-              )}
-              {!isLoading && users?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    No users found.
-                  </TableCell>
-                </TableRow>
-              )}
-              {users?.map((user) => <UserRow key={user.id} user={user} />)}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
+      {selectedUser && (
+        <EditUserRoleDialog 
+          user={selectedUser}
+          isOpen={isRoleDialogOpen}
+          onOpenChange={setIsRoleDialogOpen}
+        />
+      )}
+    </>
   );
 }
