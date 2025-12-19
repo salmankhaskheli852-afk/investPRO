@@ -20,6 +20,13 @@ export type InvestmentPlan = {
   categoryId: string;
 };
 
+export type AgentPermissions = {
+  canViewDepositHistory: boolean;
+  canViewWithdrawalHistory: boolean;
+  canManageDepositRequests: boolean;
+  canManageWithdrawalRequests: boolean;
+}
+
 export type User = {
   id: string;
   name: string;
@@ -29,6 +36,7 @@ export type User = {
   agentId?: string;
   role: 'user' | 'agent' | 'admin';
   assignedWallets?: string[]; // array of admin wallet IDs
+  permissions?: AgentPermissions;
 };
 
 export type Wallet = {
@@ -38,7 +46,7 @@ export type Wallet = {
 }
 
 export type Transaction = {
-  id: string;
+  id:string;
   walletId: string;
   type: 'deposit' | 'withdrawal' | 'investment' | 'income';
   amount: number;
