@@ -18,7 +18,7 @@ export default function UserLayout({
 }>) {
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar variant='inset'>
         <SidebarNav navItems={navItems} />
       </Sidebar>
       <SidebarInset>

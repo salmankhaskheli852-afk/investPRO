@@ -20,7 +20,7 @@ export default function AdminLayout({
 }>) {
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar variant='inset'>
         <SidebarNav navItems={navItems} />
       </Sidebar>
       <SidebarInset>

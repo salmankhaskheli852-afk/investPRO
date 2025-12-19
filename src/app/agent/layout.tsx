@@ -17,7 +17,7 @@ export default function AgentLayout({
 }>) {
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar variant='inset'>
         <SidebarNav navItems={navItems} />
       </Sidebar>
       <SidebarInset>
