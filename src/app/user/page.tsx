@@ -71,7 +71,7 @@ export default function UserDashboardPage() {
   const activePlans = React.useMemo(() => {
     if (!userData?.investments || !allPlans) return [];
     return allPlans.filter(plan => userData.investments.includes(plan.id));
-  }, [userData, allPlans]);
+  }, [userData?.investments, allPlans]);
 
   const totalInvestment = React.useMemo(() => {
     return activePlans.reduce((sum, plan) => sum + (plan?.price || 0), 0);
