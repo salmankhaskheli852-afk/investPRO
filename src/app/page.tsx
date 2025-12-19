@@ -1,7 +1,14 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShieldCheck, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
+import { useUser } from '@/firebase';
+import { useRouter } from 'next/navigation';
+import React from 'react';
+import { signInWithGoogle } from '@/firebase/auth/sign-in';
+import { useAuth } from '@/firebase';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -32,6 +39,25 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
 
 export default function Home() {
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+  const auth = useAuth();
+
+  React.useEffect(() => {
+    if (!isUserLoading && user) {
+      router.push('/user');
+    }
+  }, [user, isUserLoading, router]);
+
+  if (isUserLoading || user) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4 sm:p-8">
       <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:6rem_4rem]"></div>
@@ -41,11 +67,9 @@ export default function Home() {
           <CardDescription className="pt-2">Your trusted partner in modern investments.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button className="w-full" size="lg" asChild>
-            <Link href="/user">
+          <Button className="w-full" size="lg" onClick={() => signInWithGoogle(auth)}>
               <GoogleIcon className="mr-2" />
               Sign in with Google
-            </Link>
           </Button>
           <div className="relative">
             <div className="absolute inset-0 flex items-center">

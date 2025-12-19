@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Sidebar,
   SidebarContent,
   SidebarHeader,
   SidebarMenu,
@@ -15,6 +14,9 @@ import { usePathname } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
+import { useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 export type NavItem = {
   href: string;
@@ -28,6 +30,13 @@ interface SidebarNavProps {
 
 export function SidebarNav({ navItems }: SidebarNavProps) {
   const pathname = usePathname();
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/');
+  };
 
   return (
     <>
@@ -75,11 +84,9 @@ export function SidebarNav({ navItems }: SidebarNavProps) {
          <Separator className="my-2" />
          <SidebarMenu>
             <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip={{ children: "Logout", side: "right" }}>
-                    <Link href="/">
-                        <LogOut />
-                        <span>Logout</span>
-                    </Link>
+                <SidebarMenuButton onClick={handleLogout} tooltip={{ children: "Logout", side: "right" }}>
+                    <LogOut />
+                    <span>Logout</span>
                 </SidebarMenuButton>
             </SidebarMenuItem>
          </SidebarMenu>

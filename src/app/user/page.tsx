@@ -3,18 +3,34 @@
 
 import React from 'react';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
-import { users, investmentPlans } from '@/lib/data';
+import { investmentPlans } from '@/lib/data';
 import { DollarSign, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
+import { useUser } from '@/firebase';
+import { useRouter } from 'next/navigation';
 
 export default function UserDashboardPage() {
-  const user = users[0]; // Mock current user
-  const activePlans = user.investments.map(planId => investmentPlans.find(p => p.id === planId)).filter(Boolean);
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  // Mock user data for demonstration until Firestore is connected
+  const mockUser = {
+      name: user?.displayName || 'User',
+      walletBalance: 1250.75,
+      investments: ['plan-1'],
+  };
+
+  const activePlans = mockUser.investments.map(planId => investmentPlans.find(p => p.id === planId)).filter(Boolean);
   const totalInvestment = activePlans.reduce((sum, plan) => sum + (plan?.price || 0), 0);
   
-  // Mock daily income simulation
-  const [walletBalance, setWalletBalance] = React.useState(user.walletBalance);
+  const [walletBalance, setWalletBalance] = React.useState(mockUser.walletBalance);
+
+  React.useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/');
+    }
+  }, [user, isUserLoading, router]);
 
   React.useEffect(() => {
     const dailyGains = activePlans.reduce((total, plan) => total + (plan?.dailyIncome || 0), 0);
@@ -26,10 +42,17 @@ export default function UserDashboardPage() {
     }
   }, [activePlans]);
 
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-bold font-headline">Welcome back, {user.name.split(' ')[0]}!</h1>
+      <h1 className="text-3xl font-bold font-headline">Welcome back, {mockUser.name.split(' ')[0]}!</h1>
       
       <div className="grid gap-4 md:grid-cols-2">
         <DashboardStatsCard
