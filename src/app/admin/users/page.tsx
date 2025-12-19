@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Edit, Trash2, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, MoreHorizontal, Eye } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
@@ -25,6 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import Link from 'next/link';
 
 function UserRow({ user }: { user: User }) {
   const firestore = useFirestore();
@@ -68,7 +69,12 @@ function UserRow({ user }: { user: User }) {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>View Details</DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={`/admin/users/${user.id}`}>
+                <Eye className="mr-2 h-4 w-4" />
+                View Details
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem>
               <Edit className="mr-2 h-4 w-4" />
               Edit User
