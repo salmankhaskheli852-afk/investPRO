@@ -72,6 +72,22 @@
         "createdAt": { "type": "string", "format": "date-time", "description": "The timestamp when the category was created." }
       },
       "required": ["id", "name", "createdAt"]
+    },
+    "UserWithdrawalAccount": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserWithdrawalAccount",
+      "type": "object",
+      "description": "Stores a user's saved withdrawal account details.",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "method": { "type": "string", "enum": ["Easypaisa", "JazzCash", "Bank"] },
+        "accountHolderName": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "bankName": { "type": "string", "description": "Required if method is 'Bank'" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "method", "accountHolderName", "accountNumber", "createdAt"]
     }
   },
   "auth": {
@@ -128,6 +144,18 @@
             { "name": "userId", "description": "The unique identifier of the user." },
             { "name": "walletId", "description": "The unique identifier of the wallet." },
             { "name": "transactionId", "description": "The unique identifier of the transaction." }
+          ]
+        }
+      },
+       {
+        "path": "/users/{userId}/withdrawal_accounts/{accountId}",
+        "definition": {
+          "entityName": "UserWithdrawalAccount",
+          "schema": { "$ref": "#/backend/entities/UserWithdrawalAccount" },
+          "description": "Stores a user's saved withdrawal accounts. 'userId' is derived from request.auth.uid.",
+          "params": [
+            { "name": "userId", "description": "The unique identifier of the user." },
+            { "name": "accountId", "description": "The unique identifier for the withdrawal account." }
           ]
         }
       },

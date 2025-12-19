@@ -66,19 +66,9 @@ service cloud.firestore {
         allow read: if isUserAuthenticated();
     }
     
-    // A user has full access to their own wallet document.
-    match /users/{userId}/wallets/{walletId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    // A user can manage their own transactions.
-    match /users/{userId}/wallets/main/transactions/{transactionId} {
-      allow read, create, update: if isOwner(userId);
-    }
-
-    // Any authenticated user can see available withdrawal methods.
-    match /withdrawal_methods/{methodId} {
-      allow read: if isUserAuthenticated();
+    // A user has full access to their own sub-collections.
+    match /users/{userId}/{collection}/{docId} {
+      allow read, write, create, delete: if isOwner(userId);
     }
     
     // Any authenticated user can read admin wallet details for depositing.
@@ -87,7 +77,7 @@ service cloud.firestore {
     }
 
     // Anyone can read chat settings for the WhatsApp widget.
-    match /app_config/chat_settings {
+    match /app_config/{setting} {
       allow get: if true;
     }
 

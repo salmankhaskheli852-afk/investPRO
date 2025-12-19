@@ -1,3 +1,4 @@
+
 import { Timestamp } from "firebase/firestore";
 
 export type PlanCategory = {
@@ -67,6 +68,16 @@ export type AdminWallet = {
     isEnabled: boolean;
 }
 
+export type UserWithdrawalAccount = {
+    id: string;
+    userId: string;
+    method: 'Easypaisa' | 'JazzCash' | 'Bank';
+    accountHolderName: string;
+    accountNumber: string;
+    bankName?: string;
+    createdAt: Timestamp;
+}
+
 export type WithdrawalMethod = {
     id: string;
     name: string;
@@ -97,3 +108,4 @@ export const planCategories: PlanCategory[] = [
     { id: 'long-term', name: 'Long Term' },
     { id: 'vip', name: 'VIP' },
   ];
+
