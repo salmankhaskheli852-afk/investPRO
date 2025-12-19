@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import React from 'react';
 import { signInWithGoogle } from '@/firebase/auth/sign-in';
 import { useAuth, useFirestore } from '@/firebase';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, collection } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -20,7 +20,11 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
     height="24px"
     {...props}
   >
-    {/* SVG paths */}
+    <path fill="#4285F4" d="M24 9.5c3.13 0 5.9 1.12 7.96 3.04l-2.83 2.83c-.94-.89-2.2-1.43-3.13-1.43-2.67 0-4.96 1.79-5.78 4.22h-3.4v-2.73C13.23 12.45 18.23 9.5 24 9.5z" />
+    <path fill="#34A853" d="M46.2 25.01c0-1.63-.14-3.2-.4-4.71H24v8.88h12.47c-.54 2.86-2.14 5.28-4.6 6.98v-2.73c2.46-1.14 4.1-3.64 4.1-6.42z" />
+    <path fill="#FBBC05" d="M9.22 28.23c-.32-1.07-.5-2.2-.5-3.35s.18-2.28.5-3.35v-3.23h-4.3c-1.28 2.58-2.02 5.51-2.02 8.58s.74 6 2.02 8.58l4.3-3.23z" />
+    <path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-4.1-3.18c-2.13 1.43-4.88 2.28-8.79 2.28-5.79 0-10.79-3.05-12.82-7.27l-4.3 3.23C7.07 42.85 14.28 48 24 48z" />
+    <path fill="none" d="M0 0h48v48H0z" />
   </svg>
 );
 
@@ -44,10 +48,11 @@ export default function Home() {
         avatarUrl: firebaseUser.photoURL,
         investments: [],
         createdAt: serverTimestamp(),
+        role: 'user'
       });
 
       // Create user wallet
-      const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', 'main');
+      const walletRef = doc(collection(firestore, 'users', firebaseUser.uid, 'wallets'), 'main');
       await setDoc(walletRef, {
         balance: 0,
         userId: firebaseUser.uid,
@@ -56,31 +61,36 @@ export default function Home() {
   };
 
   const handleSignIn = async () => {
+    if (!auth) return;
     const result = await signInWithGoogle(auth);
     if (result?.user) {
       await createUserProfile(result.user);
-      router.push('/user');
     }
   };
 
   React.useEffect(() => {
     if (!isUserLoading && user) {
-      // Potentially create profile here too, in case they were already logged in
-      createUserProfile(user).then(() => {
+        // User is logged in, redirect them to their dashboard.
         router.push('/user');
-      });
     }
   }, [user, isUserLoading, router]);
 
-  if (isUserLoading || user) {
+  // While checking auth state, show loading.
+  if (isUserLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <p>Loading...</p>
       </div>
     );
   }
+  
+  // If user is already logged in, useEffect will redirect them. 
+  // We render null here to prevent the login UI from flashing.
+  if (user) {
+      return null;
+  }
 
-
+  // If no user, show the login page.
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4 sm:p-8">
       <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:6rem_4rem]"></div>
