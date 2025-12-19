@@ -3,7 +3,7 @@
 import { Sidebar, SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav, type NavItem } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
-import { LayoutDashboard, TrendingUp, Users, UserCog, Wallet, History, ArrowDownToLine, ArrowUpFromLine, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, Users, UserCog, Wallet, ArrowDownToLine, ArrowUpFromLine, MessageSquare, History } from 'lucide-react';
 
 const navItems: NavItem[] = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -13,6 +13,7 @@ const navItems: NavItem[] = [
   { href: '/admin/wallet', label: 'Wallet', icon: Wallet },
   { href: '/admin/deposits', label: 'Deposits', icon: ArrowDownToLine },
   { href: '/admin/withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine },
+  { href: '/admin/history', label: 'History', icon: History },
   { href: '/admin/chat-setting', label: 'Chat Setting', icon: MessageSquare },
 ];
 
