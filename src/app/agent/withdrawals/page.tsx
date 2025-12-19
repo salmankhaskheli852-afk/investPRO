@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -177,7 +178,7 @@ export default function AgentWithdrawalsPage() {
                   </TableCell>
                 </TableRow>
               )}
-            </Body>
+            </TableBody>
           </Table>
         </CardContent>
       </Card>
