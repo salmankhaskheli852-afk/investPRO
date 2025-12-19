@@ -66,19 +66,6 @@ export default function AdminDashboardPage() {
   );
   const { data: recentTransactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(transactionsQuery);
   
-  // This is a simplified calculation. A real-world scenario would use aggregated data.
-  const totalInvestment = React.useMemo(() => {
-    if (!allUsers || !investmentPlans) return 0;
-    return allUsers.reduce((acc, user) => {
-        const userInvestments = user.investments?.reduce((sum, planId) => {
-            const plan = investmentPlans.find(p => p.id === planId);
-            return sum + (plan?.price || 0);
-        }, 0) || 0;
-        return acc + userInvestments;
-    }, 0);
-  }, [allUsers, investmentPlans]);
-
-
   const getTransactionUser = (tx: Transaction) => {
     if (!allUsers || !tx.details?.userId) return null;
     return allUsers.find(u => u.id === tx.details.userId);
@@ -105,7 +92,7 @@ export default function AdminDashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <DashboardStatsCard
           title="Total Revenue"
-          value={`${totalInvestment.toLocaleString()} PKR`}
+          value={`0 PKR`}
           description="Total amount invested by users"
           Icon={DollarSign}
           chartData={mockRevenueData}
