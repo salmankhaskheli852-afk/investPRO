@@ -39,12 +39,17 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
     try {
       const batch = writeBatch(firestore);
 
+      // If the request failed, refund the amount to the user's EARNING balance.
+      // The amount was already deducted from the earning balance when the request was made.
       if (newStatus === 'failed') {
         const walletSnapshot = await getDoc(walletRef);
         const walletData = walletSnapshot.data();
-        const currentBalance = walletData?.balance || 0;
-        batch.update(walletRef, { balance: currentBalance + tx.amount });
+        const currentEarningBalance = walletData?.earningBalance || 0;
+        batch.update(walletRef, { earningBalance: currentEarningBalance + tx.amount });
       }
+
+      // If completed, the amount is already deducted, so no balance change is needed.
+      // We just confirm the status.
 
       // Update both transaction documents
       batch.update(globalTransactionRef, { status: newStatus });

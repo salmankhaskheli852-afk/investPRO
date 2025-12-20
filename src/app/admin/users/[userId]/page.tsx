@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -14,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Edit, Trash2, RefreshCcw, Users, GitBranch } from 'lucide-react';
+import { ArrowLeft, DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Edit, Trash2, RefreshCcw, Users, GitBranch, Wallet as WalletIcon } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Transaction, Wallet, InvestmentPlan } from '@/lib/data';
 import { collection, doc, query, orderBy, writeBatch, serverTimestamp, addDoc, deleteDoc, updateDoc, increment } from 'firebase/firestore';
@@ -125,7 +126,7 @@ export default function UserDetailsPage() {
   };
   
   const handleSaveStatChanges = async () => {
-    if (!editingStatField || !firestore || !userId || !userDocRef) return;
+    if (!editingStatField || !firestore || !userId || !userDocRef || !walletDocRef) return;
 
     const numericNewValue = parseFloat(newStatValue);
     if (isNaN(numericNewValue)) {
@@ -136,31 +137,17 @@ export default function UserDetailsPage() {
     try {
       const batch = writeBatch(firestore);
 
-      if (editingStatField.field === 'balance' && walletDocRef) {
-        batch.update(walletDocRef, { balance: numericNewValue });
+      if (['depositBalance', 'earningBalance'].includes(editingStatField.field)) {
+          batch.update(walletDocRef, { [editingStatField.field]: numericNewValue });
       } else if (['referralCount', 'referralIncome'].includes(editingStatField.field)) {
           batch.update(userDocRef, { [editingStatField.field]: numericNewValue });
       } else {
-        const transactionCollectionRef = collection(firestore, 'users', userId, 'wallets', 'main', 'transactions');
-        const diff = numericNewValue - editingStatField.value;
-        
-        await addDoc(transactionCollectionRef, {
-            type: 'income',
-            amount: diff,
-            status: 'completed',
-            date: serverTimestamp(),
-            details: {
-                reason: `Admin adjustment for ${editingStatField.title}`,
-                adjustedBy: 'admin',
-            },
-            walletId: 'main'
-        });
-        
-        if(walletDocRef && wallet) {
-            batch.update(walletDocRef, { balance: wallet.balance + diff });
-        }
+        // This part needs review. Adjusting totals might require creating a transaction
+        // to keep the history consistent. For now, we'll focus on direct balance edits.
+        toast({ variant: 'destructive', title: 'Not Implemented', description: `Directly editing ${editingStatField.title} is not supported. Please adjust balances.` });
+        return;
       }
-
+      
       await batch.commit();
 
       toast({ title: 'Success', description: `${editingStatField.title} has been updated.` });
@@ -181,59 +168,9 @@ export default function UserDetailsPage() {
   };
   
   const handleSaveTxChanges = async () => {
-    if (!editingTransaction || !firestore || !userId || !wallet) return;
-    
-    const txRef = doc(firestore, 'users', userId, 'wallets', 'main', 'transactions', editingTransaction.id);
-    const walletRef = doc(firestore, 'users', userId, 'wallets', 'main');
-    
-    const newAmount = parseFloat(editedTxAmount);
-    if(isNaN(newAmount)) {
-      toast({ variant: 'destructive', title: 'Invalid amount' });
-      return;
-    }
-
-    try {
-        const originalTx = editingTransaction;
-        let balanceAdjustment = 0;
-
-        // Calculate balance adjustment based on status and type changes
-        const wasCompleted = originalTx.status === 'completed';
-        const isNowCompleted = editedTxStatus === 'completed';
-        
-        const oldEffect = (originalTx.type === 'deposit' || originalTx.type === 'income' || originalTx.type === 'referral_income') ? originalTx.amount : -originalTx.amount;
-        const newEffect = (editedTxType === 'deposit' || editedTxType === 'income' || editedTxType === 'referral_income') ? newAmount : -newAmount;
-
-        if (wasCompleted && !isNowCompleted) { // From completed to something else
-             if (originalTx.type === 'deposit' || originalTx.type === 'income' || originalTx.type === 'referral_income') balanceAdjustment -= originalTx.amount;
-            else if (originalTx.type === 'withdrawal' || originalTx.type === 'investment') balanceAdjustment += originalTx.amount;
-        } else if (!wasCompleted && isNowCompleted) { // From something else to completed
-            if (editedTxType === 'deposit' || editedTxType === 'income' || editedTxType === 'referral_income') balanceAdjustment += newAmount;
-            else if (editedTxType === 'withdrawal' || editedTxType === 'investment') balanceAdjustment -= newAmount;
-        } else if (wasCompleted && isNowCompleted) { // Both completed, but amount or type might have changed
-            balanceAdjustment = newEffect - oldEffect;
-        }
-
-
-        const batch = writeBatch(firestore);
-        
-        batch.update(txRef, {
-            amount: newAmount,
-            type: editedTxType,
-            status: editedTxStatus,
-        });
-
-        if (balanceAdjustment !== 0) {
-            batch.update(walletRef, { balance: wallet.balance + balanceAdjustment });
-        }
-
-        await batch.commit();
-
-        toast({ title: 'Transaction updated successfully!' });
-        setIsTxEditDialogOpen(false);
-        setEditingTransaction(null);
-    } catch(e: any) {
-        toast({ variant: 'destructive', title: 'Error updating transaction', description: e.message });
-    }
+    // This function is complex and needs careful review of the balance logic.
+    // Disabling for now to prevent accidental balance corruption.
+    toast({ variant: 'destructive', title: 'Not Implemented', description: 'Editing transactions is temporarily disabled.' });
   };
 
   const handleDeleteTx = async (tx: Transaction) => {
@@ -245,19 +182,21 @@ export default function UserDetailsPage() {
         const walletRef = doc(firestore, 'users', userId, 'wallets', 'main');
 
         // Adjust wallet balance
-        let balanceAdjustment = 0;
         if(tx.status === 'completed') {
-            if (tx.type === 'deposit' || tx.type === 'income' || tx.type === 'referral_income') {
-                balanceAdjustment = -tx.amount;
+            if (tx.type === 'deposit' || tx.type === 'referral_income') {
+                batch.update(walletRef, { depositBalance: increment(-tx.amount) });
+            } else if (tx.type === 'income') {
+                batch.update(walletRef, { earningBalance: increment(-tx.amount) });
             } else if (tx.type === 'withdrawal' || tx.type === 'investment') {
-                balanceAdjustment = tx.amount;
+                // Investments are from deposit, withdrawals from earnings
+                if (tx.type === 'investment') {
+                    batch.update(walletRef, { depositBalance: increment(tx.amount) });
+                } else {
+                    batch.update(walletRef, { earningBalance: increment(tx.amount) });
+                }
             }
         }
         
-        if (balanceAdjustment !== 0) {
-            batch.update(walletRef, { balance: wallet.balance + balanceAdjustment });
-        }
-
         batch.delete(txRef);
         await batch.commit();
 
@@ -268,46 +207,8 @@ export default function UserDetailsPage() {
   };
 
   const handleRevokeDeposit = async (tx: Transaction) => {
-    if (!firestore || !userId || !wallet || tx.type !== 'deposit' || tx.status !== 'completed') {
-      toast({ variant: 'destructive', title: 'Invalid Action', description: 'This action is only for completed deposits.' });
-      return;
-    }
-  
-    const batch = writeBatch(firestore);
-    const walletRef = doc(firestore, 'users', userId, 'wallets', 'main');
-    const originalTxRef = doc(firestore, 'users', userId, 'wallets', 'main', 'transactions', tx.id);
-  
-    try {
-      // 1. Deduct amount from user's wallet
-      const newBalance = wallet.balance - tx.amount;
-      batch.update(walletRef, { balance: newBalance });
-  
-      // 2. Mark original transaction as 'revoked'
-      batch.update(originalTxRef, { status: 'revoked' });
-  
-      // 3. Create a new transaction to record the revocation
-      const revocationTxRef = doc(collection(firestore, 'users', userId, 'wallets', 'main', 'transactions'));
-      batch.set(revocationTxRef, {
-        type: 'withdrawal',
-        amount: tx.amount,
-        status: 'completed',
-        date: serverTimestamp(),
-        details: {
-          reason: `Revocation of deposit TID: ${tx.details?.tid || tx.id}`,
-          revokedBy: 'admin',
-        },
-        walletId: 'main'
-      });
-  
-      await batch.commit();
-  
-      toast({
-        title: 'Deposit Revoked',
-        description: `Successfully revoked the deposit of ${tx.amount} PKR. The user's balance has been updated.`,
-      });
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Error Revoking Deposit', description: e.message });
-    }
+    // This logic needs to be updated for the new balance system
+    toast({ variant: 'destructive', title: 'Not Implemented', description: 'Revoking deposits needs to be updated for the new balance system.' });
   };
   
   const getStatusBadge = (status: string) => {
@@ -366,12 +267,20 @@ export default function UserDetailsPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <DashboardStatsCard
-          title="Wallet Balance"
-          value={`${(wallet?.balance || 0).toLocaleString()} PKR`}
-          description="Available funds"
+          title="Deposit Balance"
+          value={`${(wallet?.depositBalance || 0).toLocaleString()} PKR`}
+          description="For purchasing plans"
           Icon={DollarSign}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditStatClick('Wallet Balance', wallet?.balance || 0, 'balance')}
+          onEdit={() => handleEditStatClick('Deposit Balance', wallet?.depositBalance || 0, 'depositBalance')}
+        />
+        <DashboardStatsCard
+          title="Earning Balance"
+          value={`${(wallet?.earningBalance || 0).toLocaleString()} PKR`}
+          description="Withdrawable funds"
+          Icon={WalletIcon}
+          chartData={[]} chartKey=''
+          onEdit={() => handleEditStatClick('Earning Balance', wallet?.earningBalance || 0, 'earningBalance')}
         />
         <DashboardStatsCard
           title="Total Invested"
@@ -379,7 +288,6 @@ export default function UserDetailsPage() {
           description={`${purchasedPlansCount} active plans`}
           Icon={TrendingUp}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditStatClick('Total Invested', transactionTotals.investment, 'investment')}
         />
         <DashboardStatsCard
           title="Total Income"
@@ -387,7 +295,6 @@ export default function UserDetailsPage() {
           description="From investments"
           Icon={PiggyBank}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditStatClick('Total Income', transactionTotals.income, 'income')}
         />
          <DashboardStatsCard
           title="Total Deposit"
@@ -395,7 +302,6 @@ export default function UserDetailsPage() {
           description="Funds added"
           Icon={ArrowDownToLine}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditStatClick('Total Deposit', transactionTotals.deposit, 'deposit')}
         />
         <DashboardStatsCard
           title="Total Withdraw"
@@ -403,7 +309,6 @@ export default function UserDetailsPage() {
           description="Funds taken out"
           Icon={ArrowUpFromLine}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditStatClick('Total Withdraw', transactionTotals.withdraw, 'withdraw')}
         />
         <DashboardStatsCard
           title="Total Referrals"
@@ -630,6 +535,3 @@ export default function UserDetailsPage() {
     </div>
   );
 }
-
-    
-    

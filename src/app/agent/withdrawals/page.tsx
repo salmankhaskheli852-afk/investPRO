@@ -38,11 +38,12 @@ function WithdrawalRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: U
     try {
       const batch = writeBatch(firestore);
 
+      // If the request failed, refund the amount to the user's EARNING balance.
       if (newStatus === 'failed') {
         const walletSnapshot = await getDoc(walletRef);
         const walletData = walletSnapshot.data();
-        const currentBalance = walletData?.balance || 0;
-        batch.update(walletRef, { balance: currentBalance + tx.amount });
+        const currentEarningBalance = walletData?.earningBalance || 0;
+        batch.update(walletRef, { earningBalance: currentEarningBalance + tx.amount });
       }
       
       const updateData = {
