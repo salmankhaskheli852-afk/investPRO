@@ -6,40 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useDoc, useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
+import { useDoc, useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, AppSettings, ReferralRequest } from '@/lib/data';
-import { doc, collection, query, where, addDoc, serverTimestamp, getDocs, orderBy } from 'firebase/firestore';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format } from 'date-fns';
-
-function SentRequestRow({ request, targetUser }: { request: ReferralRequest; targetUser: User | undefined }) {
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return 'bg-green-500/20 text-green-700';
-      case 'pending':
-        return 'bg-amber-500/20 text-amber-700';
-      case 'rejected':
-        return 'bg-red-500/20 text-red-700';
-      default:
-        return '';
-    }
-  };
-
-  return (
-    <TableRow>
-      <TableCell>{targetUser?.name || request.targetId}</TableCell>
-      <TableCell>
-        <Badge variant="outline" className={getStatusBadge(request.status)}>
-          {request.status}
-        </Badge>
-      </TableCell>
-      <TableCell>{request.createdAt.toDate().toLocaleDateString()}</TableCell>
-    </TableRow>
-  );
-}
-
+import { doc, collection, query, where, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 
 export default function InvitationPage() {
   const { user } = useUser();
@@ -61,17 +30,6 @@ export default function InvitationPage() {
   );
   const { data: appSettings } = useDoc<AppSettings>(settingsRef);
   
-  // Get all requests sent by the current user
-  const sentRequestsQuery = useMemoFirebase(
-    () => user && firestore ? query(collection(firestore, 'referral_requests'), where('requesterId', '==', user.uid), orderBy('createdAt', 'desc')) : null,
-    [user, firestore]
-  );
-  const { data: sentRequests, isLoading: isLoadingRequests } = useCollection<ReferralRequest>(sentRequestsQuery);
-  
-  // Get all users to find the names of the targeted users
-  const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
-  const { data: allUsers } = useCollection<User>(usersQuery);
-
   const handleSendRequest = async () => {
     if (!user || !firestore || !userData) return;
     if (!targetUserId) {
@@ -187,35 +145,6 @@ export default function InvitationPage() {
             </Card>
             </div>
         </div>
-        
-        <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-           <Card>
-                <CardHeader>
-                    <CardTitle>Sent Requests</CardTitle>
-                    <CardDescription>Track the status of your sent invitations.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>User</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Date</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoadingRequests && <TableRow><TableCell colSpan={3} className="text-center">Loading...</TableCell></TableRow>}
-                            {!isLoadingRequests && sentRequests?.length === 0 && <TableRow><TableCell colSpan={3} className="text-center">You haven't sent any requests yet.</TableCell></TableRow>}
-                            {sentRequests?.map(req => {
-                                const targetUser = allUsers?.find(u => u.id === req.targetId);
-                                return <SentRequestRow key={req.id} request={req} targetUser={targetUser} />
-                            })}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-           </Card>
-        </div>
-
       </div>
     </div>
   );
