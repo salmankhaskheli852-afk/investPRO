@@ -407,16 +407,37 @@ export default function UserWalletPage() {
                                                 <SelectValue placeholder="Select a bank" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="Meezan Bank">Meezan Bank</SelectItem>
-                                                <SelectItem value="Habib Bank Limited (HBL)">Habib Bank Limited (HBL)</SelectItem>
-                                                <SelectItem value="United Bank Limited (UBL)">United Bank Limited (UBL)</SelectItem>
-                                                <SelectItem value="National Bank of Pakistan (NBP)">National Bank of Pakistan (NBP)</SelectItem>
+                                                <SelectItem value="Al Baraka Bank">Al Baraka Bank</SelectItem>
                                                 <SelectItem value="Allied Bank Limited (ABL)">Allied Bank Limited (ABL)</SelectItem>
-                                                <SelectItem value="MCB Bank Limited">MCB Bank Limited</SelectItem>
-                                                <SelectItem value="Bank Alfalah">Bank Alfalah</SelectItem>
-                                                <SelectItem value="Faysal Bank">Faysal Bank</SelectItem>
                                                 <SelectItem value="Askari Bank">Askari Bank</SelectItem>
+                                                <SelectItem value="Bank Alfalah">Bank Alfalah</SelectItem>
                                                 <SelectItem value="Bank Al-Habib">Bank Al-Habib</SelectItem>
+                                                <SelectItem value="BankIslami Pakistan">BankIslami Pakistan</SelectItem>
+                                                <SelectItem value="Bank of Punjab (BOP)">Bank of Punjab (BOP)</SelectItem>
+                                                <SelectItem value="Dubai Islamic Bank">Dubai Islamic Bank</SelectItem>
+                                                <SelectItem value="Faysal Bank">Faysal Bank</SelectItem>
+                                                <SelectItem value="FINCA Microfinance Bank">FINCA Microfinance Bank</SelectItem>
+                                                <SelectItem value="First Women Bank">First Women Bank</SelectItem>
+                                                <SelectItem value="Habib Bank Limited (HBL)">Habib Bank Limited (HBL)</SelectItem>
+                                                <SelectItem value="Habib Metropolitan Bank">Habib Metropolitan Bank</SelectItem>
+                                                <SelectItem value="JS Bank">JS Bank</SelectItem>
+                                                <SelectItem value="Khushhali Microfinance Bank">Khushhali Microfinance Bank</SelectItem>
+                                                <SelectItem value="MCB Bank Limited">MCB Bank Limited</SelectItem>
+                                                <SelectItem value="MCB Islamic Bank">MCB Islamic Bank</SelectItem>
+                                                <SelectItem value="Meezan Bank">Meezan Bank</SelectItem>
+                                                <SelectItem value="Mobilink Microfinance Bank (JazzCash)">Mobilink Microfinance Bank (JazzCash)</SelectItem>
+                                                <SelectItem value="National Bank of Pakistan (NBP)">National Bank of Pakistan (NBP)</SelectItem>
+                                                <SelectItem value="NayaPay">NayaPay</SelectItem>
+                                                <SelectItem value="SadaPay">SadaPay</SelectItem>
+                                                <SelectItem value="Samba Bank">Samba Bank</SelectItem>
+                                                <SelectItem value="Silkbank">Silkbank</SelectItem>
+                                                <SelectItem value="Sindh Bank">Sindh Bank</SelectItem>
+                                                <SelectItem value="Soneri Bank">Soneri Bank</SelectItem>
+                                                <SelectItem value="Standard Chartered Bank">Standard Chartered Bank</SelectItem>
+                                                <SelectItem value="Summit Bank">Summit Bank</SelectItem>
+                                                <SelectItem value="Telenor Microfinance Bank (Easypaisa)">Telenor Microfinance Bank (Easypaisa)</SelectItem>
+                                                <SelectItem value="U Microfinance Bank">U Microfinance Bank</SelectItem>
+                                                <SelectItem value="United Bank Limited (UBL)">United Bank Limited (UBL)</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
