@@ -119,60 +119,69 @@ function HomePageContent() {
 
   const createUserProfile = async (firebaseUser: FirebaseUser) => {
     if (!firestore) return;
+    
     const userRef = doc(firestore, 'users', firebaseUser.uid);
     const userDoc = await getDoc(userRef);
 
     if (!userDoc.exists()) {
-      const role = firebaseUser.email === ADMIN_EMAIL ? 'admin' : 'user';
-      if (role === 'admin') {
-          const adminWalletsSnapshot = await getDocs(collection(firestore, 'admin_wallets'));
-          if(adminWalletsSnapshot.empty) {
-            await seedInitialData();
-          }
-      }
+        const batch = writeBatch(firestore);
 
-      const referrerId = searchParams.get('ref') || undefined;
+        const role = firebaseUser.email === ADMIN_EMAIL ? 'admin' : 'user';
 
-      // Create user profile
-      await setDoc(userRef, {
-        id: firebaseUser.uid,
-        name: firebaseUser.displayName || 'Anonymous User',
-        email: firebaseUser.email,
-        avatarUrl: firebaseUser.photoURL,
-        investments: [],
-        createdAt: serverTimestamp(),
-        role: role,
-        referralId: firebaseUser.uid,
-        referrerId: referrerId,
-        referralCount: 0,
-        referralIncome: 0,
-        isVerified: false,
-      });
-      
-      // If there was a referrer, update their count
-      if(referrerId) {
-          const referrerRef = doc(firestore, 'users', referrerId);
-          const referrerDoc = await getDoc(referrerRef);
-          if (referrerDoc.exists()) {
-              await updateDoc(referrerRef, { referralCount: increment(1) });
-          }
-      }
+        if (role === 'admin') {
+            const adminWalletsSnapshot = await getDocs(collection(firestore, 'admin_wallets'));
+            if (adminWalletsSnapshot.empty) {
+                // Note: Seeding is async and won't be part of this batch. 
+                // It's generally better to seed via a separate script.
+                await seedInitialData(); 
+            }
+        }
 
-      // If user is an admin, also add them to the roles collection
-      if (role === 'admin') {
-        const adminRoleRef = doc(firestore, 'roles_admin', firebaseUser.uid);
-        await setDoc(adminRoleRef, { role: 'admin' });
-      }
+        // 1. Create the new user's profile
+        batch.set(userRef, {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || 'Anonymous User',
+            email: firebaseUser.email,
+            avatarUrl: firebaseUser.photoURL,
+            investments: [],
+            createdAt: serverTimestamp(),
+            role: role,
+            referralId: firebaseUser.uid,
+            referrerId: searchParams.get('ref') || null,
+            referralCount: 0,
+            referralIncome: 0,
+            isVerified: false,
+        });
 
-      // Create user wallet
-      const walletRef = doc(collection(firestore, 'users', firebaseUser.uid, 'wallets'), 'main');
-      await setDoc(walletRef, {
-        id: 'main',
-        balance: 0,
-        userId: firebaseUser.uid,
-      });
+        // 2. Create the user's wallet
+        const walletRef = doc(collection(firestore, 'users', firebaseUser.uid, 'wallets'), 'main');
+        batch.set(walletRef, {
+            id: 'main',
+            balance: 0,
+            userId: firebaseUser.uid,
+        });
+        
+        // 3. If there was a referrer, update their count
+        const referrerId = searchParams.get('ref');
+        if (referrerId) {
+            const referrerRef = doc(firestore, 'users', referrerId);
+            // We read the doc *outside* the batch to decide if we write.
+            const referrerDoc = await getDoc(referrerRef);
+            if (referrerDoc.exists()) {
+                batch.update(referrerRef, { referralCount: increment(1) });
+            }
+        }
+
+        // 4. If user is an admin, also add them to the roles collection
+        if (role === 'admin') {
+            const adminRoleRef = doc(firestore, 'roles_admin', firebaseUser.uid);
+            batch.set(adminRoleRef, { role: 'admin' });
+        }
+        
+        // Commit all operations atomically
+        await batch.commit();
     }
-  };
+};
 
   const handleSignIn = async () => {
     if (!auth) return;
