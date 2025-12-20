@@ -100,6 +100,8 @@ export default function UserDashboardPage() {
     return total + (plan.price * (plan.dailyIncomePercentage / 100));
   }, 0);
   
+  const totalEarningBalance = (walletData?.earningBalance || 0) + dailyIncome;
+
   return (
     <div className="space-y-8">
       <div>
@@ -116,7 +118,7 @@ export default function UserDashboardPage() {
         />
          <DashboardStatsCard
           title="Earning Balance"
-          value={`PKR ${(walletData?.earningBalance || 0).toLocaleString()}`}
+          value={`PKR ${totalEarningBalance.toLocaleString()}`}
           description="Withdrawable balance"
           Icon={WalletIcon}
           chartData={[]} chartKey=''
