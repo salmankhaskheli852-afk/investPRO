@@ -125,6 +125,7 @@ export type AppSettings = {
     verificationPopupTitle?: string;
     verificationPopupMessage?: string;
     verificationDepositAmount?: number;
+    shareableLink?: string;
 }
 
 export type ReferralRequest = {

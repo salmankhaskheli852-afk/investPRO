@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 export default function AppSettingsPage() {
   const [whatsappNumber, setWhatsappNumber] = React.useState('');
   const [whatsappCommunityLink, setWhatsappCommunityLink] = React.useState('');
+  const [shareableLink, setShareableLink] = React.useState('');
   const [verificationBadgeText, setVerificationBadgeText] = React.useState('');
   const [isVerificationBadgeEnabled, setIsVerificationBadgeEnabled] = React.useState(false);
   const [minDeposit, setMinDeposit] = React.useState('');
@@ -48,6 +49,7 @@ export default function AppSettingsPage() {
     if (appSettings) {
       setWhatsappNumber(appSettings.whatsappNumber || '');
       setWhatsappCommunityLink(appSettings.whatsappCommunityLink || '');
+      setShareableLink(appSettings.shareableLink || '');
       setVerificationBadgeText(appSettings.verificationBadgeText || 'Verified by Gov');
       setIsVerificationBadgeEnabled(appSettings.isVerificationBadgeEnabled || false);
       setMinDeposit(String(appSettings.minDeposit || ''));
@@ -73,7 +75,8 @@ export default function AppSettingsPage() {
     try {
       await setDoc(settingsRef, { 
         whatsappNumber, 
-        whatsappCommunityLink, 
+        whatsappCommunityLink,
+        shareableLink,
         verificationBadgeText,
         isVerificationBadgeEnabled,
         minDeposit: parseFloat(minDeposit) || 0,
@@ -170,6 +173,19 @@ export default function AppSettingsPage() {
             />
              <p className="text-xs text-muted-foreground">
                 Provide the full invitation link for your WhatsApp community group.
+             </p>
+          </div>
+           <div className="space-y-2">
+            <Label htmlFor="shareable-link">Shareable Link</Label>
+            <Input
+              id="shareable-link"
+              placeholder="https://yourapp.com/share"
+              value={shareableLink}
+              onChange={(e) => setShareableLink(e.target.value)}
+              disabled={isLoading}
+            />
+             <p className="text-xs text-muted-foreground">
+                This link will be shared when a user clicks the share icon in the header.
              </p>
           </div>
 

@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { LogOut, Settings, User as UserIcon, ShieldCheck, Copy } from 'lucide-react';
+import { LogOut, Settings, User as UserIcon, ShieldCheck, Copy, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -57,6 +57,47 @@ export function Header() {
       description: `${label} has been copied to your clipboard.`,
     });
   };
+  
+  const handleShare = async () => {
+    const shareLink = appSettings?.shareableLink;
+    if (!shareLink) {
+        toast({
+            variant: 'destructive',
+            title: 'Share link not set',
+            description: 'The administrator has not configured a share link yet.',
+        });
+        return;
+    }
+    
+    const shareData = {
+        title: 'investPro',
+        text: 'Check out this amazing investment platform!',
+        url: shareLink,
+    };
+
+    try {
+        if (navigator.share) {
+            await navigator.share(shareData);
+        } else {
+            // Fallback for browsers that don't support the Web Share API
+            navigator.clipboard.writeText(shareLink);
+            toast({
+                title: 'Link Copied!',
+                description: 'The share link has been copied to your clipboard.',
+            });
+        }
+    } catch (err) {
+        // Handle cases where sharing is cancelled or fails
+        console.error('Error sharing:', err);
+        // Fallback to clipboard copy if navigator.share fails (e.g., on desktop)
+        navigator.clipboard.writeText(shareLink);
+        toast({
+            title: 'Link Copied!',
+            description: 'The share link has been copied to your clipboard.',
+        });
+    }
+};
+
 
   const showSidebarTrigger = pathname.startsWith('/admin') || pathname.startsWith('/agent');
 
@@ -90,6 +131,12 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
+        {appSettings?.shareableLink && (
+            <Button variant="ghost" size="icon" onClick={handleShare} className="text-white hover:bg-white/20">
+                <Share2 className="h-5 w-5" />
+                <span className="sr-only">Share</span>
+            </Button>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full">
