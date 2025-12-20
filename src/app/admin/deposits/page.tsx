@@ -14,14 +14,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import type { User, Transaction, AppSettings } from '@/lib/data';
+import type { User, Transaction, AppSettings, AdminWallet } from '@/lib/data';
 import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment, updateDoc, runTransaction } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
-function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User | undefined, onUpdate: () => void }) {
+function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transaction; user: User | undefined, onUpdate: () => void, adminWallets: AdminWallet[] | null }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = React.useState(false);
@@ -131,6 +131,7 @@ function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User
   };
 
   const details = tx.details || {};
+  const depositToWallet = adminWallets?.find(w => w.id === details.adminWalletId);
 
   return (
     <TableRow>
@@ -151,6 +152,10 @@ function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User
         <div className="font-medium">{details.senderName}</div>
         <div className="text-sm text-muted-foreground">{details.senderAccount}</div>
         <div className="text-xs text-muted-foreground">TID: {details.tid}</div>
+      </TableCell>
+      <TableCell>
+        <div className="font-medium">{depositToWallet?.walletName}</div>
+        <div className="text-sm text-muted-foreground">{depositToWallet?.name}</div>
       </TableCell>
       <TableCell>{tx.date ? format(tx.date.toDate(), 'PPp') : 'N/A'}</TableCell>
       <TableCell className="text-right">
@@ -197,6 +202,12 @@ export default function AdminDepositsPage() {
   );
   const { data: depositRequests, isLoading: isLoadingDeposits, forceRefetch } = useCollection<Transaction>(depositsQuery);
   
+  const adminWalletsQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'admin_wallets') : null),
+    [firestore]
+  );
+  const { data: adminWallets, isLoading: isLoadingAdminWallets } = useCollection<AdminWallet>(adminWalletsQuery);
+
   const findUserForTx = (tx: Transaction) => users?.find(u => u.id === tx.details?.userId);
 
   const filteredRequests = React.useMemo(() => {
@@ -212,7 +223,7 @@ export default function AdminDepositsPage() {
     });
   }, [depositRequests, searchQuery, users]);
 
-  const isLoading = isLoadingUsers || isLoadingDeposits;
+  const isLoading = isLoadingUsers || isLoadingDeposits || isLoadingAdminWallets;
 
   return (
     <div className="space-y-8">
@@ -245,6 +256,7 @@ export default function AdminDepositsPage() {
                 <TableHead>User</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Sender Details</TableHead>
+                <TableHead>Deposit To</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -252,17 +264,17 @@ export default function AdminDepositsPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     Loading requests...
                   </TableCell>
                 </TableRow>
               ) : filteredRequests && filteredRequests.length > 0 ? (
                 filteredRequests.map((tx) => (
-                  <DepositRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} onUpdate={forceRefetch} />
+                  <DepositRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} onUpdate={forceRefetch} adminWallets={adminWallets} />
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     No pending deposit requests.
                   </TableCell>
                 </TableRow>
