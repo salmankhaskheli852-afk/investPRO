@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
 import type { User, Transaction, AgentPermissions } from '@/lib/data';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, doc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
@@ -72,7 +72,7 @@ export default function AgentHistorySearchPage() {
   const [searched, setSearched] = React.useState(false);
 
   const agentDocRef = useMemoFirebase(
-      () => agentUser ? doc(firestore, 'users', agentUser.uid) : null,
+      () => agentUser && firestore ? doc(firestore, 'users', agentUser.uid) : null,
       [firestore, agentUser]
   );
   const { data: agentData } = useDoc<User>(agentDocRef);
