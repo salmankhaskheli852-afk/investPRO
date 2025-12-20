@@ -13,7 +13,7 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { href: '/user', label: 'Home', icon: Home },
+  { href: '/user', label: 'Me', icon: Home },
   { href: '/user/investments', label: 'Invest', icon: TrendingUp },
   { href: '/user/invitation', label: 'Team', icon: Users },
   { href: '/user/me', label: 'Me', icon: User },
