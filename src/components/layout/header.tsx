@@ -81,7 +81,7 @@ export function Header() {
           </svg>
           <span className="font-headline text-lg font-semibold text-white">investPro</span>
         </Link>
-         {appSettings?.verificationBadgeText && (
+         {appSettings?.isVerificationBadgeEnabled && appSettings?.verificationBadgeText && (
           <div className="hidden md:flex items-center gap-1.5 ml-4 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
             <ShieldCheck className="h-4 w-4" />
             <span>{appSettings.verificationBadgeText}</span>

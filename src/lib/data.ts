@@ -109,6 +109,7 @@ export type AppSettings = {
     whatsappNumber?: string;
     whatsappCommunityLink?: string;
     verificationBadgeText?: string;
+    isVerificationBadgeEnabled?: boolean;
     minDeposit?: number;
     maxDeposit?: number;
     minWithdrawal?: number;

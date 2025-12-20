@@ -18,6 +18,7 @@ export default function AppSettingsPage() {
   const [whatsappNumber, setWhatsappNumber] = React.useState('');
   const [whatsappCommunityLink, setWhatsappCommunityLink] = React.useState('');
   const [verificationBadgeText, setVerificationBadgeText] = React.useState('');
+  const [isVerificationBadgeEnabled, setIsVerificationBadgeEnabled] = React.useState(false);
   const [minDeposit, setMinDeposit] = React.useState('');
   const [maxDeposit, setMaxDeposit] = React.useState('');
   const [minWithdrawal, setMinWithdrawal] = React.useState('');
@@ -48,6 +49,7 @@ export default function AppSettingsPage() {
       setWhatsappNumber(appSettings.whatsappNumber || '');
       setWhatsappCommunityLink(appSettings.whatsappCommunityLink || '');
       setVerificationBadgeText(appSettings.verificationBadgeText || 'Verified by Gov');
+      setIsVerificationBadgeEnabled(appSettings.isVerificationBadgeEnabled || false);
       setMinDeposit(String(appSettings.minDeposit || ''));
       setMaxDeposit(String(appSettings.maxDeposit || ''));
       setMinWithdrawal(String(appSettings.minWithdrawal || ''));
@@ -73,6 +75,7 @@ export default function AppSettingsPage() {
         whatsappNumber, 
         whatsappCommunityLink, 
         verificationBadgeText,
+        isVerificationBadgeEnabled,
         minDeposit: parseFloat(minDeposit) || 0,
         maxDeposit: parseFloat(maxDeposit) || 0,
         minWithdrawal: parseFloat(minWithdrawal) || 0,
@@ -117,18 +120,31 @@ export default function AppSettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="badge-text">Header Verification Badge Text</Label>
-            <Input
-              id="badge-text"
-              placeholder="e.g., Verified by Gov"
-              value={verificationBadgeText}
-              onChange={(e) => setVerificationBadgeText(e.target.value)}
-              disabled={isLoading}
-            />
-             <p className="text-xs text-muted-foreground">
-                This text appears in the header next to a green shield icon.
-             </p>
+          <div className="space-y-4 rounded-lg border p-4">
+              <div className="space-y-2">
+                <Label htmlFor="badge-text">Header Verification Badge Text</Label>
+                <Input
+                  id="badge-text"
+                  placeholder="e.g., Verified by Gov"
+                  value={verificationBadgeText}
+                  onChange={(e) => setVerificationBadgeText(e.target.value)}
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-muted-foreground">
+                    This text appears in the header next to a green shield icon.
+                </p>
+              </div>
+              <div className="flex items-center justify-between">
+                  <Label htmlFor="badge-enabled" className="flex flex-col space-y-1">
+                    <span>Enable Verification Badge</span>
+                  </Label>
+                  <Switch
+                      id="badge-enabled"
+                      checked={isVerificationBadgeEnabled}
+                      onCheckedChange={setIsVerificationBadgeEnabled}
+                      disabled={isLoading}
+                  />
+              </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="whatsapp-number">WhatsApp Support Number</Label>
