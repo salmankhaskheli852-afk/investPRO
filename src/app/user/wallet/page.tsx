@@ -174,7 +174,7 @@ export default function UserWalletPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
       return;
     }
-    if (!withdrawAmount || !withdrawMethod || !withdrawHolderName || !withdrawAccountNumber || (withdrawMethod === 'Bank' && !withdrawBankName)) {
+    if (!withdrawAmount || !withdrawMethod || !withdrawHolderName || !withdrawAccountNumber || (withdrawMethod === 'Bank Transfer' && !withdrawBankName)) {
       setShowEmptyFields(true);
       return;
     }
@@ -213,7 +213,7 @@ export default function UserWalletPage() {
             method: withdrawMethod,
             receiverName: withdrawHolderName,
             receiverAccount: withdrawAccountNumber,
-            bankName: withdrawMethod === 'Bank' ? withdrawBankName : null,
+            bankName: withdrawMethod === 'Bank Transfer' ? withdrawBankName : undefined,
             userId: user.uid,
             userName: user.displayName,
             userEmail: user.email,
@@ -384,15 +384,19 @@ export default function UserWalletPage() {
                           
                            <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
                                 <div className="space-y-2">
-                                    <Label>Select Method</Label>
-                                    <RadioGroup onValueChange={(val) => setWithdrawMethod(val)} value={withdrawMethod} className="grid grid-cols-3 gap-2">
-                                        {withdrawalMethods?.map(method => (
-                                            <Label key={method.id} htmlFor={method.name} className="flex items-center space-x-2 cursor-pointer rounded-md border p-3 [&:has([data-state=checked])]:border-primary">
-                                                <RadioGroupItem value={method.name} id={method.name} />
-                                                <span>{method.name}</span>
-                                            </Label>
-                                        ))}
-                                    </RadioGroup>
+                                  <Label htmlFor="withdraw-method">Your Wallet Name</Label>
+                                  <Select value={withdrawMethod} onValueChange={setWithdrawMethod}>
+                                    <SelectTrigger id="withdraw-method">
+                                      <SelectValue placeholder="Select a method" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {withdrawalMethods?.map(method => (
+                                        <SelectItem key={method.id} value={method.name}>
+                                          {method.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 </div>
 
                                 {withdrawMethod === 'Bank Transfer' && (
@@ -447,5 +451,3 @@ export default function UserWalletPage() {
     </>
   );
 }
-
-    
