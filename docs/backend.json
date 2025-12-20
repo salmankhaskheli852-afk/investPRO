@@ -39,13 +39,14 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Wallet",
       "type": "object",
-      "description": "Represents a user's wallet for managing funds.",
+      "description": "Represents a user's wallet for managing funds, separated into two balances.",
       "properties": {
         "id": { "type": "string", "description": "Unique identifier for the wallet." },
         "userId": { "type": "string", "description": "Reference to User. (Relationship: User 1:N Wallet)" },
-        "balance": { "type": "number", "description": "The current balance of the wallet." }
+        "depositBalance": { "type": "number", "description": "Balance from user deposits, used for purchasing plans." },
+        "earningBalance": { "type": "number", "description": "Balance from daily and referral income, used for withdrawals." }
       },
-      "required": ["id", "userId", "balance"]
+      "required": ["id", "userId", "depositBalance", "earningBalance"]
     },
     "Transaction": {
       "$schema": "http://json-schema.org/draft-07/schema#",

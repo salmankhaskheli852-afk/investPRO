@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -36,7 +37,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, serverTimestamp, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import { collection, serverTimestamp, doc, writeBatch, query, where, getDocs, runTransaction } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 
@@ -197,44 +198,53 @@ export default function UserWalletPage() {
       return;
     }
 
-    if (amountToWithdraw > walletData.balance) {
+    if (amountToWithdraw > (walletData.earningBalance || 0)) {
         setShowInsufficientFunds(true);
         return;
     }
 
-    const userWalletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
-    const transactionCollectionRef = collection(firestore, 'transactions');
-    const userTransactionCollectionRef = collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions');
-
     try {
-        const batch = writeBatch(firestore);
+        await runTransaction(firestore, async (transaction) => {
+            const userWalletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
+            const walletDoc = await transaction.get(userWalletRef);
 
-        const newTransactionRef = doc(transactionCollectionRef);
-        const transactionData: Omit<Transaction, 'id' | 'date'> & { date: any } = {
-          type: 'withdrawal',
-          amount: amountToWithdraw,
-          status: 'pending',
-          date: serverTimestamp(),
-          walletId: 'main',
-          details: {
-            method: withdrawMethod,
-            receiverName: withdrawHolderName,
-            receiverAccount: withdrawAccountNumber,
-            bankName: withdrawMethod === 'Bank Transfer' ? withdrawBankName : undefined,
-            userId: user.uid,
-            userName: user.displayName,
-            userEmail: user.email,
-          }
-        };
-        batch.set(newTransactionRef, { ...transactionData, id: newTransactionRef.id });
+            if (!walletDoc.exists()) {
+                throw new Error("Wallet not found.");
+            }
 
-        const userNewTransactionRef = doc(userTransactionCollectionRef, newTransactionRef.id);
-        batch.set(userNewTransactionRef, { ...transactionData, id: newTransactionRef.id });
-        
-        const newBalance = walletData.balance - amountToWithdraw;
-        batch.update(userWalletRef, { balance: newBalance });
+            const currentEarningBalance = walletDoc.data().earningBalance || 0;
+            if (amountToWithdraw > currentEarningBalance) {
+                throw new Error("Insufficient earning balance.");
+            }
 
-        await batch.commit();
+            // 1. Create global transaction record
+            const newTransactionRef = doc(collection(firestore, 'transactions'));
+            const transactionData: Omit<Transaction, 'id' | 'date'> & { date: any } = {
+                type: 'withdrawal',
+                amount: amountToWithdraw,
+                status: 'pending',
+                date: serverTimestamp(),
+                walletId: 'main',
+                details: {
+                    method: withdrawMethod,
+                    receiverName: withdrawHolderName,
+                    receiverAccount: withdrawAccountNumber,
+                    bankName: withdrawMethod === 'Bank Transfer' ? withdrawBankName : undefined,
+                    userId: user.uid,
+                    userName: user.displayName,
+                    userEmail: user.email,
+                }
+            };
+            transaction.set(newTransactionRef, { ...transactionData, id: newTransactionRef.id });
+
+            // 2. Create user-specific transaction record
+            const userNewTransactionRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'), newTransactionRef.id);
+            transaction.set(userNewTransactionRef, { ...transactionData, id: newTransactionRef.id });
+            
+            // 3. Update the wallet's earningBalance
+            const newEarningBalance = currentEarningBalance - amountToWithdraw;
+            transaction.update(userWalletRef, { earningBalance: newEarningBalance });
+        });
 
         toast({ title: 'Success', description: 'Your withdrawal request has been submitted.' });
         
@@ -257,9 +267,9 @@ export default function UserWalletPage() {
       <AlertDialog open={showInsufficientFunds} onOpenChange={setShowInsufficientFunds}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Insufficient Funds</AlertDialogTitle>
+            <AlertDialogTitle>Insufficient Earning Balance</AlertDialogTitle>
             <AlertDialogDescription>
-              You do not have enough balance to withdraw this amount.
+              You do not have enough balance in your earnings to withdraw this amount.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -385,7 +395,7 @@ export default function UserWalletPage() {
                           <DialogHeader>
                               <DialogTitle>Withdraw Funds</DialogTitle>
                               <DialogDescription>
-                                  Enter your account details and amount. Your balance is {walletData?.balance.toLocaleString() || 0} PKR.
+                                  Enter your account details and amount. Your withdrawable balance is {(walletData?.earningBalance || 0).toLocaleString()} PKR.
                               </DialogDescription>
                           </DialogHeader>
                           

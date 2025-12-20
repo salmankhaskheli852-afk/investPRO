@@ -25,7 +25,7 @@ import { doc, arrayUnion, writeBatch, collection, serverTimestamp, Timestamp, in
 interface InvestmentPlanCardProps {
   plan: InvestmentPlan;
   isPurchased?: boolean;
-  userWalletBalance?: number;
+  userDepositBalance?: number;
   showAsPurchased?: boolean;
   showPurchaseButton?: boolean;
 }
@@ -77,7 +77,7 @@ function CountdownTimer({ endTime }: { endTime: { seconds: number; nanoseconds: 
 export function InvestmentPlanCard({
   plan,
   isPurchased = false,
-  userWalletBalance = 0,
+  userDepositBalance = 0,
   showAsPurchased = false,
   showPurchaseButton = true,
 }: InvestmentPlanCardProps) {
@@ -86,7 +86,7 @@ export function InvestmentPlanCard({
   const { user } = useUser();
   const firestore = useFirestore();
 
-  const canAfford = userWalletBalance >= plan.price;
+  const canAfford = userDepositBalance >= plan.price;
   const isOfferActive = plan.isOfferEnabled && plan.offerEndTime && plan.offerEndTime.toMillis() > Date.now();
   const isOfferExpired = plan.isOfferEnabled && plan.offerEndTime && plan.offerEndTime.toMillis() <= Date.now();
   const isSoldOutByLimit = plan.purchaseLimit && (plan.purchaseCount || 0) >= plan.purchaseLimit;
@@ -108,7 +108,7 @@ export function InvestmentPlanCard({
       return;
     }
     if (!canAfford) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Insufficient funds.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Insufficient deposit balance.' });
       return;
     }
     
@@ -130,14 +130,14 @@ export function InvestmentPlanCard({
             }
 
             const currentPlanData = planDoc.data() as InvestmentPlan;
-            const currentBalance = walletDoc.data().balance;
+            const currentWalletData = walletDoc.data();
 
             // --- VALIDATION ---
             if (currentPlanData.isSoldOut || (currentPlanData.purchaseLimit && (currentPlanData.purchaseCount || 0) >= currentPlanData.purchaseLimit)) {
                 throw new Error("This plan is sold out.");
             }
-            if (currentBalance < plan.price) {
-                throw new Error("Insufficient funds.");
+            if ((currentWalletData.depositBalance || 0) < plan.price) {
+                throw new Error("Insufficient deposit balance.");
             }
 
             // --- WRITES LAST ---
@@ -152,9 +152,9 @@ export function InvestmentPlanCard({
                 })
             });
 
-            // 3. Deduct price from wallet
-            const newBalance = currentBalance - plan.price;
-            transaction.update(walletRef, { balance: newBalance });
+            // 3. Deduct price from depositBalance
+            const newDepositBalance = (currentWalletData.depositBalance || 0) - plan.price;
+            transaction.update(walletRef, { depositBalance: newDepositBalance });
 
             // 4. Add an investment transaction
             const transactionRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'));
@@ -244,13 +244,13 @@ export function InvestmentPlanCard({
 
             <div className="rounded-lg border bg-background/50 p-4 space-y-2">
               <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground flex items-center gap-2"><Wallet className="w-4 h-4" /> Current Balance</span>
-                  <span>{userWalletBalance?.toLocaleString() || 0} Rs</span>
+                  <span className="text-muted-foreground flex items-center gap-2"><Wallet className="w-4 h-4" /> Deposit Balance</span>
+                  <span>{userDepositBalance?.toLocaleString() || 0} Rs</span>
               </div>
                <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Remaining Balance</span>
                   <span className={cn("font-medium", !canAfford && "text-destructive")}>
-                    {(userWalletBalance - plan.price).toLocaleString()} Rs
+                    {(userDepositBalance - plan.price).toLocaleString()} Rs
                   </span>
               </div>
             </div>
@@ -258,7 +258,7 @@ export function InvestmentPlanCard({
                 <p className="text-sm text-center text-amber-600">You have already purchased this plan.</p>
             )}
             {!isPurchased && !canAfford && (
-                <p className="text-sm text-center text-destructive">You do not have enough funds to purchase this plan.</p>
+                <p className="text-sm text-center text-destructive">You do not have enough funds in your deposit balance to purchase this plan.</p>
             )}
           </div>
           <DialogFooter>

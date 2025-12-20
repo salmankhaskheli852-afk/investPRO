@@ -51,7 +51,6 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
     const userRef = doc(firestore, 'users', user.id);
 
     try {
-        // Using a write batch for simplicity and to avoid transaction read/write order issues.
         const batch = writeBatch(firestore);
 
         // --- PRE-CHECKS ---
@@ -76,11 +75,12 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
         if (!userDoc.exists()) throw new Error("User not found!");
         
         const currentUserData = userDoc.data();
+        const currentWalletData = walletDoc.data();
 
         // --- LOGIC & BATCH WRITES ---
         if (newStatus === 'completed') {
-            // 1. Update wallet balance
-            batch.update(walletRef, { balance: walletDoc.data().balance + tx.amount });
+            // 1. Update wallet's depositBalance
+            batch.update(walletRef, { depositBalance: (currentWalletData.depositBalance || 0) + tx.amount });
 
             // 2. Denormalize totalDeposit on user profile
             const newTotalDeposit = (currentUserData.totalDeposit || 0) + tx.amount;
@@ -103,9 +103,9 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
                     const referrerWalletDoc = await getDoc(referrerWalletRef);
 
                     if (referrerWalletDoc.exists()) {
-                         // Directly update the referrer's wallet balance
-                        const newBalance = (referrerWalletDoc.data()?.balance || 0) + commissionAmount;
-                        batch.update(referrerWalletRef, { balance: newBalance });
+                         // Directly update the referrer's earningBalance
+                        const newEarningBalance = (referrerWalletDoc.data()?.earningBalance || 0) + commissionAmount;
+                        batch.update(referrerWalletRef, { earningBalance: newEarningBalance });
 
                         // Create a transaction record for the commission
                         const referrerTxRef = doc(collection(firestore, 'users', currentUserData.referrerId, 'wallets', 'main', 'transactions'));

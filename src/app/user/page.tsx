@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { collection, doc, orderBy, query, Timestamp } from 'firebase/firestore';
 import type { InvestmentPlan, User, Wallet, Transaction, UserInvestment } from '@/lib/data';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
-import { DollarSign, TrendingUp, PiggyBank, GitBranch, ArrowDownToLine, ArrowUpFromLine, LogOut } from 'lucide-react';
+import { DollarSign, TrendingUp, PiggyBank, GitBranch, ArrowDownToLine, ArrowUpFromLine, LogOut, Wallet as WalletIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { Button } from '@/components/ui/button';
@@ -108,10 +108,17 @@ export default function UserDashboardPage() {
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <DashboardStatsCard
-          title="Wallet Balance"
-          value={`PKR ${(walletData?.balance || 0).toLocaleString()}`}
-          description="Available funds"
+          title="Deposit Balance"
+          value={`PKR ${(walletData?.depositBalance || 0).toLocaleString()}`}
+          description="For purchasing plans"
           Icon={DollarSign}
+          chartData={[]} chartKey=''
+        />
+         <DashboardStatsCard
+          title="Earning Balance"
+          value={`PKR ${(walletData?.earningBalance || 0).toLocaleString()}`}
+          description="Withdrawable balance"
+          Icon={WalletIcon}
           chartData={[]} chartKey=''
         />
         <DashboardStatsCard
