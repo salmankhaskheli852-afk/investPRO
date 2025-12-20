@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, serverTimestamp, doc, writeBatch, addDoc, query, where, deleteDoc, orderBy } from 'firebase/firestore';
+import { collection, serverTimestamp, doc, writeBatch, addDoc, query, where, deleteDoc, orderBy, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 const AddNewWithdrawalAccountForm = ({ onSave, onCancel }: { onSave: (data: Omit<UserWithdrawalAccount, 'id' | 'createdAt' | 'userId'>) => void, onCancel: () => void }) => {
@@ -250,7 +250,7 @@ export default function UserWalletPage() {
     
     const newAccountRef = doc(collection(firestore, 'users', user.uid, 'withdrawal_accounts'));
     
-    await addDoc(collection(firestore, 'users', user.uid, 'withdrawal_accounts'), {
+    await setDoc(newAccountRef, {
       ...accountData,
       id: newAccountRef.id,
       userId: user.uid,
