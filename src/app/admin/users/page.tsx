@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { User, Wallet } from '@/lib/data';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, doc, getDocs, writeBatch, deleteDoc } from 'firebase/firestore';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,17 +30,31 @@ import Link from 'next/link';
 import { EditUserRoleDialog } from './edit-user-role-dialog';
 import { AssignAgentDialog } from './assign-agent-dialog';
 import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 function UserRow({ 
   user, 
   agents,
   onEditRole,
   onAssignAgent,
+  onDeleteUser,
 }: { 
   user: User; 
   agents: User[];
   onEditRole: (user: User) => void;
   onAssignAgent: (user: User) => void;
+  onDeleteUser: (user: User) => void;
 }) {
   const firestore = useFirestore();
   const walletsQuery = useMemoFirebase(
@@ -107,10 +121,27 @@ function UserRow({
               <Edit className="mr-2 h-4 w-4" />
               Edit User
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete User
-            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                 <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete User
+                </div>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                  <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the user <span className="font-bold">{user.name}</span> and all their associated data (wallet, transactions, etc.) from the database. This does not delete their authentication account.
+                      </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => onDeleteUser(user)}>Continue</AlertDialogAction>
+                  </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>
@@ -121,6 +152,7 @@ function UserRow({
 export default function AdminUsersPage() {
   const firestore = useFirestore();
   const { user: adminUser } = useUser();
+  const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isRoleDialogOpen, setIsRoleDialogOpen] = React.useState(false);
@@ -150,6 +182,51 @@ export default function AdminUsersPage() {
     setSelectedUser(user);
     setIsAssignAgentDialogOpen(true);
   }
+  
+  const handleDeleteUser = async (userToDelete: User) => {
+    if (!firestore) return;
+
+    try {
+      const batch = writeBatch(firestore);
+
+      // 1. Delete all transactions in the user's subcollection
+      const transactionsCollectionRef = collection(firestore, 'users', userToDelete.id, 'wallets', 'main', 'transactions');
+      const transactionsSnapshot = await getDocs(transactionsCollectionRef);
+      transactionsSnapshot.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+
+      // 2. Delete the wallet document
+      const walletRef = doc(firestore, 'users', userToDelete.id, 'wallets', 'main');
+      batch.delete(walletRef);
+
+      // 3. Delete the main user document
+      const userRef = doc(firestore, 'users', userToDelete.id);
+      batch.delete(userRef);
+
+      // 4. If the user is an admin, delete their role document
+      if (userToDelete.role === 'admin') {
+        const adminRoleRef = doc(firestore, 'roles_admin', userToDelete.id);
+        batch.delete(adminRoleRef);
+      }
+      
+      // Commit the batch
+      await batch.commit();
+
+      toast({
+        title: 'User Deleted',
+        description: `${userToDelete.name} has been permanently deleted.`,
+      });
+
+    } catch (e: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error Deleting User',
+        description: e.message || 'An unexpected error occurred.',
+      });
+    }
+  };
+
 
   const filteredUsers = React.useMemo(() => {
     if (!users) return [];
@@ -220,7 +297,7 @@ export default function AdminUsersPage() {
                     </TableCell>
                   </TableRow>
                 )}
-                {paginatedUsers?.map((user) => <UserRow key={user.id} user={user} agents={agents || []} onEditRole={handleEditRoleClick} onAssignAgent={handleAssignAgentClick} />)}
+                {paginatedUsers?.map((user) => <UserRow key={user.id} user={user} agents={agents || []} onEditRole={handleEditRoleClick} onAssignAgent={handleAssignAgentClick} onDeleteUser={handleDeleteUser} />)}
               </TableBody>
             </Table>
           </CardContent>
