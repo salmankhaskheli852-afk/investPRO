@@ -98,5 +98,3 @@ export function ReferralRequestManager() {
     </AlertDialog>
   );
 }
-
-    
