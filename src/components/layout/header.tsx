@@ -16,7 +16,7 @@ import { LogOut, Settings, User as UserIcon, ShieldCheck, ShieldAlert } from 'lu
 import Link from 'next/link';
 import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import { doc } from 'firebase/firestore';
 import type { AppSettings, User } from '@/lib/data';
@@ -28,6 +28,7 @@ export function Header() {
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
+  const pathname = usePathname();
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
@@ -51,6 +52,8 @@ export function Header() {
     await signOut(auth);
     router.push('/');
   };
+
+  const showSidebarTrigger = pathname.startsWith('/admin') || pathname.startsWith('/agent');
 
   const renderVerificationStatus = () => {
     const isLoading = isLoadingSettings || isLoadingUserData;
@@ -140,7 +143,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6">
       <div className="flex items-center gap-2">
-        <SidebarTrigger className="md:hidden" />
+        {showSidebarTrigger && <SidebarTrigger className="md:hidden" />}
         <Link href="/" className="flex items-center gap-2">
            <svg
             xmlns="http://www.w3.org/2000/svg"
