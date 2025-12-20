@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import type { User, AppSettings, ReferralRequest } from '@/lib/data';
-import { doc, collection, query, where, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import type { User, AppSettings, ReferralRequest, Transaction } from '@/lib/data';
+import { doc, collection, query, where, addDoc, serverTimestamp, getDocs, orderBy } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -42,6 +42,28 @@ export default function InvitationPage() {
     [user, firestore]
   );
   const { data: myTeam, isLoading: isLoadingTeam } = useCollection<User>(myTeamQuery);
+
+  const transactionsQuery = useMemoFirebase(
+    () => user && firestore 
+      ? query(
+          collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'),
+          orderBy('date', 'desc')
+        )
+      : null,
+    [user, firestore]
+  );
+  const { data: transactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(transactionsQuery);
+
+  const totalReferralIncome = React.useMemo(() => {
+    if (!transactions) return 0;
+    return transactions.reduce((acc, tx) => {
+      if (tx.type === 'referral_income' && tx.status === 'completed') {
+        return acc + tx.amount;
+      }
+      return acc;
+    }, 0);
+  }, [transactions]);
+
 
   const handleSendRequest = async () => {
     if (!user || !firestore || !userData) return;
@@ -156,7 +178,7 @@ export default function InvitationPage() {
             <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
             <Card className="flex flex-col items-center justify-center text-center h-full">
               <CardHeader>
-                <CardTitle className="text-4xl font-bold">{(userData?.referralIncome || 0).toLocaleString()} <span className="text-lg text-muted-foreground">PKR</span></CardTitle>
+                <CardTitle className="text-4xl font-bold">{isLoadingTransactions ? '...' : totalReferralIncome.toLocaleString()} <span className="text-lg text-muted-foreground">PKR</span></CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">Total Earnings</p>
