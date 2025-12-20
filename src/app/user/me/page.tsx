@@ -6,13 +6,13 @@ import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, useAuth 
 import { useRouter } from 'next/navigation';
 import { collection, doc, orderBy, query, Timestamp } from 'firebase/firestore';
 import type { InvestmentPlan, User, Wallet, Transaction, UserInvestment } from '@/lib/data';
-import { DashboardStatsCard } from '@/components/dashboard-stats-card';
-import { DollarSign, TrendingUp, PiggyBank, ArrowDownToLine, ArrowUpFromLine, LogOut, Wallet as WalletIcon, GitBranch } from 'lucide-react';
+import { DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, LogOut, Wallet as WalletIcon, GitBranch } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { signOut } from 'firebase/auth';
+import { Separator } from '@/components/ui/separator';
 
 export default function UserDashboardPage() {
   const { user, isUserLoading } = useUser();
@@ -109,50 +109,49 @@ export default function UserDashboardPage() {
         <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
         <p className="text-muted-foreground">Welcome back, {userData?.name}!</p>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <DashboardStatsCard
-          title="Wallet Balance"
-          value={`PKR ${(walletData?.balance || 0).toLocaleString()}`}
-          description="Available funds"
-          Icon={WalletIcon}
-          chartData={[]} chartKey=''
-        />
-        <DashboardStatsCard
-          title="Total Invested"
-          value={`PKR ${transactionTotals.investment.toLocaleString()}`}
-          description={`${activeInvestments.length} active plans`}
-          Icon={TrendingUp}
-          chartData={[]} chartKey=''
-        />
-         <DashboardStatsCard
-          title="Daily Income"
-          value={`PKR ${dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2})}`}
-          description="From investments"
-          Icon={DollarSign}
-          chartData={[]} chartKey=''
-        />
-         <DashboardStatsCard
-          title="Referral Income"
-          value={`PKR ${transactionTotals.referral_income.toLocaleString()}`}
-          description="From commissions"
-          Icon={GitBranch}
-          chartData={[]} chartKey=''
-        />
-         <DashboardStatsCard
-          title="Total Deposit"
-          value={`PKR ${transactionTotals.deposit.toLocaleString()}`}
-          description="Funds added"
-          Icon={ArrowDownToLine}
-          chartData={[]} chartKey=''
-        />
-         <DashboardStatsCard
-          title="Total Withdraw"
-          value={`PKR ${transactionTotals.withdraw.toLocaleString()}`}
-          description="Funds taken out"
-          Icon={ArrowUpFromLine}
-          chartData={[]} chartKey=''
-        />
+      
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
+        <Card>
+            <CardContent className="p-6">
+                <div className="flex flex-col items-center text-center space-y-2 mb-6">
+                    <p className="text-sm text-muted-foreground">Total Wallet Balance</p>
+                    <p className="text-4xl font-bold tracking-tighter">
+                        PKR {(walletData?.balance || 0).toLocaleString()}
+                    </p>
+                </div>
+                
+                <Separator />
+
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-6 text-sm">
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Daily Income</span>
+                        <span className="font-medium">{(dailyIncome).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Invested</span>
+                        <span className="font-medium">{transactionTotals.investment.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Referral Income</span>
+                        <span className="font-medium">{transactionTotals.referral_income.toLocaleString()}</span>
+                    </div>
+                     <div className="flex justify-between">
+                        <span className="text-muted-foreground">Active Plans</span>
+                        <span className="font-medium">{activeInvestments.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Deposit</span>
+                        <span className="font-medium text-green-600">+{transactionTotals.deposit.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Withdraw</span>
+                        <span className="font-medium text-red-600">-{transactionTotals.withdraw.toLocaleString()}</span>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
       </div>
+
 
        <Card>
         <CardHeader>
