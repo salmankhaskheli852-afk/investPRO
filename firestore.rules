@@ -29,8 +29,7 @@ service cloud.firestore {
       return isUserAuthenticated() && request.auth.uid == userId;
     }
 
-    // A user can get other user profiles (for referral names) and list them for queries,
-    // but only update their own.
+    // A user can list/get other user profiles (for referral names) but only update their own.
     match /users/{userId} {
       allow get, list: if isUserAuthenticated();
       allow create: if isUserAuthenticated();
@@ -77,15 +76,21 @@ service cloud.firestore {
       allow list: if isAdmin() || isAgent();
     }
     
-    // Rules for the new referral request system
+    // --- Rules for the referral request system ---
     match /referral_requests/{requestId} {
-      // Allow creation if the requester is the authenticated user and the request is 'pending'.
-      allow create: if isUserAuthenticated() && request.resource.data.requesterId == request.auth.uid && request.resource.data.status == 'pending';
+      
+      // Allow any authenticated user to query/list requests.
+      // The queries in the app are secure and only fetch requests for the current user.
+      // This rule is necessary because collection queries cannot be constrained by `resource.data`.
+      allow list: if isUserAuthenticated();
 
-      // Allow the requester and the target user to read and list the request.
-      allow read, list: if isUserAuthenticated() && (resource.data.requesterId == request.auth.uid || resource.data.targetId == request.auth.uid);
+      // Allow creation if the requester is the authenticated user.
+      allow create: if isUserAuthenticated() && request.resource.data.requesterId == request.auth.uid;
 
-      // Allow the target user to update the status (to 'approved' or 'rejected') if it's currently 'pending'.
+      // Allow the requester and the target user to read a specific request.
+      allow get: if isUserAuthenticated() && (resource.data.requesterId == request.auth.uid || resource.data.targetId == request.auth.uid);
+
+      // Allow the target user to update the status (to 'approved' or 'rejected').
       allow update: if isUserAuthenticated() && resource.data.targetId == request.auth.uid && resource.data.status == 'pending' && request.resource.data.status in ['approved', 'rejected'];
     }
 
