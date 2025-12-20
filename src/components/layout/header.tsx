@@ -30,6 +30,10 @@ export function Header() {
   const router = useRouter();
   const [hasMounted, setHasMounted] = useState(false);
 
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
   const appSettingsRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
     [firestore]
@@ -42,10 +46,6 @@ export function Header() {
   );
   const { data: userData, isLoading: isLoadingUserData } = useDoc<User>(userDocRef);
 
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
   const handleLogout = async () => {
     if (!auth) return;
     await signOut(auth);
@@ -54,7 +54,7 @@ export function Header() {
 
   const renderVerificationStatus = () => {
     const isLoading = isLoadingSettings || isLoadingUserData;
-
+    
     if (isLoading) {
       return (
         <div className="hidden items-center gap-1.5 sm:flex">
@@ -159,8 +159,12 @@ export function Header() {
           <span className="font-headline text-lg font-semibold text-primary">investPro</span>
         </Link>
       </div>
-      <div className="flex items-center gap-4">
+
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
         {renderVerificationStatus()}
+      </div>
+
+      <div className="flex items-center gap-4">
         {renderUserMenu()}
       </div>
     </header>
