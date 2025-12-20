@@ -53,18 +53,27 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
     try {
       await runTransaction(firestore, async (transaction) => {
         
+        // --- ALL READS MUST HAPPEN FIRST ---
         const walletDoc = await transaction.get(walletRef);
-        const userDoc = await transaction.get(userRef); // Get current user data
+        const userDoc = await transaction.get(userRef);
 
-        if (!walletDoc.exists()) {
-            throw new Error("Wallet not found!");
+        if (!walletDoc.exists()) throw new Error("Wallet not found!");
+        if (!userDoc.exists()) throw new Error("User not found!");
+
+        const currentUserData = userDoc.data();
+        let referrerDoc: any = null;
+        let referrerWalletDoc: any = null;
+
+        if (currentUserData.referrerId) {
+            const referrerRef = doc(firestore, 'users', currentUserData.referrerId);
+            const referrerWalletRef = doc(firestore, 'users', currentUserData.referrerId, 'wallets', 'main');
+            referrerDoc = await transaction.get(referrerRef);
+            referrerWalletDoc = await transaction.get(referrerWalletRef);
         }
-         if (!userDoc.exists()) {
-            throw new Error("User not found!");
-        }
+
+        // --- ALL WRITES HAPPEN AFTER READS ---
 
         const currentBalance = walletDoc.data().balance;
-        const currentUserData = userDoc.data();
         
         // Main logic for deposit completion
         if (newStatus === 'completed') {
@@ -83,47 +92,34 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
           }
 
           // 3. Handle referral system on every deposit
-          if (currentUserData.referrerId) {
-              
-              // Give commission on every deposit
+          if (currentUserData.referrerId && referrerDoc && referrerDoc.exists() && referrerWalletDoc && referrerWalletDoc.exists()) {
               const commissionRate = (appSettings?.referralCommissionPercentage || 0) / 100;
               const commissionAmount = tx.amount * commissionRate;
 
               if (commissionAmount > 0) {
                   const referrerRef = doc(firestore, 'users', currentUserData.referrerId);
-                  const referrerDoc = await transaction.get(referrerRef);
-                  
-                  if (!referrerDoc.exists()) {
-                      console.warn("Referrer not found, skipping commission.");
-                  } else {
-                      const referrerWalletRef = doc(firestore, 'users', currentUserData.referrerId, 'wallets', 'main');
-                      const referrerWalletDoc = await transaction.get(referrerWalletRef);
-                      
-                      if (referrerWalletDoc.exists()) {
-                        const newBalance = (referrerWalletDoc.data()?.balance || 0) + commissionAmount;
-                        const newIncome = (referrerDoc.data()?.referralIncome || 0) + commissionAmount;
+                  const referrerWalletRef = doc(firestore, 'users', currentUserData.referrerId, 'wallets', 'main');
 
-                        transaction.update(referrerWalletRef, { balance: newBalance });
-                        transaction.update(referrerRef, { referralIncome: newIncome });
-                        
-                        const referrerTxRef = doc(collection(firestore, 'users', currentUserData.referrerId, 'wallets', 'main', 'transactions'));
-                        transaction.set(referrerTxRef, {
-                            id: referrerTxRef.id,
-                            type: 'referral_income',
-                            amount: commissionAmount,
-                            status: 'completed',
-                            date: serverTimestamp(),
-                            walletId: 'main',
-                            details: {
-                                referredUserId: user.id,
-                                referredUserName: user.name,
-                                originalDeposit: tx.amount,
-                            }
-                        });
-                      } else {
-                         console.warn(`Referrer wallet for ${currentUserData.referrerId} not found, skipping commission.`);
+                  const newBalance = (referrerWalletDoc.data()?.balance || 0) + commissionAmount;
+                  const newIncome = (referrerDoc.data()?.referralIncome || 0) + commissionAmount;
+
+                  transaction.update(referrerWalletRef, { balance: newBalance });
+                  transaction.update(referrerRef, { referralIncome: newIncome });
+                  
+                  const referrerTxRef = doc(collection(firestore, 'users', currentUserData.referrerId, 'wallets', 'main', 'transactions'));
+                  transaction.set(referrerTxRef, {
+                      id: referrerTxRef.id,
+                      type: 'referral_income',
+                      amount: commissionAmount,
+                      status: 'completed',
+                      date: serverTimestamp(),
+                      walletId: 'main',
+                      details: {
+                          referredUserId: user.id,
+                          referredUserName: user.name,
+                          originalDeposit: tx.amount,
                       }
-                  }
+                  });
               }
           }
         }
@@ -317,3 +313,5 @@ export default function AdminDepositsPage() {
     </div>
   );
 }
+
+    
