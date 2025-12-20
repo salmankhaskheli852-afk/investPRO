@@ -103,16 +103,17 @@ export default function UserDetailsPage() {
   const { data: allPlans, isLoading: isLoadingPlans } = useCollection<InvestmentPlan>(plansQuery);
 
   const transactionTotals = React.useMemo(() => {
-    if (!transactions) return { deposit: 0, withdraw: 0, income: 0, investment: 0 };
+    if (!transactions) return { deposit: 0, withdraw: 0, income: 0, investment: 0, referral_income: 0 };
     return transactions.reduce((acc, tx) => {
       if (tx.status === 'completed') {
         if (tx.type === 'deposit') acc.deposit += tx.amount;
         else if (tx.type === 'withdrawal') acc.withdraw += tx.amount;
         else if (tx.type === 'income') acc.income += tx.amount;
         else if (tx.type === 'investment') acc.investment += tx.amount;
+        else if (tx.type === 'referral_income') acc.referral_income += tx.amount;
       }
       return acc;
-    }, { deposit: 0, withdraw: 0, income: 0, investment: 0 });
+    }, { deposit: 0, withdraw: 0, income: 0, investment: 0, referral_income: 0 });
   }, [transactions]);
   
   const purchasedPlansCount = user?.investments?.length || 0;
@@ -139,12 +140,8 @@ export default function UserDetailsPage() {
 
       if (['depositBalance', 'earningBalance'].includes(editingStatField.field)) {
           batch.update(walletDocRef, { [editingStatField.field]: numericNewValue });
-      } else if (['referralCount', 'referralIncome'].includes(editingStatField.field)) {
-          batch.update(userDocRef, { [editingStatField.field]: numericNewValue });
       } else {
-        // This part needs review. Adjusting totals might require creating a transaction
-        // to keep the history consistent. For now, we'll focus on direct balance edits.
-        toast({ variant: 'destructive', title: 'Not Implemented', description: `Directly editing ${editingStatField.title} is not supported. Please adjust balances.` });
+        toast({ variant: 'destructive', title: 'Not Implemented', description: `Directly editing totals is not supported. Please adjust balances.` });
         return;
       }
       
@@ -183,17 +180,14 @@ export default function UserDetailsPage() {
 
         // Adjust wallet balance
         if(tx.status === 'completed') {
-            if (tx.type === 'deposit' || tx.type === 'referral_income') {
+            if (tx.type === 'deposit') {
                 batch.update(walletRef, { depositBalance: increment(-tx.amount) });
-            } else if (tx.type === 'income') {
+            } else if (tx.type === 'referral_income' || tx.type === 'income') {
                 batch.update(walletRef, { earningBalance: increment(-tx.amount) });
-            } else if (tx.type === 'withdrawal' || tx.type === 'investment') {
-                // Investments are from deposit, withdrawals from earnings
-                if (tx.type === 'investment') {
-                    batch.update(walletRef, { depositBalance: increment(tx.amount) });
-                } else {
-                    batch.update(walletRef, { earningBalance: increment(tx.amount) });
-                }
+            } else if (tx.type === 'withdrawal') {
+                batch.update(walletRef, { earningBalance: increment(tx.amount) });
+            } else if (tx.type === 'investment') {
+                batch.update(walletRef, { depositBalance: increment(tx.amount) });
             }
         }
         
@@ -207,8 +201,35 @@ export default function UserDetailsPage() {
   };
 
   const handleRevokeDeposit = async (tx: Transaction) => {
-    // This logic needs to be updated for the new balance system
-    toast({ variant: 'destructive', title: 'Not Implemented', description: 'Revoking deposits needs to be updated for the new balance system.' });
+    if (!firestore || !userId) return;
+    try {
+        const batch = writeBatch(firestore);
+        const txRef = doc(firestore, 'users', userId, 'wallets', 'main', 'transactions', tx.id);
+        const walletRef = doc(firestore, 'users', userId, 'wallets', 'main');
+
+        // 1. Update the transaction status to 'revoked'
+        batch.update(txRef, { status: 'revoked' });
+
+        // 2. Deduct the amount from the depositBalance
+        batch.update(walletRef, { depositBalance: increment(-tx.amount) });
+
+        // 3. Create a new "revoked" transaction for clarity
+        const revokedTxRef = doc(collection(firestore, 'users', userId, 'wallets', 'main', 'transactions'));
+        batch.set(revokedTxRef, {
+            id: revokedTxRef.id,
+            type: 'deposit',
+            amount: -tx.amount,
+            status: 'revoked',
+            date: serverTimestamp(),
+            details: { reason: `Revoked TID: ${tx.details?.tid}`, originalTxId: tx.id },
+            walletId: 'main'
+        });
+        
+        await batch.commit();
+        toast({ title: 'Deposit Revoked', description: `Successfully revoked deposit of ${tx.amount} PKR.`});
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Error revoking deposit', description: e.message });
+    }
   };
   
   const getStatusBadge = (status: string) => {
@@ -310,21 +331,12 @@ export default function UserDetailsPage() {
           Icon={ArrowUpFromLine}
           chartData={[]} chartKey=''
         />
-        <DashboardStatsCard
-          title="Total Referrals"
-          value={(user.referralCount || 0).toString()}
-          description="Friends invited"
-          Icon={Users}
-          chartData={[]} chartKey=''
-          onEdit={() => handleEditStatClick('Total Referrals', user.referralCount || 0, 'referralCount')}
-        />
-        <DashboardStatsCard
+         <DashboardStatsCard
           title="Referral Income"
-          value={`${(user.referralIncome || 0).toLocaleString()} PKR`}
+          value={`${transactionTotals.referral_income.toLocaleString()} PKR`}
           description="From commissions"
           Icon={GitBranch}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditStatClick('Referral Income', user.referralIncome || 0, 'referralIncome')}
         />
       </div>
 

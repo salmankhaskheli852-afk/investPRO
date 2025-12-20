@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Users, GitBranch } from 'lucide-react';
+import { ArrowLeft, DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Users, GitBranch, Wallet as WalletIcon } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { User, Transaction, Wallet, InvestmentPlan } from '@/lib/data';
 import { collection, doc, query, orderBy } from 'firebase/firestore';
@@ -52,16 +52,17 @@ export default function AgentUserDetailPage() {
   const { data: transactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(transactionsQuery);
 
   const transactionTotals = React.useMemo(() => {
-    if (!transactions) return { deposit: 0, withdraw: 0, income: 0, investment: 0 };
+    if (!transactions) return { deposit: 0, withdraw: 0, income: 0, investment: 0, referral_income: 0 };
     return transactions.reduce((acc, tx) => {
       if (tx.status === 'completed') {
         if (tx.type === 'deposit') acc.deposit += tx.amount;
         else if (tx.type === 'withdrawal') acc.withdraw += tx.amount;
         else if (tx.type === 'income') acc.income += tx.amount;
         else if (tx.type === 'investment') acc.investment += tx.amount;
+        else if (tx.type === 'referral_income') acc.referral_income += tx.amount;
       }
       return acc;
-    }, { deposit: 0, withdraw: 0, income: 0, investment: 0 });
+    }, { deposit: 0, withdraw: 0, income: 0, investment: 0, referral_income: 0 });
   }, [transactions]);
   
   const purchasedPlansCount = user?.investments?.length || 0;
@@ -124,10 +125,17 @@ export default function AgentUserDetailPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <DashboardStatsCard
-          title="Wallet Balance"
-          value={`${(wallet?.balance || 0).toLocaleString()} PKR`}
-          description="Available funds"
+          title="Deposit Balance"
+          value={`${(wallet?.depositBalance || 0).toLocaleString()} PKR`}
+          description="For purchasing plans"
           Icon={DollarSign}
+          chartData={[]} chartKey=''
+        />
+        <DashboardStatsCard
+          title="Earning Balance"
+          value={`${(wallet?.earningBalance || 0).toLocaleString()} PKR`}
+          description="Withdrawable funds"
+          Icon={WalletIcon}
           chartData={[]} chartKey=''
         />
         <DashboardStatsCard
@@ -159,15 +167,8 @@ export default function AgentUserDetailPage() {
           chartData={[]} chartKey=''
         />
         <DashboardStatsCard
-          title="Total Referrals"
-          value={(user.referralCount || 0).toString()}
-          description="Friends invited"
-          Icon={Users}
-          chartData={[]} chartKey=''
-        />
-        <DashboardStatsCard
           title="Referral Income"
-          value={`${(user.referralIncome || 0).toLocaleString()} PKR`}
+          value={`${transactionTotals.referral_income.toLocaleString()} PKR`}
           description="From commissions"
           Icon={GitBranch}
           chartData={[]} chartKey=''
