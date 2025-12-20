@@ -1,19 +1,23 @@
 
 'use client';
 
+import React, { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShieldCheck, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useDoc } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
-import React from 'react';
 import { signInWithGoogle } from '@/firebase/auth/sign-in';
 import { useAuth, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, getDoc, serverTimestamp, collection, getDocs, writeBatch, updateDoc, increment } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { User, AdminWallet, WithdrawalMethod, InvestmentPlan } from '@/lib/data';
 import { planCategories, investmentPlans as seedPlans } from '@/lib/data';
+
+// By exporting this, we tell Next.js to always render this page dynamically
+// which is required because we are using useSearchParams.
+export const dynamic = 'force-dynamic';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -60,7 +64,8 @@ function LoggedInRedirect() {
   return null;
 }
 
-export default function Home() {
+
+function HomePageContent() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
@@ -141,6 +146,7 @@ export default function Home() {
         referrerId: referrerId,
         referralCount: 0,
         referralIncome: 0,
+        isVerified: false,
       });
       
       // If there was a referrer, update their count
@@ -221,4 +227,13 @@ export default function Home() {
       </div>
     </main>
   );
+}
+
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomePageContent />
+    </Suspense>
+  )
 }
