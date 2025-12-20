@@ -12,7 +12,7 @@ import { collection, query, where } from 'firebase/firestore';
 const mockRevenueData = [
   { name: 'Jan', revenue: 20000 },
   { name: 'Feb', revenue: 22000 },
-  { name 'Mar', revenue: 19000 },
+  { name: 'Mar', revenue: 19000 },
   { name: 'Apr', revenue: 25000 },
   { name: 'May', revenue: 24000 },
   { name: 'Jun', revenue: 28000 },
