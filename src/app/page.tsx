@@ -125,14 +125,11 @@ function HomePageContent() {
 
     if (!userDoc.exists()) {
         const batch = writeBatch(firestore);
-
         const role = firebaseUser.email === ADMIN_EMAIL ? 'admin' : 'user';
 
         if (role === 'admin') {
             const adminWalletsSnapshot = await getDocs(collection(firestore, 'admin_wallets'));
             if (adminWalletsSnapshot.empty) {
-                // Note: Seeding is async and won't be part of this batch. 
-                // It's generally better to seed via a separate script.
                 await seedInitialData(); 
             }
         }
@@ -165,7 +162,6 @@ function HomePageContent() {
         const referrerId = searchParams.get('ref');
         if (referrerId) {
             const referrerRef = doc(firestore, 'users', referrerId);
-            // We read the doc *outside* the batch to decide if we write.
             const referrerDoc = await getDoc(referrerRef);
             if (referrerDoc.exists()) {
                 batch.update(referrerRef, { referralCount: increment(1) });
@@ -178,7 +174,6 @@ function HomePageContent() {
             batch.set(adminRoleRef, { role: 'admin' });
         }
         
-        // Commit all operations atomically
         await batch.commit();
     }
 };
