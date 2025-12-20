@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle, Trash2, Edit } from 'lucide-react';
@@ -21,7 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { AdminWallet, WithdrawalMethod } from '@/lib/data';
-import { collection, doc, addDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -35,6 +35,19 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const METHOD_NAMES = {
+  JAZZCASH: 'JazzCash',
+  EASYPAISA: 'Easypaisa',
+  BANK_TRANSFER: 'Bank Transfer'
+};
+
+const METHOD_IDS = {
+  JAZZCASH: 'jazzcash',
+  EASYPAISA: 'easypaisa',
+  BANK_TRANSFER: 'bank-transfer'
+};
+
 
 export default function AdminWalletPage() {
   const firestore = useFirestore();
@@ -50,6 +63,7 @@ export default function AdminWalletPage() {
   const [newWalletAddress, setNewWalletAddress] = React.useState('');
   const [newIsBank, setNewIsBank] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isSavingMethods, setIsSavingMethods] = React.useState(false);
 
   // Edit account form state
   const [editingWallet, setEditingWallet] = React.useState<AdminWallet | null>(null);
@@ -57,6 +71,13 @@ export default function AdminWalletPage() {
   const [editAccountName, setEditAccountName] = React.useState('');
   const [editWalletAddress, setEditWalletAddress] = React.useState('');
   const [editIsBank, setEditIsBank] = React.useState(false);
+
+  // State for withdrawal method toggles
+  const [methodsState, setMethodsState] = React.useState<Record<string, boolean>>({
+    [METHOD_IDS.JAZZCASH]: false,
+    [METHOD_IDS.EASYPAISA]: false,
+    [METHOD_IDS.BANK_TRANSFER]: false,
+  });
 
   const adminWalletsQuery = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'admin_wallets') : null),
@@ -70,6 +91,58 @@ export default function AdminWalletPage() {
   );
   const { data: withdrawalMethods, isLoading: isLoadingMethods } = useCollection<WithdrawalMethod>(withdrawalMethodsQuery);
   
+  React.useEffect(() => {
+    if (withdrawalMethods) {
+      const initialState: Record<string, boolean> = {
+        [METHOD_IDS.JAZZCASH]: false,
+        [METHOD_IDS.EASYPAISA]: false,
+        [METHOD_IDS.BANK_TRANSFER]: false,
+      };
+      withdrawalMethods.forEach(method => {
+        initialState[method.id] = method.isEnabled;
+      });
+      setMethodsState(initialState);
+    }
+  }, [withdrawalMethods]);
+
+  const handleMethodStateChange = (methodId: string, isEnabled: boolean) => {
+    setMethodsState(prev => ({ ...prev, [methodId]: isEnabled }));
+  };
+
+  const handleSaveMethods = async () => {
+    if (!firestore) return;
+    setIsSavingMethods(true);
+    try {
+      const batch = writeBatch(firestore);
+      
+      const jazzcashRef = doc(firestore, 'withdrawal_methods', METHOD_IDS.JAZZCASH);
+      batch.set(jazzcashRef, { id: METHOD_IDS.JAZZCASH, name: METHOD_NAMES.JAZZCASH, isEnabled: methodsState[METHOD_IDS.JAZZCASH] }, { merge: true });
+
+      const easypaisaRef = doc(firestore, 'withdrawal_methods', METHOD_IDS.EASYPAISA);
+      batch.set(easypaisaRef, { id: METHOD_IDS.EASYPAISA, name: METHOD_NAMES.EASYPAISA, isEnabled: methodsState[METHOD_IDS.EASYPAISA] }, { merge: true });
+
+      const bankRef = doc(firestore, 'withdrawal_methods', METHOD_IDS.BANK_TRANSFER);
+      batch.set(bankRef, { id: METHOD_IDS.BANK_TRANSFER, name: METHOD_NAMES.BANK_TRANSFER, isEnabled: methodsState[METHOD_IDS.BANK_TRANSFER] }, { merge: true });
+
+      await batch.commit();
+
+      toast({
+        title: 'Settings Saved',
+        description: 'Withdrawal methods have been updated.',
+      });
+
+    } catch (e: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error Saving',
+        description: e.message,
+      });
+    } finally {
+      setIsSavingMethods(false);
+    }
+  };
+
+
   const handleAddAccount = async () => {
     if (!firestore || !newWalletName || !newAccountName || !newWalletAddress) {
       toast({
@@ -162,20 +235,11 @@ export default function AdminWalletPage() {
     }
   };
 
-  const handleToggle = async (collectionName: 'admin_wallets' | 'withdrawal_methods', id: string, name: string, isEnabled: boolean) => {
+  const handleToggleAccount = async (id: string, isEnabled: boolean) => {
     if(!firestore) return;
     try {
-      // Use the name as the document ID for withdrawal methods to ensure consistency
-      const docId = collectionName === 'withdrawal_methods' ? name.toLowerCase().replace(/\s+/g, '-') : id;
-      const docRef = doc(firestore, collectionName, docId);
-
-      // Use setDoc with merge to create the document if it doesn't exist, or update it if it does.
-      await setDoc(docRef, { 
-        id: docId,
-        name: name,
-        isEnabled: !isEnabled 
-      }, { merge: true });
-
+      const docRef = doc(firestore, 'admin_wallets', id);
+      await updateDoc(docRef, { isEnabled: !isEnabled });
     } catch(e: any) {
        toast({
         variant: 'destructive',
@@ -184,8 +248,6 @@ export default function AdminWalletPage() {
       });
     }
   };
-  
-  const findMethod = (name: string) => withdrawalMethods?.find(m => m.name.toLowerCase() === name.toLowerCase());
 
   return (
     <div className="space-y-8">
@@ -206,41 +268,37 @@ export default function AdminWalletPage() {
             {isLoadingMethods ? <p>Loading withdrawal methods...</p> : (
               <>
                 <div className="flex flex-col justify-between rounded-lg border p-4 space-y-4">
-                  <Label htmlFor="method-jazzcash" className="text-base font-medium">JazzCash</Label>
+                  <Label htmlFor="method-jazzcash" className="text-base font-medium">{METHOD_NAMES.JAZZCASH}</Label>
                   <Switch 
                     id="method-jazzcash" 
-                    checked={findMethod('jazzcash')?.isEnabled ?? false}
-                    onCheckedChange={() => {
-                        const method = findMethod('jazzcash');
-                        handleToggle('withdrawal_methods', method?.id || 'jazzcash', 'JazzCash', method?.isEnabled ?? false);
-                    }}
+                    checked={methodsState[METHOD_IDS.JAZZCASH]}
+                    onCheckedChange={(checked) => handleMethodStateChange(METHOD_IDS.JAZZCASH, checked)}
                   />
                 </div>
                 <div className="flex flex-col justify-between rounded-lg border p-4 space-y-4">
-                  <Label htmlFor="method-easypaisa" className="text-base font-medium">Easypaisa</Label>
+                  <Label htmlFor="method-easypaisa" className="text-base font-medium">{METHOD_NAMES.EASYPAISA}</Label>
                   <Switch 
                     id="method-easypaisa" 
-                    checked={findMethod('easypaisa')?.isEnabled ?? false}
-                    onCheckedChange={() => {
-                        const method = findMethod('easypaisa');
-                        handleToggle('withdrawal_methods', method?.id || 'easypaisa', 'Easypaisa', method?.isEnabled ?? false);
-                    }}
+                    checked={methodsState[METHOD_IDS.EASYPAISA]}
+                    onCheckedChange={(checked) => handleMethodStateChange(METHOD_IDS.EASYPAISA, checked)}
                   />
                 </div>
                 <div className="flex flex-col justify-between rounded-lg border p-4 space-y-4">
-                  <Label htmlFor="method-bank" className="text-base font-medium">Bank Transfer</Label>
+                  <Label htmlFor="method-bank" className="text-base font-medium">{METHOD_NAMES.BANK_TRANSFER}</Label>
                   <Switch 
                     id="method-bank" 
-                    checked={findMethod('bank transfer')?.isEnabled ?? false}
-                    onCheckedChange={() => {
-                        const method = findMethod('bank transfer');
-                        handleToggle('withdrawal_methods', method?.id || 'bank-transfer', 'Bank Transfer', method?.isEnabled ?? false);
-                    }}
+                    checked={methodsState[METHOD_IDS.BANK_TRANSFER]}
+                    onCheckedChange={(checked) => handleMethodStateChange(METHOD_IDS.BANK_TRANSFER, checked)}
                   />
                 </div>
               </>
             )}
         </CardContent>
+         <CardFooter className="border-t px-6 py-4">
+            <Button onClick={handleSaveMethods} disabled={isSavingMethods || isLoadingMethods}>
+              {isSavingMethods ? 'Saving...' : 'Save Settings'}
+            </Button>
+          </CardFooter>
       </Card>
       </div>
 
@@ -314,7 +372,7 @@ export default function AdminWalletPage() {
                 <Switch 
                   id={`wallet-switch-${wallet.id}`} 
                   checked={wallet.isEnabled}
-                  onCheckedChange={() => handleToggle('admin_wallets', wallet.id, wallet.name, wallet.isEnabled)}
+                  onCheckedChange={() => handleToggleAccount(wallet.id, wallet.isEnabled)}
                 />
               </div>
               <div className="flex items-center justify-end gap-2">
@@ -401,3 +459,5 @@ export default function AdminWalletPage() {
     </div>
   );
 }
+
+    
