@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useRef } from 'react';
@@ -23,7 +22,6 @@ import {
   Banknote
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
 import Image from 'next/image';
 import {
   Dialog,
@@ -197,7 +195,7 @@ export default function UserHomePage() {
       )}
 
       {/* Wallet Section */}
-      <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
+       <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
         <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="p-4 flex items-center justify-between">
             <Link href="/user/wallet" className="flex items-center gap-3">
@@ -205,7 +203,7 @@ export default function UserHomePage() {
               <span className="font-semibold text-lg">Wallet</span>
             </Link>
             <div className="grid grid-cols-2 gap-4">
-                <DialogTrigger asChild>
+               <DialogTrigger asChild>
                   <div className="flex flex-col items-center p-2 rounded-lg bg-red-100 text-red-800 cursor-pointer">
                       <ArrowDownToLine className="h-6 w-6" />
                       <span className="text-xs font-bold">RECHARGE</span>
