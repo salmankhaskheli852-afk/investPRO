@@ -4,27 +4,14 @@
 import React from 'react';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { collection, doc, query, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, doc, orderBy, query, Timestamp } from 'firebase/firestore';
 import type { InvestmentPlan, User, Wallet, Transaction, UserInvestment } from '@/lib/data';
-import { Card, CardContent } from '@/components/ui/card';
+import { DashboardStatsCard } from '@/components/dashboard-stats-card';
+import { DollarSign, TrendingUp, PiggyBank, GitBranch, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Banknote, FileText, Landmark, ShieldQuestion, Users, LogOut, Briefcase } from 'lucide-react';
-
-const StatItem = ({ label, value }: { label: string, value: string | number }) => (
-    <div className="text-center">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <p className="font-bold text-lg">{value}</p>
-    </div>
-)
-
-const MenuItem = ({ icon: Icon, label, href }: { icon: React.ElementType, label: string, href: string }) => (
-    <Link href={href} className="flex items-center p-3 space-x-4 rounded-lg hover:bg-muted">
-        <Icon className="w-6 h-6 text-primary" />
-        <span className="font-medium">{label}</span>
-    </Link>
-);
-
 
 export default function UserDashboardPage() {
   const { user, isUserLoading } = useUser();
@@ -44,23 +31,33 @@ export default function UserDashboardPage() {
   const { data: walletData, isLoading: isWalletLoading } = useDoc<Wallet>(walletRef);
   
   const transactionsQuery = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions') : null),
-    [firestore, user]
+    () => user && firestore 
+      ? query(
+          collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'),
+          orderBy('date', 'desc')
+        )
+      : null,
+    [user, firestore]
   );
-  const { data: transactions } = useCollection<Transaction>(transactionsQuery);
+  const { data: transactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(transactionsQuery);
+
+  const plansQuery = useMemoFirebase(
+    () => firestore ? collection(firestore, 'investment_plans') : null,
+    [firestore]
+  );
+  const { data: allPlans } = useCollection<InvestmentPlan>(plansQuery);
 
   const transactionTotals = React.useMemo(() => {
-    if (!transactions) return { deposit: 0, withdraw: 0, income: 0, referral_income: 0, investment: 0 };
+    if (!transactions) return { deposit: 0, withdraw: 0, income: 0, referral_income: 0 };
     return transactions.reduce((acc, tx) => {
       if (tx.status === 'completed') {
         if (tx.type === 'deposit') acc.deposit += tx.amount;
         else if (tx.type === 'withdrawal') acc.withdraw += tx.amount;
         else if (tx.type === 'income') acc.income += tx.amount;
         else if (tx.type === 'referral_income') acc.referral_income += tx.amount;
-        else if (tx.type === 'investment') acc.investment += tx.amount;
       }
       return acc;
-    }, { deposit: 0, withdraw: 0, income: 0, referral_income: 0, investment: 0 });
+    }, { deposit: 0, withdraw: 0, income: 0, referral_income: 0 });
   }, [transactions]);
 
 
@@ -70,7 +67,16 @@ export default function UserDashboardPage() {
     }
   }, [user, isUserLoading, router]);
 
-  if (isUserLoading || isUserDocLoading || isWalletLoading) {
+  const activeInvestments = React.useMemo(() => {
+    if (!userData?.investments || !allPlans) return [];
+    
+    // This is a simplified view. Real active status might depend on purchaseDate + incomePeriod.
+    return userData.investments.map(investment => {
+      return allPlans.find(plan => plan.id === investment.planId);
+    }).filter((plan): plan is InvestmentPlan => !!plan);
+  }, [userData, allPlans]);
+
+  if (isUserLoading || isUserDocLoading || isWalletLoading || isLoadingTransactions) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <p>Loading...</p>
@@ -82,59 +88,85 @@ export default function UserDashboardPage() {
       return null;
   }
 
-  const todayIncome = 0; // This would require more complex querying
-
+  const dailyIncome = activeInvestments.reduce((total, plan) => {
+    return total + (plan.price * (plan.dailyIncomePercentage / 100));
+  }, 0);
+  
   return (
-    <div className="space-y-6">
-        {/* Top Stats Card */}
-        <Card className="shadow-lg">
-            <CardContent className="p-4">
-                <div className="relative">
-                    {/* Wavy Background */}
-                    <div className="absolute top-0 left-0 right-0 h-24 bg-blue-100/50 rounded-t-lg" style={{ clipPath: 'ellipse(100% 55% at 50% 45%)' }}></div>
-                    
-                    <div className="relative z-10 p-4">
-                        <div className="grid grid-cols-2 gap-4 text-center mb-6">
-                            <div>
-                                <p className="text-sm text-muted-foreground">Balance wallet</p>
-                                <p className="text-2xl font-bold">Rs {(walletData?.balance || 0).toLocaleString()}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Recharge wallet</p>
-                                <p className="text-2xl font-bold">Rs {(walletData?.balance || 0).toLocaleString()}</p>
-                            </div>
-                        </div>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
+        <p className="text-muted-foreground">Welcome back, {userData?.name}!</p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <DashboardStatsCard
+          title="Wallet Balance"
+          value={`PKR ${(walletData?.balance || 0).toLocaleString()}`}
+          description="Available funds"
+          Icon={DollarSign}
+          chartData={[]} chartKey=''
+        />
+        <DashboardStatsCard
+          title="Total Invested"
+          value={`PKR ${activeInvestments.reduce((sum, p) => sum + p.price, 0).toLocaleString()}`}
+          description={`${activeInvestments.length} active plans`}
+          Icon={TrendingUp}
+          chartData={[]} chartKey=''
+        />
+         <DashboardStatsCard
+          title="Daily Income"
+          value={`PKR ${dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2})}`}
+          description="From investments"
+          Icon={PiggyBank}
+          chartData={[]} chartKey=''
+        />
+         <DashboardStatsCard
+          title="Referral Income"
+          value={`PKR ${(userData?.referralIncome || 0).toLocaleString()}`}
+          description={`From ${userData.referralCount || 0} friends`}
+          Icon={GitBranch}
+          chartData={[]} chartKey=''
+        />
+         <DashboardStatsCard
+          title="Total Deposit"
+          value={`PKR ${transactionTotals.deposit.toLocaleString()}`}
+          description="Funds added"
+          Icon={ArrowDownToLine}
+          chartData={[]} chartKey=''
+        />
+         <DashboardStatsCard
+          title="Total Withdraw"
+          value={`PKR ${transactionTotals.withdraw.toLocaleString()}`}
+          description="Funds taken out"
+          Icon={ArrowUpFromLine}
+          chartData={[]} chartKey=''
+        />
+      </div>
 
-                        <div className="grid grid-cols-3 gap-y-4">
-                            <StatItem label="Total income" value={(transactionTotals.income + transactionTotals.referral_income).toLocaleString()} />
-                            <StatItem label="Total recharge" value={transactionTotals.deposit.toLocaleString()} />
-                            <StatItem label="Total assets" value={(walletData?.balance || 0).toLocaleString()} />
-                            <StatItem label="Total withdraw" value={transactionTotals.withdraw.toLocaleString()} />
-                            <StatItem label="Today's income" value={todayIncome.toLocaleString()} />
-                            <StatItem label="Team income" value={transactionTotals.referral_income.toLocaleString()} />
-                        </div>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-
-        {/* Menu Items */}
-        <Card className="shadow-lg">
-            <CardContent className="p-2 space-y-1">
-                <MenuItem icon={Users} label="Team fund" href="/user/invitation" />
-                <MenuItem icon={FileText} label="Funding details" href="/user/history" />
-                <MenuItem icon={Briefcase} label="Withdrawal Record" href="/user/history" />
-                <MenuItem icon={ShieldQuestion} label="Login Password" href="#" />
-                <MenuItem icon={Landmark} label="My bank account" href="#" />
-            </CardContent>
-        </Card>
-
-        <Card className="shadow-lg">
-            <CardContent className="p-2 space-y-1">
-                <MenuItem icon={Banknote} label="Online Service" href="#" />
-                <MenuItem icon={LogOut} label="Sign out" href="#" />
-            </CardContent>
-        </Card>
+       <Card>
+        <CardHeader>
+          <CardTitle>My Active Investments</CardTitle>
+          <CardDescription>
+            Here's an overview of your current investment portfolio.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+           {activeInvestments.length > 0 ? (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {activeInvestments.map((plan) => (
+                <InvestmentPlanCard key={plan.id} plan={plan} isPurchased={true} showPurchaseButton={false} />
+              ))}
+            </div>
+           ) : (
+             <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">You have no active investments yet.</p>
+                <Button asChild>
+                    <Link href="/user/investments">Explore our plans to get started!</Link>
+                </Button>
+             </div>
+           )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

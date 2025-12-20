@@ -12,12 +12,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { LogOut, Settings, User as UserIcon, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { LogOut, Settings, User as UserIcon, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { useRouter, usePathname } from 'next/navigation';
-import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import React from 'react';
 import { doc } from 'firebase/firestore';
 import type { AppSettings, User } from '@/lib/data';
 import { Skeleton } from '../ui/skeleton';
@@ -28,13 +28,13 @@ export function Header() {
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
-  const pathname = usePathname();
-  const [hasMounted, setHasMounted] = useState(false);
 
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
+  const settingsRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore]
+  );
+  const { data: appSettings } = useDoc<AppSettings>(settingsRef);
+  
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
     [firestore, user]
@@ -47,21 +47,47 @@ export function Header() {
     router.push('/');
   };
 
-  const showSidebarTrigger = pathname.startsWith('/admin') || pathname.startsWith('/agent');
+  return (
+    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6">
+      <div className="flex items-center gap-2">
+        <SidebarTrigger className="md:hidden" />
+        <Link href="/" className="flex items-center gap-2">
+           <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-6 w-6 text-primary"
+          >
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+          <span className="font-headline text-lg font-semibold text-primary">investPro</span>
+        </Link>
+         {appSettings?.verificationBadgeText && (
+          <div className="hidden md:flex items-center gap-1.5 ml-4 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
+            <ShieldCheck className="h-4 w-4" />
+            <span>{appSettings.verificationBadgeText}</span>
+          </div>
+        )}
+      </div>
 
-  const renderUserMenu = () => {
-    if (!hasMounted) {
-       return <Skeleton className="h-9 w-9 rounded-full" />;
-    }
-    
-    return (
+      <div className="flex items-center gap-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={user?.photoURL || undefined} alt="User Avatar" />
-                <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
-              </Avatar>
+              {isUserLoading ? (
+                 <Skeleton className="h-9 w-9 rounded-full" />
+              ) : (
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={user?.photoURL || undefined} alt="User Avatar" />
+                  <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                </Avatar>
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -98,34 +124,6 @@ export function Header() {
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-    )
-  }
-
-  return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6">
-      <div className="flex items-center gap-2">
-        {showSidebarTrigger && <SidebarTrigger className="md:hidden" />}
-        <Link href="/" className="flex items-center gap-2">
-           <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-6 w-6 text-primary"
-          >
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
-          <span className="font-headline text-lg font-semibold text-primary">investPro</span>
-        </Link>
-      </div>
-
-      <div className="flex items-center gap-4">
-        {renderUserMenu()}
       </div>
     </header>
   );
