@@ -197,6 +197,16 @@ export default function UserWalletPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'Please fill all deposit fields.' });
         return;
     }
+    
+    const amount = parseFloat(depositAmount);
+    if (appSettings?.minDeposit && amount < appSettings.minDeposit) {
+      toast({ variant: 'destructive', title: 'Deposit amount too low', description: `Minimum deposit is ${appSettings.minDeposit} PKR.` });
+      return;
+    }
+    if (appSettings?.maxDeposit && amount > appSettings.maxDeposit) {
+      toast({ variant: 'destructive', title: 'Deposit amount too high', description: `Maximum deposit is ${appSettings.maxDeposit} PKR.` });
+      return;
+    }
 
     try {
         const globalTransactionsCollectionRef = collection(firestore, 'transactions');
@@ -271,13 +281,23 @@ export default function UserWalletPage() {
       return;
     }
 
+    const amountToWithdraw = parseFloat(withdrawAmount);
+
+    if (appSettings?.minWithdrawal && amountToWithdraw < appSettings.minWithdrawal) {
+      toast({ variant: 'destructive', title: 'Withdrawal amount too low', description: `Minimum withdrawal is ${appSettings.minWithdrawal} PKR.` });
+      return;
+    }
+    if (appSettings?.maxWithdrawal && amountToWithdraw > appSettings.maxWithdrawal) {
+      toast({ variant: 'destructive', title: 'Withdrawal amount too high', description: `Maximum withdrawal is ${appSettings.maxWithdrawal} PKR.` });
+      return;
+    }
+
     const accountDetails = userWithdrawalAccounts?.find(acc => acc.id === selectedWithdrawalAccount);
     if(!accountDetails) {
         toast({ variant: 'destructive', title: 'Error', description: 'Selected account not found.' });
         return;
     }
 
-    const amountToWithdraw = parseFloat(withdrawAmount);
     if (amountToWithdraw > walletData.balance) {
         setShowInsufficientFunds(true);
         return;
