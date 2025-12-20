@@ -56,16 +56,17 @@ export default function UserDashboardPage() {
   };
 
   const transactionTotals = React.useMemo(() => {
-    if (!transactions) return { deposit: 0, withdraw: 0, referral_income: 0, income: 0 };
+    if (!transactions) return { deposit: 0, withdraw: 0, referral_income: 0, income: 0, investment: 0 };
     return transactions.reduce((acc, tx) => {
       if (tx.status === 'completed') {
         if (tx.type === 'deposit') acc.deposit += tx.amount;
         else if (tx.type === 'withdrawal') acc.withdraw += tx.amount;
         else if (tx.type === 'referral_income') acc.referral_income += tx.amount;
         else if (tx.type === 'income') acc.income += tx.amount;
+        else if (tx.type === 'investment') acc.investment += tx.amount;
       }
       return acc;
-    }, { deposit: 0, withdraw: 0, referral_income: 0, income: 0 });
+    }, { deposit: 0, withdraw: 0, referral_income: 0, income: 0, investment: 0 });
   }, [transactions]);
 
 
@@ -113,21 +114,21 @@ export default function UserDashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <DashboardStatsCard
           title="Your Balance"
-          value={`PKR ${totalEarningBalance.toLocaleString()}`}
-          description="Total available funds"
-          Icon={WalletIcon}
-          chartData={[]} chartKey=''
-        />
-        <DashboardStatsCard
-          title="Deposit Wallet"
           value={`PKR ${(walletData?.depositBalance || 0).toLocaleString()}`}
           description="For purchasing plans"
           Icon={WalletIcon}
           chartData={[]} chartKey=''
         />
         <DashboardStatsCard
+          title="Earning Balance"
+          value={`PKR ${totalEarningBalance.toLocaleString()}`}
+          description="Withdrawable balance"
+          Icon={PiggyBank}
+          chartData={[]} chartKey=''
+        />
+        <DashboardStatsCard
           title="Total Invested"
-          value={`PKR ${activeInvestments.reduce((sum, p) => sum + p.price, 0).toLocaleString()}`}
+          value={`PKR ${transactionTotals.investment.toLocaleString()}`}
           description={`${activeInvestments.length} active plans`}
           Icon={TrendingUp}
           chartData={[]} chartKey=''
