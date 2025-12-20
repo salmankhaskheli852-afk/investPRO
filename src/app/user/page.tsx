@@ -110,6 +110,13 @@ export default function UserDashboardPage() {
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <DashboardStatsCard
+          title="Your Balance"
+          value={`PKR ${(walletData?.balance || 0).toLocaleString()}`}
+          description="Total available funds"
+          Icon={WalletIcon}
+          chartData={[]} chartKey=''
+        />
+        <DashboardStatsCard
           title="Deposit Wallet"
           value={`PKR ${(walletData?.balance || 0).toLocaleString()}`}
           description="Available funds"
