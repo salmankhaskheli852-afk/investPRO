@@ -2,145 +2,196 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, useAuth } from '@/firebase';
+import { useRouter } from 'next/navigation';
+import { collection, doc, orderBy, query, Timestamp } from 'firebase/firestore';
+import type { InvestmentPlan, User, Wallet, Transaction, UserInvestment } from '@/lib/data';
+import { DashboardStatsCard } from '@/components/dashboard-stats-card';
+import { DollarSign, TrendingUp, PiggyBank, ArrowDownToLine, ArrowUpFromLine, LogOut, Wallet as WalletIcon, GitBranch } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import type { User } from '@/lib/data';
-import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { 
-  Bell, 
-  Wallet, 
-  ArrowDownToLine, 
-  ArrowUpFromLine, 
-  Users, 
-  CalendarCheck, 
-  Crown, 
-  Gift, 
-  Dice5, 
-  ScrollText 
-} from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import Image from 'next/image';
+import Link from 'next/link';
+import { signOut } from 'firebase/auth';
 
-const ServiceButton = ({ icon, label, href }: { icon: React.ElementType, label: string, href: string }) => {
-  const Icon = icon;
-  return (
-    <Link href={href} className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-white shadow-md hover:bg-gray-50 transition-colors">
-      <Icon className="h-8 w-8 text-primary" />
-      <span className="text-sm font-medium text-gray-700">{label}</span>
-    </Link>
-  );
-};
-
-const FeatureCard = ({ icon, label, href, className }: { icon: React.ElementType, label: string, href: string, className?: string }) => {
-    const Icon = icon;
-    return (
-         <Link href={href} className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg shadow-md hover:opacity-90 transition-opacity text-white ${className}`}>
-            <Icon className="h-8 w-8" />
-            <span className="font-bold">{label}</span>
-        </Link>
-    )
-}
-
-export default function MePage() {
-  const { user } = useUser();
+export default function UserDashboardPage() {
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
   const firestore = useFirestore();
-  const { toast } = useToast();
+  const auth = useAuth();
 
   const userDocRef = useMemoFirebase(
-    () => (user && firestore ? doc(firestore, 'users', user.uid) : null),
+    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user]
+  );
+  const { data: userData, isLoading: isUserDocLoading } = useDoc<User>(userDocRef);
+
+  const walletRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid, 'wallets', 'main') : null),
+    [firestore, user]
+  );
+  const { data: walletData, isLoading: isWalletLoading } = useDoc<Wallet>(walletRef);
+  
+  const transactionsQuery = useMemoFirebase(
+    () => user && firestore 
+      ? query(
+          collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'),
+          orderBy('date', 'desc')
+        )
+      : null,
     [user, firestore]
   );
-  const { data: userData, isLoading: isLoadingUser } = useDoc<User>(userDocRef);
+  const { data: transactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(transactionsQuery);
 
-  const canCheckIn = React.useMemo(() => {
-    if (!userData?.dailyCheckIn) return true;
-    const lastCheckInDate = format(userData.dailyCheckIn.toDate(), 'yyyy-MM-dd');
-    const todayDate = format(new Date(), 'yyyy-MM-dd');
-    return lastCheckInDate !== todayDate;
-  }, [userData]);
+  const plansQuery = useMemoFirebase(
+    () => firestore ? collection(firestore, 'investment_plans') : null,
+    [firestore]
+  );
+  const { data: allPlans } = useCollection<InvestmentPlan>(plansQuery);
 
-
-  const handleDailyCheckIn = async () => {
-    if (!userDocRef || !canCheckIn) return;
-    try {
-      await updateDoc(userDocRef, {
-        dailyCheckIn: serverTimestamp()
-      });
-      toast({
-        title: 'Checked In!',
-        description: 'You have successfully checked in for today.',
-      });
-    } catch(e: any) {
-       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: e.message,
-      });
-    }
+  const handleLogout = async () => {
+    if (!auth) return;
+    await signOut(auth);
+    router.push('/');
   };
 
+  const transactionTotals = React.useMemo(() => {
+    if (!transactions) return { deposit: 0, withdraw: 0, referral_income: 0, income: 0, investment: 0 };
+    return transactions.reduce((acc, tx) => {
+      if (tx.status === 'completed') {
+        if (tx.type === 'deposit') acc.deposit += tx.amount;
+        else if (tx.type === 'withdrawal') acc.withdraw += tx.amount;
+        else if (tx.type === 'referral_income') acc.referral_income += tx.amount;
+        else if (tx.type === 'income') acc.income += tx.amount;
+        else if (tx.type === 'investment') acc.investment += tx.amount;
+      }
+      return acc;
+    }, { deposit: 0, withdraw: 0, referral_income: 0, income: 0, investment: 0 });
+  }, [transactions]);
+
+
+  React.useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/');
+    }
+  }, [user, isUserLoading, router]);
+
+  const activeInvestments = React.useMemo(() => {
+    if (!userData?.investments || !allPlans) return [];
+    
+    // This is a simplified view. Real active status might depend on purchaseDate + incomePeriod.
+    return userData.investments.map(investment => {
+      return allPlans.find(plan => plan.id === investment.planId);
+    }).filter((plan): plan is InvestmentPlan => !!plan);
+  }, [userData, allPlans]);
+
+  const dailyIncome = React.useMemo(() => {
+    return activeInvestments.reduce((total, plan) => {
+        return total + (plan.price * (plan.dailyIncomePercentage / 100));
+    }, 0);
+  }, [activeInvestments]);
+
+  if (isUserLoading || isUserDocLoading || isWalletLoading || isLoadingTransactions) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+  
+  if (!user || !userData) {
+      return null;
+  }
+  
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="relative rounded-xl overflow-hidden p-6 flex items-center justify-center bg-gradient-to-r from-green-300 to-blue-200">
-        <Image src="/logo.svg" alt="SPF Logo" width={100} height={100} className="opacity-80" />
-        <span className="text-5xl font-extrabold text-white opacity-90 ml-4">SPF</span>
-      </div>
-
-      {/* Wallet Section */}
-      <Link href="/user/wallet">
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Bell className="h-6 w-6 text-primary" />
-              <span className="font-semibold text-lg">Wallet</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col items-center p-2 rounded-lg bg-red-100 text-red-800">
-                    <ArrowDownToLine className="h-6 w-6" />
-                    <span className="text-xs font-bold">RECHARGE</span>
-                </div>
-                 <div className="flex flex-col items-center p-2 rounded-lg bg-green-100 text-green-800">
-                    <ArrowUpFromLine className="h-6 w-6" />
-                    <span className="text-xs font-bold">WITHDRAW</span>
-                </div>
-            </div>
-          </CardContent>
-        </Card>
-      </Link>
-
-      {/* Service Section */}
+    <div className="space-y-8">
       <div>
-        <h2 className="text-xl font-bold mb-4">Service</h2>
-        <div className="grid grid-cols-3 gap-4">
-          <ServiceButton icon={Users} label="Refer Friends" href="/user/invitation" />
-          <div onClick={handleDailyCheckIn} className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-white shadow-md ${canCheckIn ? 'cursor-pointer hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'}`}>
-            <CalendarCheck className="h-8 w-8 text-primary" />
-            <span className="text-sm font-medium text-gray-700">Daily check-in</span>
-          </div>
-          <ServiceButton icon={Crown} label="VIP Agent" href="#" />
-        </div>
+        <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
+        <p className="text-muted-foreground">Welcome back, {userData?.name}!</p>
       </div>
-      
-       {/* Feature Cards Section */}
-       <div className="grid grid-cols-3 gap-4">
-            <FeatureCard icon={Gift} label="My Gift" href="#" className="bg-gradient-to-r from-blue-400 to-blue-500" />
-            <FeatureCard icon={Dice5} label="Lucky Draw" href="#" className="bg-gradient-to-r from-purple-400 to-purple-500" />
-            <FeatureCard icon={ScrollText} label="Task reward" href="#" className="bg-gradient-to-r from-orange-400 to-orange-500" />
-       </div>
-       
-        {/* Profit Model Section */}
-        <div>
-            <h2 className="text-xl font-bold mb-4">Profit Model</h2>
-            <Card>
-                <CardContent className="p-4">
-                    <p className="text-muted-foreground">Details about the profit model will be displayed here.</p>
-                </CardContent>
-            </Card>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <DashboardStatsCard
+          title="Deposit Wallet"
+          value={`PKR ${(walletData?.depositBalance || 0).toLocaleString()}`}
+          description="For purchasing plans"
+          Icon={WalletIcon}
+          chartData={[]} chartKey=''
+        />
+        <DashboardStatsCard
+          title="Earning Balance"
+          value={`PKR ${(walletData?.earningBalance || 0).toLocaleString()}`}
+          description="Withdrawable balance"
+          Icon={PiggyBank}
+          chartData={[]} chartKey=''
+        />
+        <DashboardStatsCard
+          title="Total Invested"
+          value={`PKR ${transactionTotals.investment.toLocaleString()}`}
+          description={`${activeInvestments.length} active plans`}
+          Icon={TrendingUp}
+          chartData={[]} chartKey=''
+        />
+         <DashboardStatsCard
+          title="Daily Income"
+          value={`PKR ${dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2})}`}
+          description="From investments"
+          Icon={DollarSign}
+          chartData={[]} chartKey=''
+        />
+         <DashboardStatsCard
+          title="Referral Income"
+          value={`PKR ${transactionTotals.referral_income.toLocaleString()}`}
+          description="From commissions"
+          Icon={GitBranch}
+          chartData={[]} chartKey=''
+        />
+         <DashboardStatsCard
+          title="Total Deposit"
+          value={`PKR ${transactionTotals.deposit.toLocaleString()}`}
+          description="Funds added"
+          Icon={ArrowDownToLine}
+          chartData={[]} chartKey=''
+        />
+         <DashboardStatsCard
+          title="Total Withdraw"
+          value={`PKR ${transactionTotals.withdraw.toLocaleString()}`}
+          description="Funds taken out"
+          Icon={ArrowUpFromLine}
+          chartData={[]} chartKey=''
+        />
+      </div>
+
+       <Card>
+        <CardHeader>
+          <CardTitle>My Active Investments</CardTitle>
+          <CardDescription>
+            Here's an overview of your current investment portfolio.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+           {activeInvestments.length > 0 ? (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {activeInvestments.map((plan) => (
+                <InvestmentPlanCard key={plan.id} plan={plan} isPurchased={true} showPurchaseButton={false} />
+              ))}
+            </div>
+           ) : (
+             <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">You have no active investments yet.</p>
+                <Button asChild>
+                    <Link href="/user/investments">Explore our plans to get started!</Link>
+                </Button>
+             </div>
+           )}
+        </CardContent>
+      </Card>
+
+      <div className="pt-4">
+        <Button variant="outline" className="w-full" onClick={handleLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign Out
+        </Button>
+      </div>
     </div>
   );
 }
