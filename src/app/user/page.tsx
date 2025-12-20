@@ -4,7 +4,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useDoc, useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import type { User, AdminWallet, Transaction, AppSettings } from '@/lib/data';
 import { doc, serverTimestamp, updateDoc, writeBatch, collection, query, where, getDocs } from 'firebase/firestore';
@@ -92,33 +92,6 @@ export default function UserHomePage() {
     [firestore]
   );
   const { data: appSettings } = useDoc<AppSettings>(settingsRef);
-
-  const canCheckIn = React.useMemo(() => {
-    if (!userData?.dailyCheckIn) return true;
-    const lastCheckInDate = format(userData.dailyCheckIn.toDate(), 'yyyy-MM-dd');
-    const todayDate = format(new Date(), 'yyyy-MM-dd');
-    return lastCheckInDate !== todayDate;
-  }, [userData]);
-
-
-  const handleDailyCheckIn = async () => {
-    if (!userDocRef || !canCheckIn) return;
-    try {
-      await updateDoc(userDocRef, {
-        dailyCheckIn: serverTimestamp()
-      });
-      toast({
-        title: 'Checked In!',
-        description: 'You have successfully checked in for today.',
-      });
-    } catch(e: any) {
-       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: e.message,
-      });
-    }
-  };
 
   React.useEffect(() => {
     if (adminWalletsData && adminWalletsData.length > 0 && !selectedAdminWallet) {
@@ -211,7 +184,7 @@ export default function UserHomePage() {
           <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
             <div className="grid grid-cols-2 gap-4">
               <DialogTrigger asChild>
-                <div onClick={() => setIsDepositDialogOpen(true)} className="flex flex-col items-center p-2 rounded-lg bg-red-100 text-red-800 cursor-pointer">
+                <div className="flex flex-col items-center p-2 rounded-lg bg-red-100 text-red-800 cursor-pointer">
                     <ArrowDownToLine className="h-6 w-6" />
                     <span className="text-xs font-bold">RECHARGE</span>
                 </div>
@@ -295,10 +268,7 @@ export default function UserHomePage() {
         <h2 className="text-xl font-bold mb-4">Service</h2>
         <div className="grid grid-cols-3 gap-4">
           <ServiceButton icon={Users} label="Refer Friends" href="/user/invitation" />
-          <div onClick={handleDailyCheckIn} className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-white shadow-md ${canCheckIn ? 'cursor-pointer hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'}`}>
-            <CalendarCheck className="h-8 w-8 text-primary" />
-            <span className="text-sm font-medium text-gray-700">Daily check-in</span>
-          </div>
+          <ServiceButton icon={CalendarCheck} label="Daily check-in" href="/user/history" />
           <ServiceButton icon={Crown} label="VIP Agent" href="#" />
         </div>
       </div>
@@ -323,3 +293,5 @@ export default function UserHomePage() {
     </>
   );
 }
+
+    
