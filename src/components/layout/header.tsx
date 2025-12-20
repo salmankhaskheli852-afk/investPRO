@@ -52,7 +52,7 @@ export function Header() {
   };
 
   const renderVerificationStatus = () => {
-    if (!appSettings?.isVerificationEnabled || isLoadingUserData || userData?.role !== 'user') {
+    if (!appSettings?.isVerificationEnabled || isLoadingUserData) {
       return null;
     }
     if (userData?.isVerified) {
@@ -63,12 +63,16 @@ export function Header() {
           </div>
         );
     }
-    return (
-       <div className="hidden items-center gap-1.5 sm:flex">
-          <ShieldAlert className="h-5 w-5 text-amber-500" />
-          <span className="text-sm font-medium text-amber-500">Not Verified</span>
-        </div>
-    );
+    // Show 'Not Verified' only for the 'user' role
+    if (userData?.role === 'user') {
+      return (
+         <div className="hidden items-center gap-1.5 sm:flex">
+            <ShieldAlert className="h-5 w-5 text-amber-500" />
+            <span className="text-sm font-medium text-amber-500">Not Verified</span>
+          </div>
+      );
+    }
+    return null;
   }
 
   const renderUserMenu = () => {
