@@ -17,7 +17,15 @@ import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@
 import type { User, Wallet, InvestmentPlan } from '@/lib/data';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Search, MoreHorizontal, Eye } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 
 function ManagedUserRow({ user }: { user: User }) {
@@ -67,6 +75,24 @@ function ManagedUserRow({ user }: { user: User }) {
             </TableCell>
             <TableCell>
             <Badge variant="outline">{user.investments?.length || 0}</Badge>
+            </TableCell>
+            <TableCell className="text-right">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">User Actions</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                         <DropdownMenuItem asChild>
+                            <Link href={`/admin/users/${user.id}`}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                            </Link>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </TableCell>
         </TableRow>
     )
@@ -139,18 +165,19 @@ export default function AgentUsersPage() {
                 <TableHead>Wallet Balance</TableHead>
                 <TableHead>Total Invested</TableHead>
                 <TableHead>Active Plans</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">Loading users...</TableCell>
+                    <TableCell colSpan={5} className="h-24 text-center">Loading users...</TableCell>
                 </TableRow>
               ) : filteredUsers && filteredUsers.length > 0 ? (
                 filteredUsers.map((user) => <ManagedUserRow key={user.id} user={user} />)
               ) : (
                 <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">No users found.</TableCell>
+                    <TableCell colSpan={5} className="h-24 text-center">No users found.</TableCell>
                 </TableRow>
               )}
             </TableBody>
