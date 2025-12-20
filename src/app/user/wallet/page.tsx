@@ -26,8 +26,8 @@ import {
   DialogTrigger,
   DialogClose
 } from '@/components/ui/dialog';
-import type { Wallet, Transaction, AdminWallet, WithdrawalMethod, UserWithdrawalAccount, AppSettings, User } from '@/lib/data';
-import { ArrowDownToLine, ArrowUpFromLine, Banknote, Landmark, PlusCircle, Trash2 } from 'lucide-react';
+import type { Wallet, Transaction, AdminWallet, AppSettings, User, WithdrawalMethod } from '@/lib/data';
+import { ArrowDownToLine, ArrowUpFromLine, Banknote, Landmark } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -37,92 +37,9 @@ import {
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, serverTimestamp, doc, writeBatch, addDoc, query, where, deleteDoc, orderBy, setDoc } from 'firebase/firestore';
+import { collection, serverTimestamp, doc, writeBatch, query, where } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
-const AddNewWithdrawalAccountForm = ({ onSave, onCancel }: { onSave: (data: Omit<UserWithdrawalAccount, 'id' | 'createdAt' | 'userId'>) => void, onCancel: () => void }) => {
-    const [withdrawHolderName, setWithdrawHolderName] = React.useState('');
-    const [withdrawAccountNumber, setWithdrawAccountNumber] = React.useState('');
-    const [withdrawMethod, setWithdrawMethod] = React.useState<'Easypaisa' | 'JazzCash' | 'Bank' | ''>('');
-    const [bankName, setBankName] = React.useState('');
-
-    const handleSubmit = () => {
-        if (!withdrawMethod || !withdrawHolderName || !withdrawAccountNumber || (withdrawMethod === 'Bank' && !bankName)) {
-            // Basic validation
-            return;
-        }
-        
-        const accountData: Omit<UserWithdrawalAccount, 'id' | 'createdAt' | 'userId'> = {
-            method: withdrawMethod,
-            accountHolderName: withdrawHolderName,
-            accountNumber: withdrawAccountNumber,
-        };
-
-        if (withdrawMethod === 'Bank') {
-            accountData.bankName = bankName;
-        }
-        
-        onSave(accountData);
-    };
-    
-    return (
-         <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-              <div className="space-y-2">
-                  <Label>Select Method</Label>
-                  <RadioGroup onValueChange={(val) => setWithdrawMethod(val as any)} value={withdrawMethod} className="grid grid-cols-3 gap-2">
-                      <Label htmlFor="Easypaisa-new" className="flex items-center space-x-2 cursor-pointer rounded-md border p-3 [&:has([data-state=checked])]:border-primary">
-                          <RadioGroupItem value="Easypaisa" id="Easypaisa-new" />
-                          <span>Easypaisa</span>
-                      </Label>
-                      <Label htmlFor="JazzCash-new" className="flex items-center space-x-2 cursor-pointer rounded-md border p-3 [&:has([data-state=checked])]:border-primary">
-                          <RadioGroupItem value="JazzCash" id="JazzCash-new" />
-                          <span>JazzCash</span>
-                      </Label>
-                      <Label htmlFor="Bank-new" className="flex items-center space-x-2 cursor-pointer rounded-md border p-3 [&:has([data-state=checked])]:border-primary">
-                          <RadioGroupItem value="Bank" id="Bank-new" />
-                          <span>Bank</span>
-                      </Label>
-                  </RadioGroup>
-              </div>
-
-              {withdrawMethod === 'Bank' && (
-                  <div className="space-y-2">
-                      <Label htmlFor="bank-name">Bank Name</Label>
-                      <Select value={bankName} onValueChange={setBankName}>
-                          <SelectTrigger id="bank-name">
-                              <SelectValue placeholder="Select a bank" />
-                          </SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="Meezan Bank">Meezan Bank</SelectItem>
-                              <SelectItem value="Habib Bank Limited (HBL)">Habib Bank Limited (HBL)</SelectItem>
-                              <SelectItem value="United Bank Limited (UBL)">United Bank Limited (UBL)</SelectItem>
-                              <SelectItem value="National Bank of Pakistan (NBP)">National Bank of Pakistan (NBP)</SelectItem>
-                              <SelectItem value="Allied Bank Limited (ABL)">Allied Bank Limited (ABL)</SelectItem>
-                              <SelectItem value="MCB Bank Limited">MCB Bank Limited</SelectItem>
-                              <SelectItem value="Bank Alfalah">Bank Alfalah</SelectItem>
-                              <SelectItem value="Faysal Bank">Faysal Bank</SelectItem>
-                              <SelectItem value="Askari Bank">Askari Bank</SelectItem>
-                              <SelectItem value="Bank Al-Habib">Bank Al-Habib</SelectItem>
-                          </SelectContent>
-                      </Select>
-                  </div>
-              )}
-
-              <div className="space-y-2">
-                  <Label htmlFor="withdraw-account-holder">Account Holder Name</Label>
-                  <Input id="withdraw-account-holder" type="text" placeholder="Your Name" value={withdrawHolderName} onChange={e => setWithdrawHolderName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                  <Label htmlFor="withdraw-account-number">{withdrawMethod === 'Bank' ? 'Account Number / IBAN' : 'Account Number'}</Label>
-                  <Input id="withdraw-account-number" placeholder={withdrawMethod === 'Bank' ? 'PK...' : '03...'} value={withdrawAccountNumber} onChange={e => setWithdrawAccountNumber(e.target.value)} />
-              </div>
-               <div className="flex justify-end gap-2 pt-4">
-                  <Button variant="outline" onClick={onCancel}>Cancel</Button>
-                  <Button onClick={handleSubmit}>Save Account</Button>
-              </div>
-          </div>
-    )
-}
 
 export default function UserWalletPage() {
   const [selectedAdminWallet, setSelectedAdminWallet] = React.useState('');
@@ -135,8 +52,10 @@ export default function UserWalletPage() {
   
   // Withdrawal form state
   const [withdrawAmount, setWithdrawAmount] = React.useState('');
-  const [selectedWithdrawalAccount, setSelectedWithdrawalAccount] = React.useState<string>('');
-  const [isAddingNewAccount, setIsAddingNewAccount] = React.useState(false);
+  const [withdrawMethod, setWithdrawMethod] = React.useState('');
+  const [withdrawHolderName, setWithdrawHolderName] = React.useState('');
+  const [withdrawAccountNumber, setWithdrawAccountNumber] = React.useState('');
+  const [withdrawBankName, setWithdrawBankName] = React.useState('');
 
 
   const [isDepositDialogOpen, setIsDepositDialogOpen] = React.useState(false);
@@ -173,12 +92,13 @@ export default function UserWalletPage() {
     [firestore, user]
   );
   const { data: adminWalletsData } = useCollection<AdminWallet>(adminWalletsQuery);
-  
-  const userWithdrawalAccountsQuery = useMemoFirebase(
-    () => firestore && user ? query(collection(firestore, 'users', user.uid, 'withdrawal_accounts'), orderBy('createdAt', 'desc')) : null,
+
+  const withdrawalMethodsQuery = useMemoFirebase(
+    () => (firestore && user ? query(collection(firestore, 'withdrawal_methods'), where('isEnabled', '==', true)) : null),
     [firestore, user]
   );
-  const { data: userWithdrawalAccounts } = useCollection<UserWithdrawalAccount>(userWithdrawalAccountsQuery);
+  const { data: withdrawalMethods } = useCollection<WithdrawalMethod>(withdrawalMethodsQuery);
+  
 
   const isWithdrawalDisabled = appSettings?.isVerificationEnabled && !userData?.isVerified;
 
@@ -187,12 +107,6 @@ export default function UserWalletPage() {
       setSelectedAdminWallet(adminWalletsData[0].id);
     }
   }, [adminWalletsData, selectedAdminWallet]);
-
-  React.useEffect(() => {
-    if (!isWithdrawDialogOpen) {
-        setIsAddingNewAccount(false);
-    }
-  }, [isWithdrawDialogOpen])
 
   const handleDepositSubmit = async () => {
     if (!user || !firestore) {
@@ -251,28 +165,6 @@ export default function UserWalletPage() {
     }
   };
   
-  const handleAddNewAccount = async (accountData: Omit<UserWithdrawalAccount, 'id'|'createdAt'|'userId'>) => {
-    if (!user || !firestore) return;
-    
-    const newAccountRef = doc(collection(firestore, 'users', user.uid, 'withdrawal_accounts'));
-    
-    await setDoc(newAccountRef, {
-      ...accountData,
-      id: newAccountRef.id,
-      userId: user.uid,
-      createdAt: serverTimestamp(),
-    });
-    
-    toast({ title: 'Account Saved', description: 'Your new withdrawal account has been saved.' });
-    setIsAddingNewAccount(false);
-  }
-
-  const handleDeleteWithdrawalAccount = async (accountId: string) => {
-    if(!user || !firestore) return;
-    await deleteDoc(doc(firestore, 'users', user.uid, 'withdrawal_accounts', accountId));
-    toast({title: 'Account Deleted'});
-  }
-
   const handleWithdrawalSubmit = async () => {
     if (isWithdrawalDisabled) {
        toast({ variant: 'destructive', title: 'Action Denied', description: 'Your account must be verified to make withdrawals.' });
@@ -282,7 +174,7 @@ export default function UserWalletPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
       return;
     }
-    if (!withdrawAmount || !selectedWithdrawalAccount) {
+    if (!withdrawAmount || !withdrawMethod || !withdrawHolderName || !withdrawAccountNumber || (withdrawMethod === 'Bank' && !withdrawBankName)) {
       setShowEmptyFields(true);
       return;
     }
@@ -296,12 +188,6 @@ export default function UserWalletPage() {
     if (appSettings?.maxWithdrawal && amountToWithdraw > appSettings.maxWithdrawal) {
       toast({ variant: 'destructive', title: 'Withdrawal amount too high', description: `Maximum withdrawal is ${appSettings.maxWithdrawal} PKR.` });
       return;
-    }
-
-    const accountDetails = userWithdrawalAccounts?.find(acc => acc.id === selectedWithdrawalAccount);
-    if(!accountDetails) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Selected account not found.' });
-        return;
     }
 
     if (amountToWithdraw > walletData.balance) {
@@ -324,10 +210,10 @@ export default function UserWalletPage() {
           date: serverTimestamp(),
           walletId: 'main',
           details: {
-            method: accountDetails.method,
-            receiverName: accountDetails.accountHolderName,
-            receiverAccount: accountDetails.accountNumber,
-            bankName: accountDetails.bankName,
+            method: withdrawMethod,
+            receiverName: withdrawHolderName,
+            receiverAccount: withdrawAccountNumber,
+            bankName: withdrawMethod === 'Bank' ? withdrawBankName : null,
             userId: user.uid,
             userName: user.displayName,
             userEmail: user.email,
@@ -345,8 +231,12 @@ export default function UserWalletPage() {
 
         toast({ title: 'Success', description: 'Your withdrawal request has been submitted.' });
         
+        // Reset form
         setWithdrawAmount('');
-        setSelectedWithdrawalAccount('');
+        setWithdrawMethod('');
+        setWithdrawHolderName('');
+        setWithdrawAccountNumber('');
+        setWithdrawBankName('');
         setIsWithdrawDialogOpen(false);
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Error', description: e.message || "Failed to submit withdrawal request." });
@@ -488,47 +378,65 @@ export default function UserWalletPage() {
                           <DialogHeader>
                               <DialogTitle>Withdraw Funds</DialogTitle>
                               <DialogDescription>
-                                  Select your withdrawal account and enter the amount. Your balance is {walletData?.balance.toLocaleString() || 0} PKR.
+                                  Enter your account details and amount. Your balance is {walletData?.balance.toLocaleString() || 0} PKR.
                               </DialogDescription>
                           </DialogHeader>
                           
-                          {isAddingNewAccount ? (
-                            <AddNewWithdrawalAccountForm onSave={handleAddNewAccount} onCancel={() => setIsAddingNewAccount(false)} />
-                          ) : (
-                             <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-                                <RadioGroup value={selectedWithdrawalAccount} onValueChange={setSelectedWithdrawalAccount}>
-                                  <Label>Select a saved account</Label>
-                                  {userWithdrawalAccounts?.map((account) => (
-                                    <Label key={account.id} htmlFor={account.id} className="relative flex items-start space-x-3 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
-                                        <RadioGroupItem value={account.id} id={account.id} className="mt-1" />
-                                        <div className="flex flex-col">
-                                          <span className="font-medium">{account.method}</span>
-                                          <span className="text-xs text-muted-foreground">{account.accountHolderName} - {account.accountNumber}</span>
-                                          {account.bankName && <span className="text-xs text-muted-foreground">{account.bankName}</span>}
-                                        </div>
-                                        <Button size="icon" variant="ghost" className="absolute top-1 right-1 h-7 w-7" onClick={(e) => {e.preventDefault(); handleDeleteWithdrawalAccount(account.id);}}>
-                                            <Trash2 className="w-4 h-4 text-destructive" />
-                                        </Button>
-                                    </Label>
-                                  ))}
-                                </RadioGroup>
-                                
-                                <Button variant="outline" onClick={() => setIsAddingNewAccount(true)}>
-                                    <PlusCircle className="mr-2 h-4 w-4" />
-                                    Add New Account
-                                </Button>
+                           <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                                <div className="space-y-2">
+                                    <Label>Select Method</Label>
+                                    <RadioGroup onValueChange={(val) => setWithdrawMethod(val)} value={withdrawMethod} className="grid grid-cols-3 gap-2">
+                                        {withdrawalMethods?.map(method => (
+                                            <Label key={method.id} htmlFor={method.name} className="flex items-center space-x-2 cursor-pointer rounded-md border p-3 [&:has([data-state=checked])]:border-primary">
+                                                <RadioGroupItem value={method.name} id={method.name} />
+                                                <span>{method.name}</span>
+                                            </Label>
+                                        ))}
+                                    </RadioGroup>
+                                </div>
+
+                                {withdrawMethod === 'Bank Transfer' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="bank-name">Bank Name</Label>
+                                        <Select value={withdrawBankName} onValueChange={setWithdrawBankName}>
+                                            <SelectTrigger id="bank-name">
+                                                <SelectValue placeholder="Select a bank" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="Meezan Bank">Meezan Bank</SelectItem>
+                                                <SelectItem value="Habib Bank Limited (HBL)">Habib Bank Limited (HBL)</SelectItem>
+                                                <SelectItem value="United Bank Limited (UBL)">United Bank Limited (UBL)</SelectItem>
+                                                <SelectItem value="National Bank of Pakistan (NBP)">National Bank of Pakistan (NBP)</SelectItem>
+                                                <SelectItem value="Allied Bank Limited (ABL)">Allied Bank Limited (ABL)</SelectItem>
+                                                <SelectItem value="MCB Bank Limited">MCB Bank Limited</SelectItem>
+                                                <SelectItem value="Bank Alfalah">Bank Alfalah</SelectItem>
+                                                <SelectItem value="Faysal Bank">Faysal Bank</SelectItem>
+                                                <SelectItem value="Askari Bank">Askari Bank</SelectItem>
+                                                <SelectItem value="Bank Al-Habib">Bank Al-Habib</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="withdraw-account-holder">Account Holder Name</Label>
+                                    <Input id="withdraw-account-holder" type="text" placeholder="Your Name" value={withdrawHolderName} onChange={e => setWithdrawHolderName(e.target.value)} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="withdraw-account-number">{withdrawMethod === 'Bank Transfer' ? 'Account Number / IBAN' : 'Account Number'}</Label>
+                                    <Input id="withdraw-account-number" placeholder={withdrawMethod === 'Bank Transfer' ? 'PK...' : '03...'} value={withdrawAccountNumber} onChange={e => setWithdrawAccountNumber(e.target.value)} />
+                                </div>
                                 
                                 <div className="space-y-2 pt-4">
                                     <Label htmlFor="withdraw-amount">Amount to Withdraw (PKR)</Label>
                                     <Input id="withdraw-amount" type="number" placeholder="1000" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} />
                                 </div>
-                                
-                                <DialogFooter className="pt-4">
-                                    <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                                    <Button type="submit" className="bg-primary hover:bg-primary/90" onClick={handleWithdrawalSubmit}>Submit Request</Button>
-                                </DialogFooter>
-                             </div>
-                          )}
+                            </div>
+
+                          <DialogFooter>
+                            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                            <Button type="submit" className="bg-primary hover:bg-primary/90" onClick={handleWithdrawalSubmit}>Submit Request</Button>
+                          </DialogFooter>
                       </DialogContent>
                   </Dialog>
               </div>
@@ -539,3 +447,5 @@ export default function UserWalletPage() {
     </>
   );
 }
+
+    
