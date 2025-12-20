@@ -51,12 +51,18 @@ const AddNewWithdrawalAccountForm = ({ onSave, onCancel }: { onSave: (data: Omit
             // Basic validation
             return;
         }
-        onSave({
+        
+        const accountData: Omit<UserWithdrawalAccount, 'id' | 'createdAt' | 'userId'> = {
             method: withdrawMethod,
             accountHolderName: withdrawHolderName,
             accountNumber: withdrawAccountNumber,
-            bankName: withdrawMethod === 'Bank' ? bankName : undefined,
-        });
+        };
+
+        if (withdrawMethod === 'Bank') {
+            accountData.bankName = bankName;
+        }
+        
+        onSave(accountData);
     };
     
     return (
