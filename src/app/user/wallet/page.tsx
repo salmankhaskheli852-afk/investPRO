@@ -110,7 +110,7 @@ export default function UserWalletPage() {
       return;
     }
 
-    if (amountToWithdraw > (walletData.earningBalance || 0)) {
+    if (amountToWithdraw > (walletData.balance || 0)) {
         setShowInsufficientFunds(true);
         return;
     }
@@ -124,9 +124,9 @@ export default function UserWalletPage() {
                 throw new Error("Wallet not found.");
             }
 
-            const currentBalance = walletDoc.data().earningBalance || 0;
+            const currentBalance = walletDoc.data().balance || 0;
             if (amountToWithdraw > currentBalance) {
-                throw new Error("Insufficient earning balance.");
+                throw new Error("Insufficient balance.");
             }
 
             const newTransactionRef = doc(collection(firestore, 'transactions'));
@@ -152,7 +152,7 @@ export default function UserWalletPage() {
             transaction.set(userNewTransactionRef, { ...transactionData, id: newTransactionRef.id });
             
             // Deduct from balance
-            transaction.update(userWalletRef, { earningBalance: increment(-amountToWithdraw) });
+            transaction.update(userWalletRef, { balance: increment(-amountToWithdraw) });
         });
 
         toast({ title: 'Success', description: 'Your withdrawal request has been submitted.' });
@@ -176,7 +176,7 @@ export default function UserWalletPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Insufficient Balance</AlertDialogTitle>
             <AlertDialogDescription>
-              You do not have enough balance in your earning wallet to withdraw this amount.
+              You do not have enough balance in your wallet to withdraw this amount.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -227,7 +227,7 @@ export default function UserWalletPage() {
                           <DialogHeader>
                               <DialogTitle>Withdraw Funds</DialogTitle>
                               <DialogDescription>
-                                  Enter your account details and amount. Your available earning balance is {(walletData?.earningBalance || 0).toLocaleString()} PKR.
+                                  Enter your account details and amount. Your available balance is {(walletData?.balance || 0).toLocaleString()} PKR.
                               </DialogDescription>
                           </DialogHeader>
                           
