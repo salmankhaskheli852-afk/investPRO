@@ -88,6 +88,9 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
       <TableCell>
         <div className="font-medium">{details.receiverName}</div>
         <div className="text-sm text-muted-foreground">{details.receiverAccount}</div>
+         {details.method === 'Bank Transfer' && details.bankName && (
+          <div className="text-xs text-muted-foreground">{details.bankName}</div>
+        )}
         <div className="text-xs capitalize">{details.method}</div>
       </TableCell>
       <TableCell>
