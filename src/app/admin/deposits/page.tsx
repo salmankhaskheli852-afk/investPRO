@@ -81,15 +81,6 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
           // 3. Handle referral system on every deposit
           if (currentUserData.referrerId) {
               
-              // Increment referralCount on first deposit only
-              const userTransactionsQuery = query(collection(firestore, 'users', user.id, 'wallets', 'main', 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'completed'));
-              const userPreviousDeposits = await getDocs(userTransactionsQuery);
-              
-              if (userPreviousDeposits.empty) { // This is the first completed deposit
-                  const referrerRef = doc(firestore, 'users', currentUserData.referrerId);
-                  transaction.update(referrerRef, { referralCount: increment(1) });
-              }
-
               // Give commission on every deposit
               const commissionRate = (appSettings?.referralCommissionPercentage || 0) / 100;
               const commissionAmount = tx.amount * commissionRate;
@@ -322,5 +313,3 @@ export default function AdminDepositsPage() {
     </div>
   );
 }
-
-    

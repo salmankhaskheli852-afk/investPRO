@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { ReferralRequest } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, updateDoc } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, updateDoc, increment } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 export function ReferralRequestManager() {
@@ -59,6 +59,10 @@ export function ReferralRequestManager() {
             // 2. Update the target user's (current user) referrerId
             const currentUserRef = doc(firestore, 'users', user.uid);
             batch.update(currentUserRef, { referrerId: requestToProcess.requesterId });
+
+            // 3. Increment the referrer's count
+            const requesterRef = doc(firestore, 'users', requestToProcess.requesterId);
+            batch.update(requesterRef, { referralCount: increment(1) });
         }
         
         await batch.commit();
