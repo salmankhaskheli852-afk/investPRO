@@ -14,19 +14,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import type { User, Transaction, AppSettings, AdminWallet } from '@/lib/data';
+import type { User, Transaction, AppSettings, AdminWallet, Wallet } from '@/lib/data';
 import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment, updateDoc, runTransaction } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Search, Copy } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
-function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transaction; user: User | undefined, onUpdate: () => void, adminWallets: AdminWallet[] | null }) {
+function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; onUpdate: () => void, adminWallets: AdminWallet[] | null }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = React.useState(false);
   const { user: adminUser } = useUser();
   
+  const userId = tx.details?.userId;
+
+  const userDocRef = useMemoFirebase(
+    () => (firestore && userId ? doc(firestore, 'users', userId) : null),
+    [firestore, userId]
+  );
+  const { data: user, isLoading: isLoadingUser } = useDoc<User>(userDocRef);
+
+  const walletDocRef = useMemoFirebase(
+    () => (firestore && userId ? doc(firestore, 'users', userId, 'wallets', 'main') : null),
+    [firestore, userId]
+  );
+  const { data: wallet, isLoading: isLoadingWallet } = useDoc<Wallet>(walletDocRef);
+
   const settingsRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
     [firestore]
@@ -156,11 +170,14 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
         <div className="flex items-center gap-3">
           <Avatar>
             <AvatarImage src={user?.avatarUrl} alt={user?.name} />
-            <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{user?.name?.charAt(0) ?? '?'}</AvatarFallback>
           </Avatar>
           <div>
-            <div className="font-medium">{user?.name}</div>
-            <div className="text-sm text-muted-foreground">{user?.email}</div>
+            <div className="font-medium">{user?.name ?? '...'}</div>
+            <div className="text-sm text-muted-foreground">{user?.email ?? '...'}</div>
+            <div className="text-xs text-muted-foreground">
+              Balance: {(wallet?.balance ?? 0).toLocaleString()} PKR
+            </div>
           </div>
         </div>
       </TableCell>
@@ -192,7 +209,7 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
             variant="outline"
             className="bg-green-500/10 text-green-700 hover:bg-green-500/20 hover:text-green-800"
             onClick={() => handleUpdateStatus('completed')}
-            disabled={isProcessing}
+            disabled={isProcessing || isLoadingUser}
           >
             <Check className="mr-2 h-4 w-4" />
             Approve
@@ -201,7 +218,7 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
             size="sm"
             variant="destructive"
             onClick={() => handleUpdateStatus('failed')}
-            disabled={isProcessing}
+            disabled={isProcessing || isLoadingUser}
           >
             <X className="mr-2 h-4 w-4" />
             Reject
@@ -217,12 +234,6 @@ export default function AdminDepositsPage() {
   const { user: adminUser } = useUser();
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  const usersQuery = useMemoFirebase(
-    () => (firestore && adminUser ? collection(firestore, 'users') : null),
-    [firestore, adminUser]
-  );
-  const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
-
   const depositsQuery = useMemoFirebase(
     () => (firestore && adminUser ? query(collection(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'pending')) : null),
     [firestore, adminUser]
@@ -234,23 +245,20 @@ export default function AdminDepositsPage() {
     [firestore]
   );
   const { data: adminWallets, isLoading: isLoadingAdminWallets } = useCollection<AdminWallet>(adminWalletsQuery);
-
-  const findUserForTx = (tx: Transaction) => users?.find(u => u.id === tx.details?.userId);
+  
+  // To avoid fetching all users, we will fetch user data inside the Row component.
+  // So we remove the all-users fetch from here.
 
   const filteredRequests = React.useMemo(() => {
     if (!depositRequests) return [];
     if (!searchQuery) return depositRequests;
-    return depositRequests.filter(tx => {
-        const user = findUserForTx(tx);
-        return (
-            user?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            user?.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            tx.details?.tid?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    });
-  }, [depositRequests, searchQuery, users]);
+    // Client-side search will be based on TID for now as user data is not held here.
+    return depositRequests.filter(tx => 
+        tx.details?.tid?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [depositRequests, searchQuery]);
 
-  const isLoading = isLoadingUsers || isLoadingDeposits || isLoadingAdminWallets;
+  const isLoading = isLoadingDeposits || isLoadingAdminWallets;
 
   return (
     <div className="space-y-8">
@@ -267,7 +275,7 @@ export default function AdminDepositsPage() {
                 <CardDescription>Review the following deposit requests.</CardDescription>
                  <div className="w-full max-w-sm">
                     <Input
-                        placeholder="Search by name, email, or TID..."
+                        placeholder="Search by TID..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-10"
@@ -297,7 +305,7 @@ export default function AdminDepositsPage() {
                 </TableRow>
               ) : filteredRequests && filteredRequests.length > 0 ? (
                 filteredRequests.map((tx) => (
-                  <DepositRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} onUpdate={forceRefetch} adminWallets={adminWallets} />
+                  <DepositRequestRow key={tx.id} tx={tx} onUpdate={forceRefetch} adminWallets={adminWallets} />
                 ))
               ) : (
                 <TableRow>
@@ -314,3 +322,5 @@ export default function AdminDepositsPage() {
     </div>
   );
 }
+
+    

@@ -13,19 +13,33 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import type { User, Transaction } from '@/lib/data';
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import type { User, Transaction, Wallet } from '@/lib/data';
 import { collection, query, where, doc, writeBatch, getDoc, increment } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
-function WithdrawalRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User | undefined; onUpdate: () => void }) {
+function WithdrawalRequestRow({ tx, onUpdate }: { tx: Transaction; onUpdate: () => void }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const { user: agentUser } = useUser();
   const [isProcessing, setIsProcessing] = React.useState(false);
+  
+  const userId = tx.details?.userId;
+  const userDocRef = useMemoFirebase(
+    () => (firestore && userId ? doc(firestore, 'users', userId) : null),
+    [firestore, userId]
+  );
+  const { data: user, isLoading: isLoadingUser } = useDoc<User>(userDocRef);
+
+  const walletDocRef = useMemoFirebase(
+    () => (firestore && userId ? doc(firestore, 'users', userId, 'wallets', 'main') : null),
+    [firestore, userId]
+  );
+  const { data: wallet, isLoading: isLoadingWallet } = useDoc<Wallet>(walletDocRef);
+
 
   const handleUpdateStatus = async (newStatus: 'completed' | 'failed') => {
     if (!firestore || !user || !agentUser) return;
@@ -40,10 +54,7 @@ function WithdrawalRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: U
 
       // If the request failed, refund the amount to the user's balance.
       if (newStatus === 'failed') {
-        const walletSnapshot = await getDoc(walletRef);
-        const walletData = walletSnapshot.data();
-        const currentBalance = walletData?.balance || 0;
-        batch.update(walletRef, { balance: currentBalance + tx.amount });
+        batch.update(walletRef, { balance: increment(tx.amount) });
       }
       
       const updateData = {
@@ -79,11 +90,14 @@ function WithdrawalRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: U
         <div className="flex items-center gap-3">
           <Avatar>
             <AvatarImage src={user?.avatarUrl} alt={user?.name} />
-            <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{user?.name?.charAt(0) ?? '?'}</AvatarFallback>
           </Avatar>
           <div>
-            <div className="font-medium">{user?.name}</div>
-            <div className="text-sm text-muted-foreground">{user?.email}</div>
+            <div className="font-medium">{user?.name ?? '...'}</div>
+            <div className="text-sm text-muted-foreground">{user?.email ?? '...'}</div>
+             <div className="text-xs text-muted-foreground">
+              Balance: {(wallet?.balance ?? 0).toLocaleString()} PKR
+            </div>
           </div>
         </div>
       </TableCell>
@@ -103,7 +117,7 @@ function WithdrawalRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: U
             variant="outline"
             className="bg-green-500/10 text-green-700 hover:bg-green-500/20 hover:text-green-800"
             onClick={() => handleUpdateStatus('completed')}
-            disabled={isProcessing}
+            disabled={isProcessing || isLoadingUser || isLoadingWallet}
           >
             <Check className="mr-2 h-4 w-4" />
             Approve
@@ -112,7 +126,7 @@ function WithdrawalRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: U
             size="sm"
             variant="destructive"
             onClick={() => handleUpdateStatus('failed')}
-            disabled={isProcessing}
+            disabled={isProcessing || isLoadingUser || isLoadingWallet}
           >
              <X className="mr-2 h-4 w-4" />
             Reject
@@ -128,35 +142,20 @@ export default function AgentWithdrawalsPage() {
   const { user: agentUser } = useUser();
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  const allUsersQuery = useMemoFirebase(
-    () => (firestore && agentUser ? collection(firestore, 'users') : null),
-    [firestore, agentUser]
-  );
-  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(allUsersQuery);
-
   const withdrawalsQuery = useMemoFirebase(
     () => (firestore && agentUser ? query(collection(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null),
     [firestore, agentUser]
   );
   const { data: withdrawalRequests, isLoading: isLoadingWithdrawals, forceRefetch } = useCollection<Transaction>(withdrawalsQuery);
   
-  const findUserForTx = (tx: Transaction) => allUsers?.find(u => u.id === tx.details?.userId);
-  
   const filteredRequests = React.useMemo(() => {
     if (!withdrawalRequests) return [];
     if (!searchQuery) return withdrawalRequests;
-    return withdrawalRequests.filter(tx => {
-        const user = findUserForTx(tx);
-        return (
-            user?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            user?.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            tx.details?.receiverName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            tx.details?.receiverAccount?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    });
-  }, [withdrawalRequests, searchQuery, allUsers]);
-
-  const isLoading = isLoadingUsers || isLoadingWithdrawals;
+    return withdrawalRequests.filter(tx => 
+        tx.details?.receiverName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tx.details?.receiverAccount?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [withdrawalRequests, searchQuery]);
   
   return (
     <div className="space-y-8">
@@ -173,7 +172,7 @@ export default function AgentWithdrawalsPage() {
                 <CardDescription>Review the following withdrawal requests.</CardDescription>
                 <div className="w-full max-w-sm">
                     <Input
-                        placeholder="Search by name, email, or account..."
+                        placeholder="Search by name or account..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-10"
@@ -194,7 +193,7 @@ export default function AgentWithdrawalsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isLoadingWithdrawals ? (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center">
                     Loading requests...
@@ -202,7 +201,7 @@ export default function AgentWithdrawalsPage() {
                 </TableRow>
               ) : filteredRequests && filteredRequests.length > 0 ? (
                 filteredRequests.map((tx) => (
-                  <WithdrawalRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} onUpdate={forceRefetch} />
+                  <WithdrawalRequestRow key={tx.id} tx={tx} onUpdate={forceRefetch} />
                 ))
               ) : (
                 <TableRow>
@@ -219,3 +218,5 @@ export default function AgentWithdrawalsPage() {
     </div>
   );
 }
+
+    

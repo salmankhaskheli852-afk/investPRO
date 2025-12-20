@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -13,18 +14,31 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import type { User, Transaction, AdminWallet } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, getDoc, collectionGroup, runTransaction, serverTimestamp } from 'firebase/firestore';
+import type { User, Transaction, AdminWallet, Wallet } from '@/lib/data';
+import { collection, query, where, doc, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
-function DepositRequestRow({ tx, user, adminWallets, onUpdate }: { tx: Transaction; user: User | undefined, adminWallets: AdminWallet[] | null, onUpdate: () => void }) {
+function DepositRequestRow({ tx, adminWallets, onUpdate }: { tx: Transaction; adminWallets: AdminWallet[] | null, onUpdate: () => void }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const { user: agentUser } = useUser();
   const [isProcessing, setIsProcessing] = React.useState(false);
+
+  const userId = tx.details?.userId;
+  const userDocRef = useMemoFirebase(
+      () => (firestore && userId ? doc(firestore, 'users', userId) : null),
+      [firestore, userId]
+  );
+  const { data: user, isLoading: isLoadingUser } = useDoc<User>(userDocRef);
+
+  const walletDocRef = useMemoFirebase(
+    () => (firestore && userId ? doc(firestore, 'users', userId, 'wallets', 'main') : null),
+    [firestore, userId]
+  );
+  const { data: wallet, isLoading: isLoadingWallet } = useDoc<Wallet>(walletDocRef);
 
   const handleUpdateStatus = async (newStatus: 'completed' | 'failed') => {
     if (!firestore || !user || !agentUser || !tx.details?.tid) return;
@@ -94,11 +108,14 @@ function DepositRequestRow({ tx, user, adminWallets, onUpdate }: { tx: Transacti
         <div className="flex items-center gap-3">
           <Avatar>
             <AvatarImage src={user?.avatarUrl} alt={user?.name} />
-            <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{user?.name?.charAt(0) ?? '?'}</AvatarFallback>
           </Avatar>
           <div>
-            <div className="font-medium">{user?.name}</div>
-            <div className="text-sm text-muted-foreground">{user?.email}</div>
+            <div className="font-medium">{user?.name ?? '...'}</div>
+            <div className="text-sm text-muted-foreground">{user?.email ?? '...'}</div>
+            <div className="text-xs text-muted-foreground">
+                Balance: {(wallet?.balance ?? 0).toLocaleString()} PKR
+            </div>
           </div>
         </div>
       </TableCell>
@@ -120,7 +137,7 @@ function DepositRequestRow({ tx, user, adminWallets, onUpdate }: { tx: Transacti
             variant="outline"
             className="bg-green-500/10 text-green-700 hover:bg-green-500/20 hover:text-green-800"
             onClick={() => handleUpdateStatus('completed')}
-            disabled={isProcessing}
+            disabled={isProcessing || isLoadingUser || isLoadingWallet}
           >
             <Check className="mr-2 h-4 w-4" />
             Approve
@@ -129,7 +146,7 @@ function DepositRequestRow({ tx, user, adminWallets, onUpdate }: { tx: Transacti
             size="sm"
             variant="destructive"
             onClick={() => handleUpdateStatus('failed')}
-            disabled={isProcessing}
+            disabled={isProcessing || isLoadingUser || isLoadingWallet}
           >
             <X className="mr-2 h-4 w-4" />
             Reject
@@ -151,12 +168,6 @@ export default function AgentDepositsPage() {
   );
   const { data: agentData, isLoading: isLoadingAgent } = useDoc<User>(agentDocRef);
 
-  const usersQuery = useMemoFirebase(
-    () => (firestore && agentUser ? collection(firestore, 'users') : null),
-    [firestore, agentUser]
-  );
-  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
-
   const adminWalletsQuery = useMemoFirebase(
     () => (firestore && agentUser ? collection(firestore, 'admin_wallets') : null),
     [firestore, agentUser]
@@ -177,22 +188,15 @@ export default function AgentDepositsPage() {
   );
   const { data: depositRequests, isLoading: isLoadingDeposits, forceRefetch } = useCollection<Transaction>(depositsQuery);
   
-  const findUserForTx = (tx: Transaction) => allUsers?.find(u => u.id === tx.details?.userId);
-  
   const filteredRequests = React.useMemo(() => {
     if (!depositRequests) return [];
     if (!searchQuery) return depositRequests;
-    return depositRequests.filter(tx => {
-        const user = findUserForTx(tx);
-        return (
-            user?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            user?.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            tx.details?.tid?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    });
-  }, [depositRequests, searchQuery, allUsers]);
+    return depositRequests.filter(tx => 
+        tx.details?.tid?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [depositRequests, searchQuery]);
 
-  const isLoading = isLoadingUsers || isLoadingDeposits || isLoadingAgent || isLoadingWallets;
+  const isLoading = isLoadingDeposits || isLoadingAgent || isLoadingWallets;
 
   if (agentData && !agentData.permissions?.canManageDepositRequests) {
     return (
@@ -218,7 +222,7 @@ export default function AgentDepositsPage() {
               <CardDescription>Review the following deposit requests.</CardDescription>
               <div className="w-full max-w-sm">
                   <Input
-                      placeholder="Search by name, email, or TID..."
+                      placeholder="Search by TID..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10"
@@ -248,7 +252,7 @@ export default function AgentDepositsPage() {
                 </TableRow>
               ) : filteredRequests && filteredRequests.length > 0 ? (
                 filteredRequests.map((tx) => (
-                  <DepositRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} adminWallets={adminWallets} onUpdate={forceRefetch} />
+                  <DepositRequestRow key={tx.id} tx={tx} adminWallets={adminWallets} onUpdate={forceRefetch} />
                 ))
               ) : (
                 <TableRow>
@@ -265,3 +269,5 @@ export default function AgentDepositsPage() {
     </div>
   );
 }
+
+    
