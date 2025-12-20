@@ -56,15 +56,16 @@ export default function UserDashboardPage() {
   };
 
   const transactionTotals = React.useMemo(() => {
-    if (!transactions) return { deposit: 0, withdraw: 0, referral_income: 0 };
+    if (!transactions) return { deposit: 0, withdraw: 0, referral_income: 0, income: 0 };
     return transactions.reduce((acc, tx) => {
       if (tx.status === 'completed') {
         if (tx.type === 'deposit') acc.deposit += tx.amount;
         else if (tx.type === 'withdrawal') acc.withdraw += tx.amount;
         else if (tx.type === 'referral_income') acc.referral_income += tx.amount;
+        else if (tx.type === 'income') acc.income += tx.amount;
       }
       return acc;
-    }, { deposit: 0, withdraw: 0, referral_income: 0 });
+    }, { deposit: 0, withdraw: 0, referral_income: 0, income: 0 });
   }, [transactions]);
 
 
@@ -89,7 +90,8 @@ export default function UserDashboardPage() {
     }, 0);
   }, [activeInvestments]);
 
-  const totalEarningBalance = (walletData?.earningBalance || 0) + dailyIncome;
+  // Correctly calculate total earning balance
+  const totalEarningBalance = (walletData?.earningBalance || 0);
 
 
   if (isUserLoading || isUserDocLoading || isWalletLoading || isLoadingTransactions) {
