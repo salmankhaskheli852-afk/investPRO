@@ -2,40 +2,28 @@
 'use client';
 
 import React from 'react';
-import { DashboardStatsCard } from '@/components/dashboard-stats-card';
-import { DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, PiggyBank, Users } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { collection, doc, query, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
 import type { InvestmentPlan, User, Wallet, Transaction, UserInvestment } from '@/lib/data';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { Banknote, FileText, Landmark, ShieldQuestion, Users, LogOut, Briefcase } from 'lucide-react';
 
-const mockWalletData = [
-  { name: 'Jan', balance: 1000 },
-  { name: 'Feb', balance: 1200 },
-  { name: 'Mar', balance: 900 },
-  { name: 'Apr', balance: 1500 },
-  { name: 'May', balance: 1400 },
-  { name: 'Jun', balance: 1800 },
-];
+const StatItem = ({ label, value }: { label: string, value: string | number }) => (
+    <div className="text-center">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="font-bold text-lg">{value}</p>
+    </div>
+)
 
-const mockInvestmentData = [
-  { name: 'Jan', value: 500 },
-  { name: 'Feb', value: 600 },
-  { name: 'Mar', value: 800 },
-  { name: 'Apr', value: 700 },
-  { name: 'May', value: 900 },
-  { name: 'Jun', value: 1100 },
-];
-const mockIncomeData = [
-    { name: 'Jan', value: 150 },
-    { name: 'Feb', value: 180 },
-    { name: 'Mar', value: 220 },
-    { name: 'Apr', value: 200 },
-    { name: 'May', value: 250 },
-    { name: 'Jun', value: 280 },
-];
+const MenuItem = ({ icon: Icon, label, href }: { icon: React.ElementType, label: string, href: string }) => (
+    <Link href={href} className="flex items-center p-3 space-x-4 rounded-lg hover:bg-muted">
+        <Icon className="w-6 h-6 text-primary" />
+        <span className="font-medium">{label}</span>
+    </Link>
+);
 
 
 export default function UserDashboardPage() {
@@ -61,36 +49,18 @@ export default function UserDashboardPage() {
   );
   const { data: transactions } = useCollection<Transaction>(transactionsQuery);
 
-  const plansQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'investment_plans') : null,
-    [firestore]
-  );
-  const { data: allPlans } = useCollection<InvestmentPlan>(plansQuery);
-
-
-  const activePlans = React.useMemo(() => {
-    if (!userData?.investments || !allPlans) return [];
-    return userData.investments.map(userInv => {
-        const planDetails = allPlans.find(plan => plan.id === userInv.planId);
-        return planDetails ? { ...planDetails, userInvestment: userInv } : null;
-    }).filter(Boolean) as (InvestmentPlan & { userInvestment: UserInvestment })[];
-  }, [userData?.investments, allPlans]);
-
-  const totalInvestment = React.useMemo(() => {
-    return activePlans.reduce((sum, plan) => sum + (plan?.price || 0), 0);
-  }, [activePlans]);
-
   const transactionTotals = React.useMemo(() => {
-    if (!transactions) return { deposit: 0, withdraw: 0, income: 0, referral_income: 0 };
+    if (!transactions) return { deposit: 0, withdraw: 0, income: 0, referral_income: 0, investment: 0 };
     return transactions.reduce((acc, tx) => {
       if (tx.status === 'completed') {
         if (tx.type === 'deposit') acc.deposit += tx.amount;
         else if (tx.type === 'withdrawal') acc.withdraw += tx.amount;
         else if (tx.type === 'income') acc.income += tx.amount;
         else if (tx.type === 'referral_income') acc.referral_income += tx.amount;
+        else if (tx.type === 'investment') acc.investment += tx.amount;
       }
       return acc;
-    }, { deposit: 0, withdraw: 0, income: 0, referral_income: 0 });
+    }, { deposit: 0, withdraw: 0, income: 0, referral_income: 0, investment: 0 });
   }, [transactions]);
 
 
@@ -99,80 +69,6 @@ export default function UserDashboardPage() {
       router.push('/');
     }
   }, [user, isUserLoading, router]);
-
-  // Client-side daily income simulation
-  React.useEffect(() => {
-    if (!firestore || !user || !walletData || activePlans.length === 0) return;
-  
-    const processDailyIncome = async () => {
-      const batch = writeBatch(firestore);
-      let totalIncomeToCredit = 0;
-      let incomeProcessed = false;
-  
-      for (const activePlan of activePlans) {
-        if (!activePlan.userInvestment?.purchaseDate) continue;
-  
-        const planPurchaseDate = activePlan.userInvestment.purchaseDate.toDate();
-        const now = new Date();
-  
-        const lastIncomeKey = `lastIncome_${user.uid}_${activePlan.id}`;
-        const lastIncomeDateStr = localStorage.getItem(lastIncomeKey);
-        const lastIncomeDate = lastIncomeDateStr ? new Date(lastIncomeDateStr) : planPurchaseDate;
-        
-        const timeSinceLastIncome = now.getTime() - lastIncomeDate.getTime();
-        const twentyFourHours = 24 * 60 * 60 * 1000;
-  
-        // Check if 24 hours have passed since the last income was given
-        if (timeSinceLastIncome >= twentyFourHours) {
-          const planEndDate = new Date(planPurchaseDate.getTime() + activePlan.incomePeriod * twentyFourHours);
-          
-          // Check if the plan is still active
-          if (now < planEndDate) {
-            const dailyIncome = activePlan.price * (activePlan.dailyIncomePercentage / 100);
-            totalIncomeToCredit += dailyIncome;
-            incomeProcessed = true;
-  
-            // Update the last income date in local storage for this plan
-            localStorage.setItem(lastIncomeKey, now.toISOString());
-  
-            // Create a transaction record for this income
-            const txRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'));
-            batch.set(txRef, {
-              id: txRef.id,
-              walletId: 'main',
-              type: 'income',
-              amount: dailyIncome,
-              status: 'completed',
-              date: serverTimestamp(),
-              details: { 
-                reason: `Daily profit from ${activePlan.name}`,
-                planId: activePlan.id,
-              }
-            });
-          }
-        }
-      }
-  
-      if (incomeProcessed && totalIncomeToCredit > 0) {
-        try {
-          const userWalletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
-          const newBalance = walletData.balance + totalIncomeToCredit;
-          batch.update(userWalletRef, { balance: newBalance });
-  
-          await batch.commit();
-        } catch (e) {
-          console.error("Failed to process daily income batch:", e);
-        }
-      }
-    };
-  
-    // Run once on mount and then set an interval
-    processDailyIncome();
-    const intervalId = setInterval(processDailyIncome, 60 * 60 * 1000); // Check every hour
-  
-    return () => clearInterval(intervalId);
-  }, [firestore, user, walletData, activePlans]);
-
 
   if (isUserLoading || isUserDocLoading || isWalletLoading) {
     return (
@@ -183,100 +79,62 @@ export default function UserDashboardPage() {
   }
   
   if (!user || !userData) {
-      // This case should be handled by the useEffect redirect, but it's a good fallback
       return null;
   }
 
+  const todayIncome = 0; // This would require more complex querying
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-3xl font-bold font-headline">Welcome back, {userData?.name.split(' ')[0]}!</h1>
-      
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <DashboardStatsCard
-          title="Wallet Balance"
-          value={`${(walletData?.balance || 0).toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 2 })}`}
-          description="Available funds"
-          Icon={DollarSign}
-          chartData={mockWalletData}
-          chartKey="balance"
-        />
-        <DashboardStatsCard
-          title="Total Invested"
-          value={`${totalInvestment.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 })}`}
-          description={`${activePlans.length} active plans`}
-          Icon={TrendingUp}
-          chartData={mockInvestmentData}
-          chartKey="value"
-        />
-        <DashboardStatsCard
-          title="Daily Income"
-          value={`${transactionTotals.income.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 2 })}`}
-          description="From investments"
-          Icon={PiggyBank}
-          chartData={mockIncomeData}
-          chartKey="value"
-        />
-        <DashboardStatsCard
-          title="Referral Income"
-          value={`${(userData?.referralIncome || 0).toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 2 })}`}
-          description={`From ${userData?.referralCount || 0} friends`}
-          Icon={Users}
-          chartData={[]}
-          chartKey="value"
-        />
-      </div>
-       <div className="grid gap-4 md:grid-cols-2">
-         <DashboardStatsCard
-          title="Total Deposit"
-          value={`${transactionTotals.deposit.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 })}`}
-          description="Funds added"
-          Icon={ArrowDownToLine}
-          chartData={mockInvestmentData}
-          chartKey="value"
-        />
-        <DashboardStatsCard
-          title="Total Withdraw"
-          value={`${transactionTotals.withdraw.toLocaleString('en-US', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 })}`}
-          description="Funds taken out"
-          Icon={ArrowUpFromLine}
-          chartData={mockIncomeData}
-          chartKey="value"
-        />
-      </div>
+    <div className="space-y-6">
+        {/* Top Stats Card */}
+        <Card className="shadow-lg">
+            <CardContent className="p-4">
+                <div className="relative">
+                    {/* Wavy Background */}
+                    <div className="absolute top-0 left-0 right-0 h-24 bg-blue-100/50 rounded-t-lg" style={{ clipPath: 'ellipse(100% 55% at 50% 45%)' }}></div>
+                    
+                    <div className="relative z-10 p-4">
+                        <div className="grid grid-cols-2 gap-4 text-center mb-6">
+                            <div>
+                                <p className="text-sm text-muted-foreground">Balance wallet</p>
+                                <p className="text-2xl font-bold">Rs {(walletData?.balance || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Recharge wallet</p>
+                                <p className="text-2xl font-bold">Rs {(walletData?.balance || 0).toLocaleString()}</p>
+                            </div>
+                        </div>
 
+                        <div className="grid grid-cols-3 gap-y-4">
+                            <StatItem label="Total income" value={(transactionTotals.income + transactionTotals.referral_income).toLocaleString()} />
+                            <StatItem label="Total recharge" value={transactionTotals.deposit.toLocaleString()} />
+                            <StatItem label="Total assets" value={(walletData?.balance || 0).toLocaleString()} />
+                            <StatItem label="Total withdraw" value={transactionTotals.withdraw.toLocaleString()} />
+                            <StatItem label="Today's income" value={todayIncome.toLocaleString()} />
+                            <StatItem label="Team income" value={transactionTotals.referral_income.toLocaleString()} />
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
 
-      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-      <Card>
-        <CardHeader>
-          <CardTitle>My Active Investments</CardTitle>
-          <CardDescription>Here's an overview of your current investment portfolio.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {activePlans.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {activePlans.map(plan => {
-                if (!plan) return null;
-                return (
-                  <InvestmentPlanCard 
-                    key={plan.id} 
-                    plan={plan} 
-                    isPurchased={true}
-                    userWalletBalance={walletData?.balance}
-                    showPurchaseButton={false}
-                  />
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>You have no active investments yet.</p>
-              <p>Explore our plans to get started!</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      </div>
+        {/* Menu Items */}
+        <Card className="shadow-lg">
+            <CardContent className="p-2 space-y-1">
+                <MenuItem icon={Users} label="Team fund" href="/user/invitation" />
+                <MenuItem icon={FileText} label="Funding details" href="/user/history" />
+                <MenuItem icon={Briefcase} label="Withdrawal Record" href="/user/history" />
+                <MenuItem icon={ShieldQuestion} label="Login Password" href="#" />
+                <MenuItem icon={Landmark} label="My bank account" href="#" />
+            </CardContent>
+        </Card>
+
+        <Card className="shadow-lg">
+            <CardContent className="p-2 space-y-1">
+                <MenuItem icon={Banknote} label="Online Service" href="#" />
+                <MenuItem icon={LogOut} label="Sign out" href="#" />
+            </CardContent>
+        </Card>
     </div>
   );
 }

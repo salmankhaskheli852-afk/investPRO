@@ -51,7 +51,7 @@ export default function UserLayout({
   const showVerificationPopup = appSettings?.isVerificationEnabled && userData && !userData.isVerified;
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[hsl(var(--background))]">
       <Header />
       <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24">
         {showVerificationPopup && <VerificationPopup />}

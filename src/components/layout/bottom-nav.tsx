@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, TrendingUp, Wallet, History, GitBranch } from 'lucide-react';
+import { Home, Briefcase, Users, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { LucideIcon } from 'lucide-react';
 
@@ -14,11 +14,10 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { href: '/user', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/user/investments', label: 'Investments', icon: TrendingUp },
-  { href: '/user/wallet', label: 'Wallet', icon: Wallet },
-  { href: '/user/history', label: 'History', icon: History },
-  { href: '/user/invitation', label: 'Invitation', icon: GitBranch },
+  { href: '/user', label: 'Home', icon: Home },
+  { href: '/user/investments', label: 'Invest', icon: Briefcase },
+  { href: '/user/invitation', label: 'Team', icon: Users },
+  { href: '/user', label: 'Me', icon: User },
 ];
 
 export function BottomNav() {
@@ -26,12 +25,28 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-up md:hidden">
-      <div className="grid h-16 grid-cols-5">
-        {navItems.map((item) => {
-          const isActive = (pathname === '/user' && item.href === '/user') || (item.href !== '/user' && pathname.startsWith(item.href));
+      <div className="grid h-16 grid-cols-4">
+        {navItems.map((item, index) => {
+          // Special check for 'Me' tab to be active only on the main '/user' page
+          const isMeTab = item.label === 'Me';
+          const isHomeTab = item.label === 'Home';
+          
+          let isActive = false;
+          if (isMeTab) {
+              // 'Me' is active if the path is exactly /user
+              isActive = pathname === '/user';
+          } else if(isHomeTab) {
+              // 'Home' is active if the path is exactly /user
+              isActive = pathname === '/user';
+          }
+          else {
+             isActive = pathname.startsWith(item.href);
+          }
+
+
           return (
             <Link
-              key={item.href}
+              key={index}
               href={item.href}
               className={cn(
                 'flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground transition-colors hover:text-primary',

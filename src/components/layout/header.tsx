@@ -35,17 +35,11 @@ export function Header() {
     setHasMounted(true);
   }, []);
 
-  const appSettingsRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
-    [firestore]
-  );
-  const { data: appSettings, isLoading: isLoadingSettings } = useDoc<AppSettings>(appSettingsRef);
-
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
     [firestore, user]
   );
-  const { data: userData, isLoading: isLoadingUserData } = useDoc<User>(userDocRef);
+  const { data: userData } = useDoc<User>(userDocRef);
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -54,39 +48,6 @@ export function Header() {
   };
 
   const showSidebarTrigger = pathname.startsWith('/admin') || pathname.startsWith('/agent');
-
-  const renderVerificationStatus = () => {
-    const isLoading = isLoadingSettings || isLoadingUserData;
-    
-    if (isLoading) {
-      return (
-        <div className="hidden items-center gap-1.5 sm:flex">
-          <Skeleton className="h-5 w-5 rounded-full" />
-          <Skeleton className="h-4 w-24" />
-        </div>
-      );
-    }
-  
-    if (appSettings?.isVerificationEnabled && userData) {
-        if (userData.isVerified) {
-          return (
-            <div className="hidden items-center gap-1.5 sm:flex">
-              <ShieldCheck className="h-5 w-5 text-green-600" />
-              <span className="text-sm font-medium text-green-600">{appSettings.verificationBadgeText || "Verified"}</span>
-            </div>
-          );
-        } else {
-           return (
-            <div className="hidden items-center gap-1.5 sm:flex">
-              <ShieldAlert className="h-5 w-5 text-amber-500" />
-              <span className="text-sm font-medium text-amber-500">Not Verified</span>
-            </div>
-          );
-        }
-    }
-
-    return null;
-  }
 
   const renderUserMenu = () => {
     if (!hasMounted) {
@@ -161,10 +122,6 @@ export function Header() {
           </svg>
           <span className="font-headline text-lg font-semibold text-primary">investPro</span>
         </Link>
-      </div>
-
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-        {renderVerificationStatus()}
       </div>
 
       <div className="flex items-center gap-4">
