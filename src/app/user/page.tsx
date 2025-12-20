@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -39,15 +39,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useRouter } from 'next/navigation';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import Autoplay from "embla-carousel-autoplay"
 
-const ServiceButton = ({ icon, label, href }: { icon: React.ElementType, label: string, href: string }) => {
+
+const ServiceButton = ({ icon, label, href, onClick }: { icon: React.ElementType, label: string, href?: string, onClick?: () => void }) => {
   const Icon = icon;
-  return (
-    <Link href={href} className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-white shadow-md hover:bg-gray-50 transition-colors">
-      <Icon className="h-8 w-8 text-primary" />
-      <span className="text-sm font-medium text-gray-700">{label}</span>
-    </Link>
+  const content = (
+      <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-white shadow-md hover:bg-gray-50 transition-colors">
+        <Icon className="h-8 w-8 text-primary" />
+        <span className="text-sm font-medium text-gray-700">{label}</span>
+      </div>
   );
+
+  if (href) {
+      return <Link href={href}>{content}</Link>
+  }
+  return <button onClick={onClick} className="text-left w-full">{content}</button>;
 };
 
 const FeatureCard = ({ icon, label, href, className }: { icon: React.ElementType, label: string, href: string, className?: string }) => {
@@ -75,11 +83,9 @@ export default function UserHomePage() {
   const [depositHolderName, setDepositHolderName] = React.useState('');
   const [depositAccountNumber, setDepositAccountNumber] = React.useState('');
 
-  const userDocRef = useMemoFirebase(
-    () => (user && firestore ? doc(firestore, 'users', user.uid) : null),
-    [user, firestore]
-  );
-  const { data: userData, isLoading: isLoadingUser } = useDoc<User>(userDocRef);
+  const plugin = React.useRef(
+    Autoplay({ delay: 3000, stopOnInteraction: true })
+  )
 
   const adminWalletsQuery = useMemoFirebase(
     () => (firestore && user ? query(collection(firestore, 'admin_wallets'), where('isEnabled', '==', true)) : null),
@@ -168,100 +174,116 @@ export default function UserHomePage() {
   return (
     <>
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="relative rounded-xl overflow-hidden p-6 flex items-center justify-center bg-gradient-to-r from-blue-400 to-blue-500">
-        <Image src="/logo.svg" alt="SPF Logo" width={100} height={100} className="opacity-80" />
-        <span className="text-5xl font-extrabold text-white opacity-90 ml-4">SPF</span>
-      </div>
+      {/* Header Banner Carousel */}
+      {appSettings?.carouselImages && appSettings.carouselImages.length > 0 && (
+        <Carousel 
+            plugins={[plugin.current]}
+            className="w-full"
+            onMouseEnter={plugin.current.stop}
+            onMouseLeave={plugin.current.reset}
+        >
+          <CarouselContent>
+            {appSettings.carouselImages.map((url, index) => (
+              <CarouselItem key={index}>
+                <div className="relative aspect-video w-full overflow-hidden rounded-xl">
+                  <Image src={url} alt={`Carousel image ${index + 1}`} fill className="object-cover" />
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious className="left-2" />
+          <CarouselNext className="right-2" />
+        </Carousel>
+      )}
 
       {/* Wallet Section */}
-      <Card className="shadow-sm hover:shadow-md transition-shadow">
-        <CardContent className="p-4 flex items-center justify-between">
-          <Link href="/user/wallet" className="flex items-center gap-3">
-            <Bell className="h-6 w-6 text-primary" />
-            <span className="font-semibold text-lg">Wallet</span>
-          </Link>
-          <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
+      <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4 flex items-center justify-between">
+            <Link href="/user/wallet" className="flex items-center gap-3">
+              <Bell className="h-6 w-6 text-primary" />
+              <span className="font-semibold text-lg">Wallet</span>
+            </Link>
             <div className="grid grid-cols-2 gap-4">
-              <DialogTrigger asChild>
-                <div className="flex flex-col items-center p-2 rounded-lg bg-red-100 text-red-800 cursor-pointer">
-                    <ArrowDownToLine className="h-6 w-6" />
-                    <span className="text-xs font-bold">RECHARGE</span>
-                </div>
-              </DialogTrigger>
-              <Link href="/user/wallet">
-                <div className="flex flex-col items-center p-2 rounded-lg bg-green-100 text-green-800">
-                  <ArrowUpFromLine className="h-6 w-6" />
-                  <span className="text-xs font-bold">WITHDRAW</span>
-                </div>
-              </Link>
+                <DialogTrigger asChild>
+                  <div className="flex flex-col items-center p-2 rounded-lg bg-red-100 text-red-800 cursor-pointer">
+                      <ArrowDownToLine className="h-6 w-6" />
+                      <span className="text-xs font-bold">RECHARGE</span>
+                  </div>
+                </DialogTrigger>
+                <Link href="/user/wallet">
+                  <div className="flex flex-col items-center p-2 rounded-lg bg-green-100 text-green-800">
+                    <ArrowUpFromLine className="h-6 w-6" />
+                    <span className="text-xs font-bold">WITHDRAW</span>
+                  </div>
+                </Link>
             </div>
-            <DialogContent className="sm:max-w-sm">
-                <DialogHeader>
-                <DialogTitle>Deposit Funds</DialogTitle>
-                <DialogDescription>
-                    Send funds to an account below and enter the details to verify.
-                </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-                    <Label>Select Admin Account</Label>
-                    <RadioGroup value={selectedAdminWallet} onValueChange={setSelectedAdminWallet}>
-                        {adminWalletsData?.map((wallet) => (
-                            <Label key={wallet.id} htmlFor={wallet.id} className="flex items-center space-x-3 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
-                                <RadioGroupItem value={wallet.id} id={wallet.id} />
-                                {wallet.isBank ? <Landmark className="h-5 w-5" /> : <Banknote className="h-5 w-5" />}
-                                <span className="font-medium">{wallet.walletName}</span>
-                            </Label>
-                        ))}
-                    </RadioGroup>
+          </CardContent>
+        </Card>
+        <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+            <DialogTitle>Deposit Funds</DialogTitle>
+            <DialogDescription>
+                Send funds to an account below and enter the details to verify.
+            </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                <Label>Select Admin Account</Label>
+                <RadioGroup value={selectedAdminWallet} onValueChange={setSelectedAdminWallet}>
+                    {adminWalletsData?.map((wallet) => (
+                        <Label key={wallet.id} htmlFor={wallet.id} className="flex items-center space-x-3 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                            <RadioGroupItem value={wallet.id} id={wallet.id} />
+                            {wallet.isBank ? <Landmark className="h-5 w-5" /> : <Banknote className="h-5 w-5" />}
+                            <span className="font-medium">{wallet.walletName}</span>
+                        </Label>
+                    ))}
+                </RadioGroup>
 
-                    {selectedAdminWalletDetails && (
-                        <Card className="bg-muted/50">
-                            <CardHeader>
-                                <CardTitle className="text-base">Account Details</CardTitle>
-                            </CardHeader>
-                            <CardContent className="text-sm space-y-2">
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">{selectedAdminWalletDetails.isBank ? 'Bank Name:' : 'Wallet Service:'}</span>
-                                    <span className="font-medium">{selectedAdminWalletDetails.name}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Account Holder:</span>
-                                    <span className="font-medium">{selectedAdminWalletDetails.walletName}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">{selectedAdminWalletDetails.isBank ? 'Account Number:' : 'Wallet Number:'}</span>
-                                    <span className="font-medium">{selectedAdminWalletDetails.number}</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-                    
-                    <div className="space-y-2 pt-4">
-                        <Label htmlFor="account-holder-name">Your Account Holder Name</Label>
-                        <Input id="account-holder-name" placeholder="Your Name" value={depositHolderName} onChange={e => setDepositHolderName(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="account-number">Your Account Number</Label>
-                        <Input id="account-number" placeholder="03xxxxxxxx" value={depositAccountNumber} onChange={e => setDepositAccountNumber(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="amount">Amount (PKR)</Label>
-                        <Input id="amount" type="number" placeholder="500" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="tid">Transaction ID (TID)</Label>
-                        <Input id="tid" placeholder="e.g., 1234567890" value={depositTid} onChange={e => setDepositTid(e.target.value)} />
-                    </div>
+                {selectedAdminWalletDetails && (
+                    <Card className="bg-muted/50">
+                        <CardHeader>
+                            <CardTitle className="text-base">Account Details</CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm space-y-2">
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">{selectedAdminWalletDetails.isBank ? 'Bank Name:' : 'Wallet Service:'}</span>
+                                <span className="font-medium">{selectedAdminWalletDetails.name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Account Holder:</span>
+                                <span className="font-medium">{selectedAdminWalletDetails.walletName}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">{selectedAdminWalletDetails.isBank ? 'Account Number:' : 'Wallet Number:'}</span>
+                                <span className="font-medium">{selectedAdminWalletDetails.number}</span>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+                
+                <div className="space-y-2 pt-4">
+                    <Label htmlFor="account-holder-name">Your Account Holder Name</Label>
+                    <Input id="account-holder-name" placeholder="Your Name" value={depositHolderName} onChange={e => setDepositHolderName(e.target.value)} />
                 </div>
-                <DialogFooter>
-                <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                <Button type="submit" className="bg-primary hover:bg-primary/90" onClick={handleDepositSubmit}>Submit Request</Button>
-                </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </CardContent>
-      </Card>
+                <div className="space-y-2">
+                    <Label htmlFor="account-number">Your Account Number</Label>
+                    <Input id="account-number" placeholder="03xxxxxxxx" value={depositAccountNumber} onChange={e => setDepositAccountNumber(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="amount">Amount (PKR)</Label>
+                    <Input id="amount" type="number" placeholder="500" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="tid">Transaction ID (TID)</Label>
+                    <Input id="tid" placeholder="e.g., 1234567890" value={depositTid} onChange={e => setDepositTid(e.target.value)} />
+                </div>
+            </div>
+            <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button type="submit" className="bg-primary hover:bg-primary/90" onClick={handleDepositSubmit}>Submit Request</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* Service Section */}
       <div>
