@@ -79,7 +79,7 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
 
         // --- LOGIC & BATCH WRITES ---
         if (newStatus === 'completed') {
-            // 1. Update wallet's depositBalance
+            // 1. Update user's depositBalance
             batch.update(walletRef, { depositBalance: (currentWalletData.depositBalance || 0) + tx.amount });
 
             // 2. Denormalize totalDeposit on user profile
@@ -103,9 +103,8 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
                     const referrerWalletDoc = await getDoc(referrerWalletRef);
 
                     if (referrerWalletDoc.exists()) {
-                         // Directly update the referrer's earningBalance
-                        const newEarningBalance = (referrerWalletDoc.data()?.earningBalance || 0) + commissionAmount;
-                        batch.update(referrerWalletRef, { earningBalance: newEarningBalance });
+                         // **CORRECTED**: Update the referrer's earningBalance, not depositBalance
+                        batch.update(referrerWalletRef, { earningBalance: increment(commissionAmount) });
 
                         // Create a transaction record for the commission
                         const referrerTxRef = doc(collection(firestore, 'users', currentUserData.referrerId, 'wallets', 'main', 'transactions'));
