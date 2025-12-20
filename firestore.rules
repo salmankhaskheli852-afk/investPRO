@@ -70,10 +70,11 @@ service cloud.firestore {
       allow get: if true;
     }
 
-    // Admins/Agents can list transactions. Regular users can create new ones.
+    // Regular users can create new transactions and list them (for duplicate TID check).
+    // Admins/Agents have broader list permissions from their own rules.
     match /transactions/{transactionId} {
       allow create: if isUserAuthenticated();
-      allow list: if isAdmin() || isAgent();
+      allow list: if isUserAuthenticated();
     }
     
     // --- Rules for the referral request system ---
