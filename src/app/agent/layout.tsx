@@ -5,7 +5,7 @@ import React from 'react';
 import { Sidebar, SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav, type NavItem } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
-import { LayoutDashboard, Users, ArrowDownToLine, ArrowUpFromLine, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, Users, ArrowDownToLine, ArrowUpFromLine, MessageSquare, History } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import type { User, AppSettings } from '@/lib/data';
 import { doc } from 'firebase/firestore';
@@ -32,6 +32,9 @@ function AgentNav() {
     }
     if (agentData?.permissions?.canManageWithdrawalRequests) {
       items.push({ href: '/agent/withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine });
+    }
+     if (agentData?.permissions?.canViewUserHistory) {
+      items.push({ href: '/agent/history', label: 'History', icon: History });
     }
     if (agentData?.permissions?.canAccessLiveChat) {
       items.push({ href: '/agent/live-chat', label: 'Live Chat', icon: MessageCircle });

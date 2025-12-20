@@ -33,6 +33,7 @@ const defaultPermissions: AgentPermissions = {
   canManageWithdrawalRequests: false,
   canAccessLiveChat: false,
   canViewAllUsers: false,
+  canViewUserHistory: false,
 };
 
 export function ManageAgentAccountsDialog({
@@ -141,6 +142,19 @@ export function ManageAgentAccountsDialog({
                           id="perm-view-all-users"
                           checked={permissions.canViewAllUsers}
                           onCheckedChange={(checked) => handlePermissionToggle('canViewAllUsers', checked)}
+                        />
+                    </div>
+                     <div className="flex items-center justify-between rounded-lg border p-3">
+                        <Label htmlFor="perm-user-history" className="flex flex-col space-y-1">
+                        <span>View User History</span>
+                         <span className="font-normal leading-snug text-muted-foreground">
+                            Allows agent to search and view user transaction history.
+                          </span>
+                        </Label>
+                        <Switch
+                        id="perm-user-history"
+                        checked={permissions.canViewUserHistory}
+                        onCheckedChange={(checked) => handlePermissionToggle('canViewUserHistory', checked)}
                         />
                     </div>
                     <div className="flex items-center justify-between rounded-lg border p-3">
