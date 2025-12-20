@@ -14,31 +14,10 @@ service cloud.firestore {
              );
     }
     
-    // Helper function to check if the user is an agent by their role document.
-    function isAgent() {
-      return request.auth != null &&
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
-    }
-
     // Grant ADMINS total and complete access to ALL documents in the database.
     match /{document=**} {
       allow read, write: if isAdmin();
     }
-    
-    // Grant AGENTS broad access to necessary collections.
-    // This allows them to manage users, plans, and transactions without restriction.
-    match /{collection}/{docId} {
-      allow read, write, list: if isAgent() && 
-                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'referral_requests'];
-    }
-     match /users/{userId}/{subCollection}/{docId} {
-        allow read, write, list: if isAgent();
-    }
-     match /users/{userId}/{subCollection}/{docId}/{nestedSubCollection}/{nestedDocId} {
-        allow read, write, list: if isAgent();
-    }
-
 
     // --- Rules for regular authenticated users (non-admin, non-agent) ---
 
@@ -57,6 +36,12 @@ service cloud.firestore {
       allow update: if isOwner(userId);
     }
     
+    // A user has full access to their own sub-collections (wallets, transactions, etc.).
+    // This recursive wildcard match is crucial for nested data like transactions.
+    match /users/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
+    }
+    
     // Any user (authenticated or not) can read plans.
     // Authenticated users can update plans (to increment purchase count).
     // Only admins/agents can create/delete them.
@@ -69,12 +54,6 @@ service cloud.firestore {
     // Any authenticated user can view plan categories.
     match /plan_categories/{categoryId} {
         allow read: if isUserAuthenticated();
-    }
-    
-    // A user has full access to their own sub-collections (wallets, transactions, etc.).
-    // This recursive wildcard match is crucial for nested data like transactions.
-    match /users/{userId}/{document=**} {
-      allow read, write: if isOwner(userId);
     }
     
     // Any authenticated user can read admin wallet details for depositing.
@@ -108,6 +87,28 @@ service cloud.firestore {
 
       // Allow the target user to update the status (to 'approved' or 'rejected') if it's currently 'pending'.
       allow update: if isUserAuthenticated() && resource.data.targetId == request.auth.uid && resource.data.status == 'pending' && request.resource.data.status in ['approved', 'rejected'];
+    }
+
+    // --- Rules for AGENTS ---
+    
+    // Helper function to check if the user is an agent by their role document.
+    function isAgent() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
+    }
+
+    // Grant AGENTS broad access to necessary collections.
+    // This allows them to manage users, plans, and transactions without restriction.
+    match /{collection}/{docId} {
+      allow read, write, list: if isAgent() && 
+                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'referral_requests'];
+    }
+     match /users/{userId}/{subCollection}/{docId} {
+        allow read, write, list: if isAgent();
+    }
+     match /users/{userId}/{subCollection}/{docId}/{nestedSubCollection}/{nestedDocId} {
+        allow read, write, list: if isAgent();
     }
   }
 }
