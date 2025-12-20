@@ -10,32 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useDoc, useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import type { User, AppSettings, ReferralRequest } from '@/lib/data';
 import { doc, collection, query, where, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { format } from 'date-fns';
-
-function TeamMemberRow({ member }: { member: User }) {
-  return (
-    <TableRow key={member.id}>
-      <TableCell>
-        <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarImage src={member.avatarUrl} alt={member.name} />
-            <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-          </Avatar>
-          <div>
-            <div className="font-medium">{member.name}</div>
-            <div className="text-sm text-muted-foreground">{member.email}</div>
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>{member.createdAt ? format(member.createdAt.toDate(), 'PP') : 'N/A'}</TableCell>
-      <TableCell className="text-right">
-        {(member.totalDeposit || 0).toLocaleString()} PKR
-      </TableCell>
-    </TableRow>
-  );
-}
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Info } from 'lucide-react';
 
 
 export default function InvitationPage() {
@@ -50,7 +26,7 @@ export default function InvitationPage() {
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
     [firestore, user]
   );
-  const { data: userData } = useDoc<User>(userDocRef);
+  const { data: userData, isLoading: isLoadingUser } = useDoc<User>(userDocRef);
 
   const settingsRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
@@ -74,6 +50,10 @@ export default function InvitationPage() {
     setIsSending(true);
 
     try {
+        if(userData.referrerId) {
+            throw new Error("You are already part of a team and cannot refer others.");
+        }
+
         const isEmail = targetIdentifier.includes('@');
         
         const findUserQuery = isEmail 
@@ -132,6 +112,8 @@ export default function InvitationPage() {
     }
   };
 
+  const alreadyReferred = !isLoadingUser && userData?.referrerId;
+
 
   return (
     <div className="space-y-8">
@@ -141,28 +123,39 @@ export default function InvitationPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-8">
-        <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-          <Card>
-            <CardHeader>
-              <CardTitle>Add Team Member</CardTitle>
-              <CardDescription>Enter the User ID or Email of the person you want to invite.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="member-uid">Member's User ID or Email</Label>
-                <div className="flex items-center space-x-2">
-                  <Input id="member-uid" value={targetIdentifier} onChange={e => setTargetIdentifier(e.target.value)} placeholder="Enter User ID or Email..." />
-                  <Button onClick={handleSendRequest} disabled={isSending}>
-                    {isSending ? 'Sending...' : 'Send Request'}
-                  </Button>
+        
+        {alreadyReferred ? (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertTitle>Referral Not Available</AlertTitle>
+              <AlertDescription>
+                You are already part of a team, so you cannot refer other users.
+              </AlertDescription>
+            </Alert>
+        ) : (
+          <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
+            <Card>
+              <CardHeader>
+                <CardTitle>Add Team Member</CardTitle>
+                <CardDescription>Enter the User ID or Email of the person you want to invite.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="member-uid">Member's User ID or Email</Label>
+                  <div className="flex items-center space-x-2">
+                    <Input id="member-uid" value={targetIdentifier} onChange={e => setTargetIdentifier(e.target.value)} placeholder="Enter User ID or Email..." />
+                    <Button onClick={handleSendRequest} disabled={isSending}>
+                      {isSending ? 'Sending...' : 'Send Request'}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                When a user approves your request, you will earn {appSettings?.referralCommissionPercentage || 0}% commission on their future deposits.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+                <p className="text-xs text-muted-foreground">
+                  When a user approves your request, you will earn {appSettings?.referralCommissionPercentage || 0}% commission on their future deposits.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-8">
             <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
@@ -187,44 +180,6 @@ export default function InvitationPage() {
             </div>
         </div>
 
-        <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-          <Card>
-            <CardHeader>
-              <CardTitle>My Team</CardTitle>
-              <CardDescription>A list of users you have successfully referred.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Joined On</TableHead>
-                    <TableHead className="text-right">Total Deposit</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoadingTeam ? (
-                    <TableRow>
-                      <TableCell colSpan={3} className="h-24 text-center">
-                        Loading your team...
-                      </TableCell>
-                    </TableRow>
-                  ) : myTeam && myTeam.length > 0 ? (
-                    myTeam.map((member) => (
-                      <TeamMemberRow key={member.id} member={member} />
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={3} className="h-24 text-center">
-                        You have not referred any users yet.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );

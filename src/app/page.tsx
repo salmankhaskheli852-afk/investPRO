@@ -150,6 +150,7 @@ function HomePageContent() {
             referralCount: 0,
             referralIncome: 0,
             isVerified: false,
+            totalDeposit: 0,
         });
 
         // 2. Create the user's wallet
@@ -177,6 +178,27 @@ function HomePageContent() {
         }
         
         await batch.commit();
+    } else {
+        // User already exists, check if they are being referred now but weren't before.
+        const existingUserData = userDoc.data() as User;
+        const referrerId = searchParams.get('ref') || null;
+        if (referrerId && !existingUserData.referrerId) {
+            // This user was not referred before, but is now signing in with a referral link.
+            // Let's assign the referrer.
+            const batch = writeBatch(firestore);
+            
+            // 1. Update the current user's referrerId
+            batch.update(userRef, { referrerId: referrerId });
+
+            // 2. Increment the referrer's count
+            const referrerRef = doc(firestore, 'users', referrerId);
+            const referrerDoc = await getDoc(referrerRef);
+            if (referrerDoc.exists()) {
+                batch.update(referrerRef, { referralCount: increment(1) });
+            }
+            
+            await batch.commit();
+        }
     }
 };
 
@@ -243,5 +265,3 @@ export default function Home() {
     </Suspense>
   )
 }
-
-    

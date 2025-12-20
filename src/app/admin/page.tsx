@@ -64,7 +64,8 @@ export default function AdminDashboardPage() {
 
   const totalReferrals = React.useMemo(() => {
     if (!allUsers) return 0;
-    return allUsers.reduce((sum, user) => sum + (user.referralCount || 0), 0);
+    // A more accurate way to count referrals is to count users who have a referrer.
+    return allUsers.filter(user => !!user.referrerId).length;
   }, [allUsers]);
 
   return (
