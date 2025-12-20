@@ -308,22 +308,22 @@ export function InvestmentPlanCard({
               </div>
           )}
         </div>
-        <CardContent className="p-3 space-y-3 flex flex-col flex-1">
+        <CardContent className="p-3 space-y-2 flex flex-col flex-1">
           <h3 className="font-headline font-bold text-lg text-foreground">{plan.name}</h3>
           
-          <div className="flex-1 space-y-3">
+          <div className="flex-1 space-y-2">
               <div className="flex flex-col">
-                  <span className="text-sm text-muted-foreground">Product price</span> 
-                  <span className="font-bold text-foreground text-xl">{plan.price.toLocaleString()} Rs</span>
+                  <span className="text-xs text-muted-foreground">Product price</span> 
+                  <span className="font-bold text-foreground text-lg">{plan.price.toLocaleString()} Rs</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-sm">
                   <div className="flex flex-col">
-                      <span className="text-muted-foreground">Daily income</span> 
-                      <span className="font-medium text-foreground">{dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
+                      <span className="text-xs text-muted-foreground">Daily income</span> 
+                      <span className="font-medium text-foreground text-sm">{dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
                   </div>
                   <div className="flex flex-col text-right">
-                      <span className="text-muted-foreground">Period</span> 
-                      <span className="font-medium text-foreground">{plan.incomePeriod} days</span>
+                      <span className="text-xs text-muted-foreground">Period</span> 
+                      <span className="font-medium text-foreground text-sm">{plan.incomePeriod} days</span>
                   </div>
               </div>
           </div>
