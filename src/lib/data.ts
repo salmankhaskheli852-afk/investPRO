@@ -72,7 +72,6 @@ export type Transaction = {
   status: 'pending' | 'completed' | 'failed' | 'revoked';
   date: Timestamp;
   details?: any;
-  approverId?: string; // ID of the admin/agent who approved/rejected
 };
 
 export type AdminWallet = {

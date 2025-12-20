@@ -47,7 +47,6 @@ function WithdrawalRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: U
       
       const updateData = {
         status: newStatus,
-        approverId: agentUser.uid,
       };
 
       batch.update(globalTransactionRef, updateData);

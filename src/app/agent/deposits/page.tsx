@@ -49,7 +49,6 @@ function DepositRequestRow({ tx, user, adminWallets, onUpdate }: { tx: Transacti
 
             const updateData = {
                 status: newStatus,
-                approverId: agentUser.uid,
             };
 
             transaction.update(globalTransactionRef, updateData);
