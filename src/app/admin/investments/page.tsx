@@ -76,6 +76,7 @@ const PlanFormDialog = ({
     const [imageUrl, setImageUrl] = React.useState('https://picsum.photos/seed/105/600/400');
     const [imageHint, setImageHint] = React.useState('investment growth');
     const [purchaseLimit, setPurchaseLimit] = React.useState(0);
+    const [isSoldOut, setIsSoldOut] = React.useState(false);
 
     // Offer state
     const [offerEnabled, setOfferEnabled] = React.useState(false);
@@ -99,6 +100,7 @@ const PlanFormDialog = ({
             setImageHint(planToEdit.imageHint || 'investment growth');
             setOfferEnabled(planToEdit.isOfferEnabled || false);
             setPurchaseLimit(planToEdit.purchaseLimit || 0);
+            setIsSoldOut(planToEdit.isSoldOut || false);
             // Don't prefill duration, admin should set it if they want to update it
             setOfferDays(1);
             setOfferHours(0);
@@ -123,6 +125,7 @@ const PlanFormDialog = ({
         setOfferMinutes(0);
         setOfferSeconds(0);
         setPurchaseLimit(0);
+        setIsSoldOut(false);
     };
 
     const handleSavePlan = async () => {
@@ -164,6 +167,7 @@ const PlanFormDialog = ({
                 totalIncome: totalIncome,
                 isOfferEnabled: offerEnabled,
                 purchaseLimit: purchaseLimit,
+                isSoldOut: isSoldOut,
             };
 
             if (isEditMode && planToEdit) {
@@ -295,6 +299,24 @@ const PlanFormDialog = ({
                             </div>
                         )}
                     </div>
+                    
+                    <div className="mt-4 pt-4 border-t">
+                        <h4 className="text-lg font-medium">Plan Status</h4>
+                         <div className="flex items-center justify-between rounded-lg border p-3 mt-4">
+                            <Label htmlFor="sold-out-switch" className="flex flex-col space-y-1">
+                                <span>Manually Mark as Sold Out</span>
+                                <span className="font-normal leading-snug text-muted-foreground">
+                                    This will override other settings and show the plan as sold out.
+                                </span>
+                            </Label>
+                            <Switch
+                                id="sold-out-switch"
+                                checked={isSoldOut}
+                                onCheckedChange={setIsSoldOut}
+                            />
+                        </div>
+                    </div>
+
                 </div>
                 <DialogFooter>
                     <DialogClose asChild>

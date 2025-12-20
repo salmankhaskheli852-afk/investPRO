@@ -23,6 +23,7 @@ export type InvestmentPlan = {
   createdAt: Timestamp;
   purchaseLimit?: number; // 0 or undefined for unlimited
   purchaseCount?: number;
+  isSoldOut?: boolean; // Manual sold out toggle
 };
 
 export type AgentPermissions = {

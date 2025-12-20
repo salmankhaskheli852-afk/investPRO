@@ -89,7 +89,9 @@ export function InvestmentPlanCard({
   const canAfford = userWalletBalance >= plan.price;
   const isOfferActive = plan.isOfferEnabled && plan.offerEndTime && plan.offerEndTime.toMillis() > Date.now();
   const isOfferExpired = plan.isOfferEnabled && plan.offerEndTime && plan.offerEndTime.toMillis() <= Date.now();
-  const isSoldOut = plan.purchaseLimit && (plan.purchaseCount || 0) >= plan.purchaseLimit;
+  const isSoldOutByLimit = plan.purchaseLimit && (plan.purchaseCount || 0) >= plan.purchaseLimit;
+  const isSoldOut = plan.isSoldOut || isSoldOutByLimit;
+
 
   // Simulate plan progress
   const [progress, setProgress] = React.useState(0);
@@ -131,7 +133,7 @@ export function InvestmentPlanCard({
             const currentBalance = walletDoc.data().balance;
 
             // --- VALIDATION ---
-            if (currentPlanData.purchaseLimit && (currentPlanData.purchaseCount || 0) >= currentPlanData.purchaseLimit) {
+            if (currentPlanData.isSoldOut || (currentPlanData.purchaseLimit && (currentPlanData.purchaseCount || 0) >= currentPlanData.purchaseLimit)) {
                 throw new Error("This plan is sold out.");
             }
             if (currentBalance < plan.price) {
