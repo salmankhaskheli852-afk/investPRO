@@ -57,9 +57,6 @@ export function ReferralRequestManager() {
              batch.update(requestRef, { status: 'approved' });
              // 2. Set the referrerId for the current user
              batch.update(currentUserRef, { referrerId: requestToProcess.requesterId });
-             // 3. Increment the requester's referralCount
-             const requesterRef = doc(firestore, 'users', requestToProcess.requesterId);
-             batch.update(requesterRef, { referralCount: increment(1) });
              
              await batch.commit();
 
@@ -101,3 +98,5 @@ export function ReferralRequestManager() {
     </AlertDialog>
   );
 }
+
+    
