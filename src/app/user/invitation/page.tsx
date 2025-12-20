@@ -9,7 +9,10 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import type { User, AppSettings, ReferralRequest } from '@/lib/data';
-import { doc, collection, query, where, addDoc, serverTimestamp, getDocs, orderBy } from 'firebase/firestore';
+import { doc, collection, query, where, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { format } from 'date-fns';
 
 export default function InvitationPage() {
   const { user } = useUser();
@@ -31,6 +34,12 @@ export default function InvitationPage() {
   );
   const { data: appSettings } = useDoc<AppSettings>(settingsRef);
   
+  const myTeamQuery = useMemoFirebase(
+    () => (user && firestore ? query(collection(firestore, 'users'), where('referrerId', '==', user.uid)) : null),
+    [user, firestore]
+  );
+  const { data: myTeam, isLoading: isLoadingTeam } = useCollection<User>(myTeamQuery);
+
   const handleSendRequest = async () => {
     if (!user || !firestore || !userData) return;
     if (!targetIdentifier) {
@@ -41,7 +50,6 @@ export default function InvitationPage() {
     setIsSending(true);
 
     try {
-        // Step 1: Find the target user by either ID or Email
         const isEmail = targetIdentifier.includes('@');
         
         const findUserQuery = isEmail 
@@ -64,7 +72,6 @@ export default function InvitationPage() {
             throw new Error("This user has already been referred by someone else.");
         }
 
-        // Step 2: Check if a request already exists
         const existingRequestQuery = query(
             collection(firestore, 'referral_requests'),
             where('requesterId', '==', user.uid),
@@ -81,8 +88,9 @@ export default function InvitationPage() {
              }
         }
         
-        // Step 3: Create the request
-        await addDoc(collection(firestore, 'referral_requests'), {
+        const newRequestRef = doc(collection(firestore, 'referral_requests'));
+        await addDoc(collection(firestore, "referral_requests"), {
+            id: newRequestRef.id,
             requesterId: user.uid,
             requesterName: userData.name,
             targetId: targetUserId,
@@ -153,6 +161,60 @@ export default function InvitationPage() {
               </CardContent>
             </Card>
             </div>
+        </div>
+
+        <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
+          <Card>
+            <CardHeader>
+              <CardTitle>My Team</CardTitle>
+              <CardDescription>A list of users you have successfully referred.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Joined On</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoadingTeam ? (
+                    <TableRow>
+                      <TableCell colSpan={2} className="h-24 text-center">
+                        Loading your team...
+                      </TableCell>
+                    </TableRow>
+                  ) : myTeam && myTeam.length > 0 ? (
+                    myTeam.map((member) => (
+                      <TableRow key={member.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage src={member.avatarUrl} alt={member.name} />
+                              <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">{member.name}</div>
+                              <div className="text-sm text-muted-foreground">{member.email}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {member.createdAt ? format(member.createdAt.toDate(), 'PP') : 'N/A'}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={2} className="h-24 text-center">
+                        You have not referred any users yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
