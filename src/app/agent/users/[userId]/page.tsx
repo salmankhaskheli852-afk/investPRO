@@ -123,7 +123,7 @@ export default function AgentUserDetailPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <DashboardStatsCard
-          title="Wallet Balance"
+          title="Deposit Wallet"
           value={`${(wallet?.balance || 0).toLocaleString()} PKR`}
           description="Available funds"
           Icon={WalletIcon}
