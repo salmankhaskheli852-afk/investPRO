@@ -158,8 +158,7 @@ function HomePageContent() {
         batch.set(walletRef, {
             id: 'main',
             userId: firebaseUser.uid,
-            depositBalance: 0,
-            earningBalance: 0,
+            balance: 0,
         });
         
         // 3. If there was a referrer, update their count

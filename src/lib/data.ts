@@ -63,8 +63,7 @@ export type User = {
 export type Wallet = {
     id: string;
     userId: string;
-    depositBalance: number;
-    earningBalance: number;
+    balance: number;
 }
 
 export type Transaction = {

@@ -43,10 +43,9 @@
       "properties": {
         "id": { "type": "string", "description": "Unique identifier for the wallet." },
         "userId": { "type": "string", "description": "Reference to User. (Relationship: User 1:N Wallet)" },
-        "depositBalance": { "type": "number", "description": "The balance from direct user deposits for purchasing plans." },
-        "earningBalance": { "type": "number", "description": "The balance from plan income and referrals, available for withdrawal." }
+        "balance": { "type": "number", "description": "The total balance of the user's wallet." }
       },
-      "required": ["id", "userId", "depositBalance", "earningBalance"]
+      "required": ["id", "userId", "balance"]
     },
     "Transaction": {
       "$schema": "http://json-schema.org/draft-07/schema#",

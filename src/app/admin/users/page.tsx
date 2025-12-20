@@ -67,10 +67,7 @@ function UserRow({
         </div>
       </TableCell>
       <TableCell>
-        {isLoading ? '...' : `${(wallet?.depositBalance || 0).toLocaleString()} PKR`}
-      </TableCell>
-      <TableCell>
-        {isLoading ? '...' : `${(wallet?.earningBalance || 0).toLocaleString()} PKR`}
+        {isLoading ? '...' : `${(wallet?.balance || 0).toLocaleString()} PKR`}
       </TableCell>
       <TableCell>
         <Badge variant="outline">{user.investments?.length || 0} plans</Badge>
@@ -201,8 +198,7 @@ export default function AdminUsersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>User</TableHead>
-                  <TableHead>Deposit Balance</TableHead>
-                  <TableHead>Earning Balance</TableHead>
+                  <TableHead>Wallet Balance</TableHead>
                   <TableHead>Investments</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Agent</TableHead>
@@ -212,14 +208,14 @@ export default function AdminUsersPage() {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       Loading users...
                     </TableCell>
                   </TableRow>
                 )}
                 {!isLoading && paginatedUsers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       No users found.
                     </TableCell>
                   </TableRow>

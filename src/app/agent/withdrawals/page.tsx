@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { User, Transaction } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, getDoc } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc, increment } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Search } from 'lucide-react';
@@ -38,12 +38,12 @@ function WithdrawalRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: U
     try {
       const batch = writeBatch(firestore);
 
-      // If the request failed, refund the amount to the user's EARNING balance.
+      // If the request failed, refund the amount to the user's balance.
       if (newStatus === 'failed') {
         const walletSnapshot = await getDoc(walletRef);
         const walletData = walletSnapshot.data();
-        const currentEarningBalance = walletData?.earningBalance || 0;
-        batch.update(walletRef, { earningBalance: currentEarningBalance + tx.amount });
+        const currentBalance = walletData?.balance || 0;
+        batch.update(walletRef, { balance: currentBalance + tx.amount });
       }
       
       const updateData = {

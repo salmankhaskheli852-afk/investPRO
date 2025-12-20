@@ -166,17 +166,7 @@ export default function UserDetailsPage() {
         const walletRef = doc(firestore, 'users', userId, 'wallets', 'main');
 
         if(tx.status === 'completed') {
-            if (tx.type === 'deposit') {
-                batch.update(walletRef, { depositBalance: increment(-tx.amount) });
-            } else if (tx.type === 'referral_income' || tx.type === 'income') {
-                batch.update(walletRef, { earningBalance: increment(-tx.amount) });
-            } else if (tx.type === 'withdrawal' || tx.type === 'investment') {
-                // Assuming withdrawal/investment come from earning/deposit balances respectively
-                // This part is complex and depends on which balance they are drawn from.
-                // For simplicity, we assume withdrawal from earning, investment from deposit.
-                if (tx.type === 'withdrawal') batch.update(walletRef, { earningBalance: increment(tx.amount) });
-                if (tx.type === 'investment') batch.update(walletRef, { depositBalance: increment(tx.amount) });
-            }
+            batch.update(walletRef, { balance: increment(-tx.amount) });
         }
         
         batch.delete(txRef);
@@ -196,7 +186,7 @@ export default function UserDetailsPage() {
         const walletRef = doc(firestore, 'users', userId, 'wallets', 'main');
 
         batch.update(txRef, { status: 'revoked' });
-        batch.update(walletRef, { depositBalance: increment(-tx.amount) });
+        batch.update(walletRef, { balance: increment(-tx.amount) });
 
         const revokedTxRef = doc(collection(firestore, 'users', userId, 'wallets', 'main', 'transactions'));
         batch.set(revokedTxRef, {
@@ -272,20 +262,12 @@ export default function UserDetailsPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <DashboardStatsCard
-          title="Deposit Balance"
-          value={`${(wallet?.depositBalance || 0).toLocaleString()} PKR`}
-          description="For purchasing plans"
+          title="Wallet Balance"
+          value={`${(wallet?.balance || 0).toLocaleString()} PKR`}
+          description="Available funds"
           Icon={WalletIcon}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditStatClick('Deposit Balance', wallet?.depositBalance || 0, 'depositBalance')}
-        />
-        <DashboardStatsCard
-          title="Earning Balance"
-          value={`${(wallet?.earningBalance || 0).toLocaleString()} PKR`}
-          description="Withdrawable funds"
-          Icon={PiggyBank}
-          chartData={[]} chartKey=''
-          onEdit={() => handleEditStatClick('Earning Balance', wallet?.earningBalance || 0, 'earningBalance')}
+          onEdit={() => handleEditStatClick('Wallet Balance', wallet?.balance || 0, 'balance')}
         />
         <DashboardStatsCard
           title="Total Invested"
@@ -378,7 +360,7 @@ export default function UserDetailsPage() {
                                       <AlertDialogHeader>
                                         <AlertDialogTitle>Revoke this deposit?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                          This will deduct {tx.amount} PKR from the user's deposit balance. This action cannot be undone.
+                                          This will deduct {tx.amount} PKR from the user's balance. This action cannot be undone.
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>

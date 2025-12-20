@@ -78,7 +78,7 @@ export default function UserInvestmentsPage() {
                     <InvestmentPlanCard 
                       key={plan.id} 
                       plan={plan} 
-                      userWalletBalance={walletData?.depositBalance}
+                      userWalletBalance={walletData?.balance}
                       isPurchased={userData?.investments?.some(inv => inv.planId === plan.id)}
                       showAsPurchased
                     />

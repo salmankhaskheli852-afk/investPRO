@@ -91,8 +91,6 @@ export default function UserDashboardPage() {
     }, 0);
   }, [activeInvestments]);
 
-  const totalEarningBalance = (walletData?.earningBalance || 0) + dailyIncome;
-
   if (isUserLoading || isUserDocLoading || isWalletLoading || isLoadingTransactions) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
@@ -113,17 +111,10 @@ export default function UserDashboardPage() {
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <DashboardStatsCard
-          title="Deposit Wallet"
-          value={`PKR ${(walletData?.depositBalance || 0).toLocaleString()}`}
-          description="For purchasing plans"
+          title="Wallet Balance"
+          value={`PKR ${(walletData?.balance || 0).toLocaleString()}`}
+          description="Total available funds"
           Icon={WalletIcon}
-          chartData={[]} chartKey=''
-        />
-        <DashboardStatsCard
-          title="Earning Balance"
-          value={`PKR ${totalEarningBalance.toLocaleString()}`}
-          description="Withdrawable balance"
-          Icon={PiggyBank}
           chartData={[]} chartKey=''
         />
         <DashboardStatsCard
