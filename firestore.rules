@@ -82,8 +82,9 @@ service cloud.firestore {
       // Allow creation if the requester is the authenticated user and the request is 'pending'.
       allow create: if isUserAuthenticated() && request.resource.data.requesterId == request.auth.uid && request.resource.data.status == 'pending';
 
-      // Allow the requester and the target user to read the request.
+      // Allow the requester and the target user to read and list the request.
       allow read: if isUserAuthenticated() && (resource.data.requesterId == request.auth.uid || resource.data.targetId == request.auth.uid);
+      allow list: if isUserAuthenticated();
 
       // Allow the target user to update the status (to 'approved' or 'rejected') if it's currently 'pending'.
       allow update: if isUserAuthenticated() && resource.data.targetId == request.auth.uid && resource.data.status == 'pending' && request.resource.data.status in ['approved', 'rejected'];
