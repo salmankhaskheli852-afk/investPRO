@@ -58,6 +58,7 @@ export type User = {
   createdAt: Timestamp;
   isVerified?: boolean;
   totalDeposit?: number;
+  dailyCheckIn?: Timestamp;
 };
 
 export type Wallet = {

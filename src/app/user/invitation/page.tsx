@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -7,13 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import type { User, AppSettings, ReferralRequest, Transaction } from '@/lib/data';
-import { doc, collection, query, where, addDoc, serverTimestamp, getDocs, orderBy } from 'firebase/firestore';
+import type { User, AppSettings, Transaction } from '@/lib/data';
+import { doc, collection, query, where, orderBy } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Info } from 'lucide-react';
 
 
 export default function InvitationPage() {
@@ -21,8 +20,6 @@ export default function InvitationPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [targetIdentifier, setTargetIdentifier] = React.useState('');
-  const [isSending, setIsSending] = React.useState(false);
 
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
@@ -64,69 +61,18 @@ export default function InvitationPage() {
   }, [transactions]);
 
 
-  const handleSendRequest = async () => {
-    if (!user || !firestore || !userData) return;
-    if (!targetIdentifier) {
-        toast({ variant: 'destructive', title: 'User ID or Email is required' });
-        return;
-    }
-    
-    setIsSending(true);
+  const invitationLink = React.useMemo(() => {
+    if (!appSettings?.baseInvitationUrl || !userData?.referralId) return '';
+    return `${appSettings.baseInvitationUrl}?ref=${userData.referralId}`;
+  }, [appSettings, userData]);
 
-    try {
-        const isEmail = targetIdentifier.includes('@');
-        
-        const findUserQuery = isEmail 
-            ? query(collection(firestore, 'users'), where('email', '==', targetIdentifier))
-            : query(collection(firestore, 'users'), where('id', '==', targetIdentifier));
-
-        const targetUserSnapshot = await getDocs(findUserQuery);
-
-        if (targetUserSnapshot.empty) {
-            throw new Error("User not found with the provided ID or Email.");
-        }
-        
-        const targetUserData = targetUserSnapshot.docs[0].data() as User;
-        const targetUserId = targetUserData.id;
-
-        if (targetUserId === user.uid) {
-            throw new Error('You cannot refer yourself.');
-        }
-
-        const existingRequestQuery = query(
-            collection(firestore, 'referral_requests'),
-            where('requesterId', '==', user.uid),
-            where('targetId', '==', targetUserId)
-        );
-        const existingRequestSnapshot = await getDocs(existingRequestQuery);
-        if (!existingRequestSnapshot.empty) {
-             const existingRequest = existingRequestSnapshot.docs[0].data() as ReferralRequest;
-             if(existingRequest.status === 'pending') {
-                throw new Error("You already have a pending request for this user.");
-             }
-             if(existingRequest.status === 'approved') {
-                 throw new Error("This user is already in your team.");
-             }
-        }
-        
-        const newRequestRef = doc(collection(firestore, 'referral_requests'));
-        await addDoc(collection(firestore, "referral_requests"), {
-            id: newRequestRef.id,
-            requesterId: user.uid,
-            requesterName: userData.name,
-            targetId: targetUserId,
-            status: 'pending',
-            createdAt: serverTimestamp(),
-        });
-
-        toast({ title: 'Request Sent!', description: `Your request to add the user has been sent.` });
-        setTargetIdentifier('');
-
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Error', description: e.message });
-    } finally {
-        setIsSending(false);
-    }
+  const handleCopyLink = () => {
+    if (!invitationLink) return;
+    navigator.clipboard.writeText(invitationLink);
+    toast({
+      title: 'Link Copied!',
+      description: 'Your invitation link has been copied to the clipboard.',
+    });
   };
 
 
@@ -142,21 +88,21 @@ export default function InvitationPage() {
         <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
             <Card>
               <CardHeader>
-                <CardTitle>Add Team Member</CardTitle>
-                <CardDescription>Enter the User ID or Email of the person you want to invite.</CardDescription>
+                <CardTitle>Your Invitation Link</CardTitle>
+                <CardDescription>Share this link with your friends to invite them.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="member-uid">Member's User ID or Email</Label>
+                  <Label htmlFor="invitation-link">Your unique link</Label>
                   <div className="flex items-center space-x-2">
-                    <Input id="member-uid" value={targetIdentifier} onChange={e => setTargetIdentifier(e.target.value)} placeholder="Enter User ID or Email..." />
-                    <Button onClick={handleSendRequest} disabled={isSending}>
-                      {isSending ? 'Sending...' : 'Send Request'}
+                    <Input id="invitation-link" value={invitationLink} readOnly />
+                    <Button onClick={handleCopyLink} disabled={!invitationLink}>
+                      Copy
                     </Button>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  When a user approves your request, you will earn {appSettings?.referralCommissionPercentage || 0}% commission on their future deposits.
+                  When a user signs up using your link, you will earn {appSettings?.referralCommissionPercentage || 0}% commission on their future deposits.
                 </p>
               </CardContent>
             </Card>

@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, TrendingUp, Wallet, History, GitBranch, LucideIcon } from 'lucide-react';
+import { Home, TrendingUp, Users, User, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type NavItem = {
@@ -13,11 +13,10 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { href: '/user', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/user/investments', label: 'Investments', icon: TrendingUp },
-  { href: '/user/wallet', label: 'Wallet', icon: Wallet },
-  { href: '/user/history', label: 'History', icon: History },
-  { href: '/user/invitation', label: 'Invitation', icon: GitBranch },
+  { href: '/user', label: 'Home', icon: Home },
+  { href: '/user/investments', label: 'Invest', icon: TrendingUp },
+  { href: '/user/invitation', label: 'Team', icon: Users },
+  { href: '/user/me', label: 'Me', icon: User },
 ];
 
 export function BottomNav() {
@@ -25,7 +24,7 @@ export function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md border-t bg-background shadow-up">
-      <div className="grid h-16 grid-cols-5">
+      <div className="grid h-16 grid-cols-4">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (

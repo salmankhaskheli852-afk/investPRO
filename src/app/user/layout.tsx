@@ -9,7 +9,6 @@ import { doc } from 'firebase/firestore';
 import { MaintenancePage } from '@/components/maintenance-page';
 import { VerificationPopup } from '@/components/verification-popup';
 import { BottomNav } from '@/components/layout/bottom-nav';
-import { ReferralRequestManager } from '@/components/referral-request-manager';
 
 export default function UserLayout({
   children,
@@ -53,7 +52,6 @@ export default function UserLayout({
 
   return (
     <div className="bg-muted min-h-screen">
-      <ReferralRequestManager />
       <div className="relative mx-auto max-w-md bg-background min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24">
