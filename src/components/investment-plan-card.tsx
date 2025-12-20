@@ -283,13 +283,13 @@ export function InvestmentPlanCard({
             className="object-cover"
             data-ai-hint={plan.imageHint}
           />
-          {isPurchased && showAsPurchased && !isOfferActive && (
+          {isPurchased && showAsPurchased && (
               <div className="absolute top-2 right-2 bg-primary/80 backdrop-blur-sm text-primary-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                   <CheckCircle className="w-3 h-3" />
                   <span>Purchased</span>
               </div>
           )}
-          {isPurchased && !showAsPurchased && !isOfferActive && (
+          {isPurchased && !showAsPurchased && (
             <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
               <CheckCircle className="w-3 h-3" />
               <span>Active</span>
@@ -308,13 +308,13 @@ export function InvestmentPlanCard({
               </div>
           )}
         </div>
-        <CardContent className="p-4 space-y-4 flex flex-col flex-1">
-          <h3 className="font-headline font-bold text-xl text-foreground">{plan.name}</h3>
+        <CardContent className="p-3 space-y-3 flex flex-col flex-1">
+          <h3 className="font-headline font-bold text-lg text-foreground">{plan.name}</h3>
           
           <div className="flex-1 space-y-3">
               <div className="flex flex-col">
                   <span className="text-sm text-muted-foreground">Product price</span> 
-                  <span className="font-bold text-foreground text-2xl">{plan.price.toLocaleString()} Rs</span>
+                  <span className="font-bold text-foreground text-xl">{plan.price.toLocaleString()} Rs</span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="flex flex-col">
