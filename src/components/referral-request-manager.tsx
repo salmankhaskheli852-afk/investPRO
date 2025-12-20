@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { ReferralRequest } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, increment, updateDoc } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 export function ReferralRequestManager() {
@@ -50,26 +50,18 @@ export function ReferralRequestManager() {
     const newStatus = approved ? 'approved' : 'rejected';
 
     try {
+        const batch = writeBatch(firestore);
+        
+        // 1. Update the request status
+        batch.update(requestRef, { status: newStatus });
+        
         if (approved) {
-            const batch = writeBatch(firestore);
-            
-            // 1. Update the request status
-            batch.update(requestRef, { status: newStatus });
-            
             // 2. Update the target user's (current user) referrerId
             const currentUserRef = doc(firestore, 'users', user.uid);
             batch.update(currentUserRef, { referrerId: requestToProcess.requesterId });
-
-            // 3. Increment the requester's referralCount
-            const requesterUserRef = doc(firestore, 'users', requestToProcess.requesterId);
-            batch.update(requesterUserRef, { referralCount: increment(1) });
-            
-            await batch.commit();
-
-        } else {
-            // Just update the request status to rejected
-            await updateDoc(requestRef, { status: newStatus });
         }
+        
+        await batch.commit();
 
         toast({
             title: `Request ${newStatus}`,
