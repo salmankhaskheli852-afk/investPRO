@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { collection, doc, orderBy, query, Timestamp } from 'firebase/firestore';
 import type { InvestmentPlan, User, Wallet, Transaction, UserInvestment } from '@/lib/data';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
-import { DollarSign, TrendingUp, PiggyBank, ArrowDownToLine, ArrowUpFromLine, LogOut, Wallet as WalletIcon } from 'lucide-react';
+import { DollarSign, TrendingUp, PiggyBank, ArrowDownToLine, ArrowUpFromLine, LogOut, Wallet as WalletIcon, GitBranch } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { Button } from '@/components/ui/button';
@@ -56,14 +56,15 @@ export default function UserDashboardPage() {
   };
 
   const transactionTotals = React.useMemo(() => {
-    if (!transactions) return { deposit: 0, withdraw: 0 };
+    if (!transactions) return { deposit: 0, withdraw: 0, referral_income: 0 };
     return transactions.reduce((acc, tx) => {
       if (tx.status === 'completed') {
         if (tx.type === 'deposit') acc.deposit += tx.amount;
         else if (tx.type === 'withdrawal') acc.withdraw += tx.amount;
+        else if (tx.type === 'referral_income') acc.referral_income += tx.amount;
       }
       return acc;
-    }, { deposit: 0, withdraw: 0 });
+    }, { deposit: 0, withdraw: 0, referral_income: 0 });
   }, [transactions]);
 
 
@@ -88,7 +89,7 @@ export default function UserDashboardPage() {
     }, 0);
   }, [activeInvestments]);
 
-  const totalEarningBalance = (walletData?.earningBalance || 0);
+  const totalEarningBalance = (walletData?.earningBalance || 0) + dailyIncome;
 
 
   if (isUserLoading || isUserDocLoading || isWalletLoading || isLoadingTransactions) {
@@ -119,7 +120,7 @@ export default function UserDashboardPage() {
         />
          <DashboardStatsCard
           title="Earning Balance"
-          value={`PKR ${totalEarningBalance.toLocaleString()}`}
+          value={`PKR ${totalEarningBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`}
           description="Withdrawable balance"
           Icon={WalletIcon}
           chartData={[]} chartKey=''
@@ -136,6 +137,13 @@ export default function UserDashboardPage() {
           value={`PKR ${dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2})}`}
           description="From investments"
           Icon={PiggyBank}
+          chartData={[]} chartKey=''
+        />
+         <DashboardStatsCard
+          title="Referral Income"
+          value={`PKR ${transactionTotals.referral_income.toLocaleString()}`}
+          description="From commissions"
+          Icon={GitBranch}
           chartData={[]} chartKey=''
         />
          <DashboardStatsCard
