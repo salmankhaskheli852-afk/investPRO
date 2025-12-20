@@ -162,11 +162,20 @@ export default function AdminWalletPage() {
     }
   };
 
-  const handleToggle = async (collectionName: 'admin_wallets' | 'withdrawal_methods', id: string, isEnabled: boolean) => {
+  const handleToggle = async (collectionName: 'admin_wallets' | 'withdrawal_methods', id: string, name: string, isEnabled: boolean) => {
     if(!firestore) return;
     try {
-      const docRef = doc(firestore, collectionName, id);
-      await updateDoc(docRef, { isEnabled: !isEnabled });
+      // Use the name as the document ID for withdrawal methods to ensure consistency
+      const docId = collectionName === 'withdrawal_methods' ? name.toLowerCase().replace(/\s+/g, '-') : id;
+      const docRef = doc(firestore, collectionName, docId);
+
+      // Use setDoc with merge to create the document if it doesn't exist, or update it if it does.
+      await setDoc(docRef, { 
+        id: docId,
+        name: name,
+        isEnabled: !isEnabled 
+      }, { merge: true });
+
     } catch(e: any) {
        toast({
         variant: 'destructive',
@@ -203,7 +212,7 @@ export default function AdminWalletPage() {
                     checked={findMethod('jazzcash')?.isEnabled ?? false}
                     onCheckedChange={() => {
                         const method = findMethod('jazzcash');
-                        if (method) handleToggle('withdrawal_methods', method.id, method.isEnabled);
+                        handleToggle('withdrawal_methods', method?.id || 'jazzcash', 'JazzCash', method?.isEnabled ?? false);
                     }}
                   />
                 </div>
@@ -214,7 +223,7 @@ export default function AdminWalletPage() {
                     checked={findMethod('easypaisa')?.isEnabled ?? false}
                     onCheckedChange={() => {
                         const method = findMethod('easypaisa');
-                        if (method) handleToggle('withdrawal_methods', method.id, method.isEnabled);
+                        handleToggle('withdrawal_methods', method?.id || 'easypaisa', 'Easypaisa', method?.isEnabled ?? false);
                     }}
                   />
                 </div>
@@ -225,7 +234,7 @@ export default function AdminWalletPage() {
                     checked={findMethod('bank transfer')?.isEnabled ?? false}
                     onCheckedChange={() => {
                         const method = findMethod('bank transfer');
-                        if (method) handleToggle('withdrawal_methods', method.id, method.isEnabled);
+                        handleToggle('withdrawal_methods', method?.id || 'bank-transfer', 'Bank Transfer', method?.isEnabled ?? false);
                     }}
                   />
                 </div>
@@ -305,7 +314,7 @@ export default function AdminWalletPage() {
                 <Switch 
                   id={`wallet-switch-${wallet.id}`} 
                   checked={wallet.isEnabled}
-                  onCheckedChange={() => handleToggle('admin_wallets', wallet.id, wallet.isEnabled)}
+                  onCheckedChange={() => handleToggle('admin_wallets', wallet.id, wallet.name, wallet.isEnabled)}
                 />
               </div>
               <div className="flex items-center justify-end gap-2">
