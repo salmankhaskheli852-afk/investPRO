@@ -46,12 +46,6 @@ export function Header() {
     setHasMounted(true);
   }, []);
 
-  const handleLogout = async () => {
-    if (!auth) return;
-    await signOut(auth);
-    router.push('/');
-  };
-
   const renderVerificationStatus = () => {
     const isLoading = isLoadingSettings || isLoadingUserData;
 
@@ -88,7 +82,7 @@ export function Header() {
 
   const renderUserMenu = () => {
     if (!hasMounted) {
-       return <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />;
+       return <Skeleton className="h-9 w-9 rounded-full" />;
     }
     
     return (
