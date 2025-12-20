@@ -54,7 +54,7 @@ export default function InvitationPage() {
         <p className="text-muted-foreground">Share your link and earn commissions on their first deposit.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 gap-8">
         <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card>
           <CardHeader>
