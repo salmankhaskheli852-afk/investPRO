@@ -20,6 +20,7 @@ import { useRouter } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import { doc } from 'firebase/firestore';
 import type { AppSettings, User } from '@/lib/data';
+import { Skeleton } from '../ui/skeleton';
 
 
 export function Header() {
@@ -52,27 +53,37 @@ export function Header() {
   };
 
   const renderVerificationStatus = () => {
-    if (!appSettings?.isVerificationEnabled || isLoadingUserData) {
-      return null;
-    }
-    if (userData?.isVerified) {
-       return (
-          <div className="hidden items-center gap-1.5 sm:flex">
-            <ShieldCheck className="h-5 w-5 text-green-600" />
-            <span className="text-sm font-medium text-green-600">{appSettings.verificationBadgeText || "Verified"}</span>
-          </div>
-        );
-    }
-    // Show 'Not Verified' only for the 'user' role
-    if (userData?.role === 'user') {
+    const isLoading = isLoadingSettings || isLoadingUserData;
+
+    if (isLoading) {
       return (
-         <div className="hidden items-center gap-1.5 sm:flex">
-            <ShieldAlert className="h-5 w-5 text-amber-500" />
-            <span className="text-sm font-medium text-amber-500">Not Verified</span>
-          </div>
+        <div className="hidden items-center gap-1.5 sm:flex">
+          <Skeleton className="h-5 w-5 rounded-full" />
+          <Skeleton className="h-4 w-24" />
+        </div>
       );
     }
-    return null;
+  
+    if (!appSettings?.isVerificationEnabled) {
+      return null;
+    }
+  
+    if (userData?.isVerified) {
+      return (
+        <div className="hidden items-center gap-1.5 sm:flex">
+          <ShieldCheck className="h-5 w-5 text-green-600" />
+          <span className="text-sm font-medium text-green-600">{appSettings.verificationBadgeText || "Verified"}</span>
+        </div>
+      );
+    }
+  
+    // Show 'Not Verified' for any user role if the system is on and they aren't verified.
+    return (
+      <div className="hidden items-center gap-1.5 sm:flex">
+        <ShieldAlert className="h-5 w-5 text-amber-500" />
+        <span className="text-sm font-medium text-amber-500">Not Verified</span>
+      </div>
+    );
   }
 
   const renderUserMenu = () => {
