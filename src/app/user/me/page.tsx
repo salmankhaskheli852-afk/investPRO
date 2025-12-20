@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { signOut } from 'firebase/auth';
 import { Separator } from '@/components/ui/separator';
+import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 
 export default function UserDashboardPage() {
   const { user, isUserLoading } = useUser();
@@ -91,6 +92,17 @@ export default function UserDashboardPage() {
     }, 0);
   }, [activeInvestments]);
 
+  // Sample data for the background chart
+  const chartData = [
+    { value: 1000 },
+    { value: 1200 },
+    { value: 800 },
+    { value: 1500 },
+    { value: 1400 },
+    { value: 2000 },
+    { value: 1800 },
+  ];
+
   if (isUserLoading || isUserDocLoading || isWalletLoading || isLoadingTransactions) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
@@ -111,8 +123,8 @@ export default function UserDashboardPage() {
       </div>
       
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-        <Card>
-            <CardContent className="p-6">
+        <Card className="relative overflow-hidden">
+            <CardContent className="p-6 relative z-10">
                 <div className="flex flex-col items-center text-center space-y-2 mb-6">
                     <p className="text-sm text-muted-foreground">Total Wallet Balance</p>
                     <p className="text-4xl font-bold tracking-tighter">
@@ -149,6 +161,26 @@ export default function UserDashboardPage() {
                     </div>
                 </div>
             </CardContent>
+             <div className="absolute inset-0 w-full h-full opacity-10">
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                    <defs>
+                        <linearGradient id="chartColor" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                        </linearGradient>
+                    </defs>
+                    <Area 
+                        type="monotone" 
+                        dataKey="value" 
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={2}
+                        fillOpacity={1} 
+                        fill="url(#chartColor)"
+                    />
+                    </AreaChart>
+                </ResponsiveContainer>
+            </div>
         </Card>
       </div>
 
