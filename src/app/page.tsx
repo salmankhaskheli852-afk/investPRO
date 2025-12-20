@@ -157,8 +157,7 @@ function HomePageContent() {
         const walletRef = doc(collection(firestore, 'users', firebaseUser.uid, 'wallets'), 'main');
         batch.set(walletRef, {
             id: 'main',
-            depositBalance: 0,
-            earningBalance: 0,
+            balance: 0,
             userId: firebaseUser.uid,
         });
         

@@ -90,10 +90,6 @@ export default function UserDashboardPage() {
     }, 0);
   }, [activeInvestments]);
 
-  // Correctly calculate total earning balance
-  const totalEarningBalance = (walletData?.earningBalance || 0) + dailyIncome;
-
-
   if (isUserLoading || isUserDocLoading || isWalletLoading || isLoadingTransactions) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
@@ -114,16 +110,9 @@ export default function UserDashboardPage() {
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <DashboardStatsCard
-          title="Deposit Balance"
-          value={`PKR ${(walletData?.depositBalance || 0).toLocaleString()}`}
-          description="For purchasing plans"
-          Icon={DollarSign}
-          chartData={[]} chartKey=''
-        />
-         <DashboardStatsCard
-          title="Earning Balance"
-          value={`PKR ${totalEarningBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`}
-          description="Withdrawable balance"
+          title="Wallet Balance"
+          value={`PKR ${(walletData?.balance || 0).toLocaleString()}`}
+          description="Available funds"
           Icon={WalletIcon}
           chartData={[]} chartKey=''
         />

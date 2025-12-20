@@ -67,7 +67,7 @@ function UserRow({
         </div>
       </TableCell>
       <TableCell>
-        {isLoading ? 'Loading...' : `${wallet?.balance.toLocaleString() || 0} PKR`}
+        {isLoading ? 'Loading...' : `${(wallet?.balance || 0).toLocaleString()} PKR`}
       </TableCell>
       <TableCell>
         <Badge variant="outline">{user.investments?.length || 0} plans</Badge>

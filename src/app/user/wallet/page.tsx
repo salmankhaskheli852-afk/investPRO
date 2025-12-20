@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, serverTimestamp, doc, writeBatch, query, where, getDocs, runTransaction } from 'firebase/firestore';
+import { collection, serverTimestamp, doc, writeBatch, query, where, getDocs, runTransaction, increment } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 
@@ -198,7 +198,7 @@ export default function UserWalletPage() {
       return;
     }
 
-    if (amountToWithdraw > (walletData.earningBalance || 0)) {
+    if (amountToWithdraw > (walletData.balance || 0)) {
         setShowInsufficientFunds(true);
         return;
     }
@@ -212,9 +212,9 @@ export default function UserWalletPage() {
                 throw new Error("Wallet not found.");
             }
 
-            const currentEarningBalance = walletDoc.data().earningBalance || 0;
-            if (amountToWithdraw > currentEarningBalance) {
-                throw new Error("Insufficient earning balance.");
+            const currentBalance = walletDoc.data().balance || 0;
+            if (amountToWithdraw > currentBalance) {
+                throw new Error("Insufficient balance.");
             }
 
             // 1. Create global transaction record
@@ -241,9 +241,8 @@ export default function UserWalletPage() {
             const userNewTransactionRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'), newTransactionRef.id);
             transaction.set(userNewTransactionRef, { ...transactionData, id: newTransactionRef.id });
             
-            // 3. Update the wallet's earningBalance
-            const newEarningBalance = currentEarningBalance - amountToWithdraw;
-            transaction.update(userWalletRef, { earningBalance: newEarningBalance });
+            // 3. Update the wallet's balance
+            transaction.update(userWalletRef, { balance: increment(-amountToWithdraw) });
         });
 
         toast({ title: 'Success', description: 'Your withdrawal request has been submitted.' });
@@ -267,9 +266,9 @@ export default function UserWalletPage() {
       <AlertDialog open={showInsufficientFunds} onOpenChange={setShowInsufficientFunds}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Insufficient Earning Balance</AlertDialogTitle>
+            <AlertDialogTitle>Insufficient Balance</AlertDialogTitle>
             <AlertDialogDescription>
-              You do not have enough balance in your earnings to withdraw this amount.
+              You do not have enough balance in your wallet to withdraw this amount.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -395,7 +394,7 @@ export default function UserWalletPage() {
                           <DialogHeader>
                               <DialogTitle>Withdraw Funds</DialogTitle>
                               <DialogDescription>
-                                  Enter your account details and amount. Your withdrawable balance is {(walletData?.earningBalance || 0).toLocaleString()} PKR.
+                                  Enter your account details and amount. Your withdrawable balance is {(walletData?.balance || 0).toLocaleString()} PKR.
                               </DialogDescription>
                           </DialogHeader>
                           
@@ -489,5 +488,3 @@ export default function UserWalletPage() {
     </>
   );
 }
-
-    

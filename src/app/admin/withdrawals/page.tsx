@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { User, Transaction } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, getDoc } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc, increment } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Search } from 'lucide-react';
@@ -39,13 +39,10 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
     try {
       const batch = writeBatch(firestore);
 
-      // If the request failed, refund the amount to the user's EARNING balance.
-      // The amount was already deducted from the earning balance when the request was made.
+      // If the request failed, refund the amount to the user's balance.
+      // The amount was already deducted when the request was made.
       if (newStatus === 'failed') {
-        const walletSnapshot = await getDoc(walletRef);
-        const walletData = walletSnapshot.data();
-        const currentEarningBalance = walletData?.earningBalance || 0;
-        batch.update(walletRef, { earningBalance: currentEarningBalance + tx.amount });
+        batch.update(walletRef, { balance: increment(tx.amount) });
       }
 
       // If completed, the amount is already deducted, so no balance change is needed.

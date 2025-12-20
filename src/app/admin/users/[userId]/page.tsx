@@ -136,7 +136,7 @@ export default function UserDetailsPage() {
     try {
       const batch = writeBatch(firestore);
 
-      if (['depositBalance', 'earningBalance'].includes(editingStatField.field)) {
+      if (['balance'].includes(editingStatField.field)) {
           batch.update(walletDocRef, { [editingStatField.field]: numericNewValue });
       } else {
         toast({ variant: 'destructive', title: 'Not Implemented', description: `Directly editing totals is not supported. Please adjust balances.` });
@@ -178,14 +178,10 @@ export default function UserDetailsPage() {
 
         // Adjust wallet balance
         if(tx.status === 'completed') {
-            if (tx.type === 'deposit') {
-                batch.update(walletRef, { depositBalance: increment(-tx.amount) });
-            } else if (tx.type === 'referral_income' || tx.type === 'income') {
-                batch.update(walletRef, { earningBalance: increment(-tx.amount) });
-            } else if (tx.type === 'withdrawal') {
-                batch.update(walletRef, { earningBalance: increment(tx.amount) });
-            } else if (tx.type === 'investment') {
-                batch.update(walletRef, { depositBalance: increment(tx.amount) });
+            if (tx.type === 'deposit' || tx.type === 'referral_income' || tx.type === 'income') {
+                batch.update(walletRef, { balance: increment(-tx.amount) });
+            } else if (tx.type === 'withdrawal' || tx.type === 'investment') {
+                batch.update(walletRef, { balance: increment(tx.amount) });
             }
         }
         
@@ -208,8 +204,8 @@ export default function UserDetailsPage() {
         // 1. Update the transaction status to 'revoked'
         batch.update(txRef, { status: 'revoked' });
 
-        // 2. Deduct the amount from the depositBalance
-        batch.update(walletRef, { depositBalance: increment(-tx.amount) });
+        // 2. Deduct the amount from the balance
+        batch.update(walletRef, { balance: increment(-tx.amount) });
 
         // 3. Create a new "revoked" transaction for clarity
         const revokedTxRef = doc(collection(firestore, 'users', userId, 'wallets', 'main', 'transactions'));
@@ -286,20 +282,12 @@ export default function UserDetailsPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <DashboardStatsCard
-          title="Deposit Balance"
-          value={`${(wallet?.depositBalance || 0).toLocaleString()} PKR`}
-          description="For purchasing plans"
-          Icon={DollarSign}
-          chartData={[]} chartKey=''
-          onEdit={() => handleEditStatClick('Deposit Balance', wallet?.depositBalance || 0, 'depositBalance')}
-        />
-        <DashboardStatsCard
-          title="Earning Balance"
-          value={`${(wallet?.earningBalance || 0).toLocaleString()} PKR`}
-          description="Withdrawable funds"
+          title="Wallet Balance"
+          value={`${(wallet?.balance || 0).toLocaleString()} PKR`}
+          description="Total available funds"
           Icon={WalletIcon}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditStatClick('Earning Balance', wallet?.earningBalance || 0, 'earningBalance')}
+          onEdit={() => handleEditStatClick('Wallet Balance', wallet?.balance || 0, 'balance')}
         />
         <DashboardStatsCard
           title="Total Invested"
