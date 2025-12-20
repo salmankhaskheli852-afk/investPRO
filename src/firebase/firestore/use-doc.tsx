@@ -72,10 +72,12 @@ export function useDoc<T = any>(
         setIsLoading(false);
       },
       (error: FirestoreError) => {
+        const path: string = memoizedDocRef ? memoizedDocRef.path : 'unknown path';
+        
         const contextualError = new FirestorePermissionError({
           operation: 'get',
-          path: memoizedDocRef.path,
-        })
+          path,
+        });
 
         setError(contextualError)
         setData(null)
