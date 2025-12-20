@@ -51,14 +51,16 @@ export default function UserLayout({
   const showVerificationPopup = appSettings?.isVerificationEnabled && userData && !userData.isVerified;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[hsl(var(--background))]">
-      <Header />
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24">
-        {showVerificationPopup && <VerificationPopup />}
-        {children}
-      </main>
-      <WhatsAppWidget />
-      <BottomNav />
+    <div className="flex min-h-screen flex-col bg-background">
+      <div className="mx-auto w-full max-w-md bg-card shadow-lg md:my-4 md:rounded-lg">
+        <Header />
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24">
+          {showVerificationPopup && <VerificationPopup />}
+          {children}
+        </main>
+        <WhatsAppWidget />
+        <BottomNav />
+      </div>
     </div>
   );
 }
