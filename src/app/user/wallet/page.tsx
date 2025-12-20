@@ -374,7 +374,7 @@ export default function UserWalletPage() {
                               Withdraw
                           </Button>
                       </DialogTrigger>
-                      <DialogContent>
+                      <DialogContent className="sm:max-w-md">
                           <DialogHeader>
                               <DialogTitle>Withdraw Funds</DialogTitle>
                               <DialogDescription>
