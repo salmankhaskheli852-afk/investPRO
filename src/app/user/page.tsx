@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useRef } from 'react';
@@ -14,10 +15,7 @@ import {
   ArrowUpFromLine, 
   Users, 
   CalendarCheck, 
-  Crown, 
-  Gift, 
-  Dice5, 
-  ScrollText,
+  Crown,
   Landmark,
   Banknote
 } from 'lucide-react';
@@ -55,16 +53,6 @@ const ServiceButton = ({ icon, label, href, onClick }: { icon: React.ElementType
   }
   return <button onClick={onClick} className="text-left w-full">{content}</button>;
 };
-
-const FeatureCard = ({ icon, label, href, className }: { icon: React.ElementType, label: string, href: string, className?: string }) => {
-    const Icon = icon;
-    return (
-         <Link href={href} className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg shadow-md hover:opacity-90 transition-opacity text-white ${className}`}>
-            <Icon className="h-8 w-8" />
-            <span className="font-bold">{label}</span>
-        </Link>
-    )
-}
 
 export default function UserHomePage() {
   const { user } = useUser();
@@ -195,7 +183,7 @@ export default function UserHomePage() {
       )}
 
       {/* Wallet Section */}
-       <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
+      <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
         <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="p-4 flex items-center justify-between">
             <Link href="/user/wallet" className="flex items-center gap-3">
@@ -203,18 +191,18 @@ export default function UserHomePage() {
               <span className="font-semibold text-lg">Wallet</span>
             </Link>
             <div className="grid grid-cols-2 gap-4">
-               <DialogTrigger asChild>
+              <DialogTrigger asChild>
                   <div className="flex flex-col items-center p-2 rounded-lg bg-red-100 text-red-800 cursor-pointer">
                       <ArrowDownToLine className="h-6 w-6" />
                       <span className="text-xs font-bold">RECHARGE</span>
                   </div>
-                </DialogTrigger>
-                <Link href="/user/wallet">
-                  <div className="flex flex-col items-center p-2 rounded-lg bg-green-100 text-green-800">
-                    <ArrowUpFromLine className="h-6 w-6" />
-                    <span className="text-xs font-bold">WITHDRAW</span>
-                  </div>
-                </Link>
+              </DialogTrigger>
+              <Link href="/user/wallet">
+                <div className="flex flex-col items-center p-2 rounded-lg bg-green-100 text-green-800">
+                  <ArrowUpFromLine className="h-6 w-6" />
+                  <span className="text-xs font-bold">WITHDRAW</span>
+                </div>
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -288,17 +276,15 @@ export default function UserHomePage() {
         <h2 className="text-xl font-bold mb-4">Service</h2>
         <div className="grid grid-cols-3 gap-4">
           <ServiceButton icon={Users} label="Refer Friends" href="/user/invitation" />
-          <ServiceButton icon={CalendarCheck} label="Daily check-in" href="/user/history" />
+          <Link href="/user/history">
+            <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-white shadow-md hover:bg-gray-50 transition-colors">
+              <CalendarCheck className="h-8 w-8 text-primary" />
+              <span className="text-sm font-medium text-gray-700">Daily check-in</span>
+            </div>
+          </Link>
           <ServiceButton icon={Crown} label="VIP Agent" href="#" />
         </div>
       </div>
-      
-       {/* Feature Cards Section */}
-       <div className="grid grid-cols-3 gap-4">
-            <FeatureCard icon={Gift} label="My Gift" href="#" className="bg-gradient-to-r from-blue-400 to-blue-500" />
-            <FeatureCard icon={Dice5} label="Lucky Draw" href="#" className="bg-gradient-to-r from-purple-400 to-purple-500" />
-            <FeatureCard icon={ScrollText} label="Task reward" href="#" className="bg-gradient-to-r from-orange-400 to-orange-500" />
-       </div>
        
         {/* Profit Model Section */}
         <div>
