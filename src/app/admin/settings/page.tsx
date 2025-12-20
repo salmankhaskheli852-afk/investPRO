@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { Trash2, Upload } from 'lucide-react';
+import { Trash2, PlusCircle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,11 +48,10 @@ export default function AppSettingsPage() {
   const [verificationPopupMessage, setVerificationPopupMessage] = React.useState('');
   const [verificationDepositAmount, setVerificationDepositAmount] = React.useState('');
 
+  const [newImageUrl, setNewImageUrl] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
-  const [isUploading, setIsUploading] = React.useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const settingsRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
@@ -122,38 +121,22 @@ export default function AppSettingsPage() {
     }
   };
   
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !settingsRef) {
-      return;
+  const handleAddImage = async () => {
+    if (!newImageUrl || !settingsRef) {
+        toast({ variant: 'destructive', title: 'URL is missing', description: 'Please provide an image URL to add.' });
+        return;
     }
     
-    setIsUploading(true);
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = async () => {
-      const dataUrl = reader.result as string;
-      try {
+    try {
         await updateDoc(settingsRef, {
-          carouselImages: arrayUnion(dataUrl)
+            carouselImages: arrayUnion(newImageUrl)
         });
-        toast({ title: 'Image Uploaded', description: 'The new image has been added to the carousel.' });
-      } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Upload Failed', description: e.message || 'Could not upload the image.' });
-      } finally {
-        setIsUploading(false);
-        // Reset file input
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      }
-    };
-    reader.onerror = (error) => {
-        toast({ variant: 'destructive', title: 'File Read Error', description: 'Could not read the selected file.' });
-        setIsUploading(false);
+        toast({ title: 'Image Added', description: 'The new image has been added to the carousel.' });
+        setNewImageUrl(''); // Clear input after adding
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Update Failed', description: e.message });
     }
   };
-
 
   const handleDeleteImage = async (imageUrlToDelete: string) => {
     if (!settingsRef) return;
@@ -289,22 +272,20 @@ export default function AppSettingsPage() {
                     <CardDescription>Manage images for the user home page slider.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div>
-                        <input 
-                            type="file" 
-                            ref={fileInputRef}
-                            onChange={handleImageUpload}
-                            accept="image/png, image/jpeg, image/gif, image/webp"
-                            className="hidden" 
-                        />
-                        <Button
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isUploading}
-                        >
-                            <Upload className="mr-2 h-4 w-4" />
-                            {isUploading ? 'Uploading...' : 'Upload Image'}
-                        </Button>
-                         <p className="text-xs text-muted-foreground mt-2">Select an image from your device to add to the carousel.</p>
+                    <div className="space-y-2">
+                        <Label htmlFor="new-image-url">Image URL</Label>
+                        <div className="flex gap-2">
+                            <Input
+                                id="new-image-url"
+                                value={newImageUrl}
+                                onChange={(e) => setNewImageUrl(e.target.value)}
+                                placeholder="https://..."
+                            />
+                            <Button onClick={handleAddImage}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Add Image
+                            </Button>
+                        </div>
                     </div>
                     <Separator />
                     <div className="space-y-4">
