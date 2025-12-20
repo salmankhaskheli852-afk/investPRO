@@ -202,60 +202,30 @@ export default function UserHomePage() {
       </div>
 
       {/* Wallet Section */}
-      <Card className="shadow-sm hover:shadow-md transition-shadow">
-        <CardContent className="p-4 flex items-center justify-between">
-          <Link href="/user/wallet" className="flex items-center gap-3">
-            <Bell className="h-6 w-6 text-primary" />
-            <span className="font-semibold text-lg">Wallet</span>
-          </Link>
-          <div className="grid grid-cols-2 gap-4">
+      <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4 flex items-center justify-between">
+            <Link href="/user/wallet" className="flex items-center gap-3">
+              <Bell className="h-6 w-6 text-primary" />
+              <span className="font-semibold text-lg">Wallet</span>
+            </Link>
+            <div className="grid grid-cols-2 gap-4">
               <DialogTrigger asChild>
-                <div onClick={() => setIsDepositDialogOpen(true)} className="flex flex-col items-center p-2 rounded-lg bg-red-100 text-red-800 cursor-pointer">
-                    <ArrowDownToLine className="h-6 w-6" />
-                    <span className="text-xs font-bold">RECHARGE</span>
+                <div className="flex flex-col items-center p-2 rounded-lg bg-red-100 text-red-800 cursor-pointer">
+                  <ArrowDownToLine className="h-6 w-6" />
+                  <span className="text-xs font-bold">RECHARGE</span>
                 </div>
               </DialogTrigger>
-               <Link href="/user/wallet">
-                 <div className="flex flex-col items-center p-2 rounded-lg bg-green-100 text-green-800">
-                    <ArrowUpFromLine className="h-6 w-6" />
-                    <span className="text-xs font-bold">WITHDRAW</span>
+              <Link href="/user/wallet">
+                <div className="flex flex-col items-center p-2 rounded-lg bg-green-100 text-green-800">
+                  <ArrowUpFromLine className="h-6 w-6" />
+                  <span className="text-xs font-bold">WITHDRAW</span>
                 </div>
               </Link>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Service Section */}
-      <div>
-        <h2 className="text-xl font-bold mb-4">Service</h2>
-        <div className="grid grid-cols-3 gap-4">
-          <ServiceButton icon={Users} label="Refer Friends" href="/user/invitation" />
-          <div onClick={handleDailyCheckIn} className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-white shadow-md ${canCheckIn ? 'cursor-pointer hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'}`}>
-            <CalendarCheck className="h-8 w-8 text-primary" />
-            <span className="text-sm font-medium text-gray-700">Daily check-in</span>
-          </div>
-          <ServiceButton icon={Crown} label="VIP Agent" href="#" />
-        </div>
-      </div>
-      
-       {/* Feature Cards Section */}
-       <div className="grid grid-cols-3 gap-4">
-            <FeatureCard icon={Gift} label="My Gift" href="#" className="bg-gradient-to-r from-blue-400 to-blue-500" />
-            <FeatureCard icon={Dice5} label="Lucky Draw" href="#" className="bg-gradient-to-r from-purple-400 to-purple-500" />
-            <FeatureCard icon={ScrollText} label="Task reward" href="#" className="bg-gradient-to-r from-orange-400 to-orange-500" />
-       </div>
-       
-        {/* Profit Model Section */}
-        <div>
-            <h2 className="text-xl font-bold mb-4">Profit Model</h2>
-            <Card>
-                <CardContent className="p-4">
-                    <p className="text-muted-foreground">Details about the profit model will be displayed here.</p>
-                </CardContent>
-            </Card>
-        </div>
-    </div>
-    <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
+            </div>
+          </CardContent>
+        </Card>
+
         <DialogContent className="sm:max-w-sm">
             <DialogHeader>
             <DialogTitle>Deposit Funds</DialogTitle>
@@ -319,7 +289,38 @@ export default function UserHomePage() {
             <Button type="submit" className="bg-primary hover:bg-primary/90" onClick={handleDepositSubmit}>Submit Request</Button>
             </DialogFooter>
         </DialogContent>
-    </Dialog>
+      </Dialog>
+      
+      {/* Service Section */}
+      <div>
+        <h2 className="text-xl font-bold mb-4">Service</h2>
+        <div className="grid grid-cols-3 gap-4">
+          <ServiceButton icon={Users} label="Refer Friends" href="/user/invitation" />
+          <div onClick={handleDailyCheckIn} className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-white shadow-md ${canCheckIn ? 'cursor-pointer hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'}`}>
+            <CalendarCheck className="h-8 w-8 text-primary" />
+            <span className="text-sm font-medium text-gray-700">Daily check-in</span>
+          </div>
+          <ServiceButton icon={Crown} label="VIP Agent" href="#" />
+        </div>
+      </div>
+      
+       {/* Feature Cards Section */}
+       <div className="grid grid-cols-3 gap-4">
+            <FeatureCard icon={Gift} label="My Gift" href="#" className="bg-gradient-to-r from-blue-400 to-blue-500" />
+            <FeatureCard icon={Dice5} label="Lucky Draw" href="#" className="bg-gradient-to-r from-purple-400 to-purple-500" />
+            <FeatureCard icon={ScrollText} label="Task reward" href="#" className="bg-gradient-to-r from-orange-400 to-orange-500" />
+       </div>
+       
+        {/* Profit Model Section */}
+        <div>
+            <h2 className="text-xl font-bold mb-4">Profit Model</h2>
+            <Card>
+                <CardContent className="p-4">
+                    <p className="text-muted-foreground">Details about the profit model will be displayed here.</p>
+                </CardContent>
+            </Card>
+        </div>
+    </div>
     </>
   );
 }
