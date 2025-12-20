@@ -86,7 +86,7 @@ function ManagedUserRow({ user }: { user: User }) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                          <DropdownMenuItem asChild>
-                            <Link href={`/admin/users/${user.id}`}>
+                            <Link href={`/agent/users/${user.id}`}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                             </Link>
