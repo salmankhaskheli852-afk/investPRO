@@ -297,7 +297,7 @@ export default function UserWalletPage() {
                           Deposit
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="sm:max-w-sm">
                       <DialogHeader>
                         <DialogTitle>Deposit Funds</DialogTitle>
                         <DialogDescription>
