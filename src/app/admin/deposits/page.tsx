@@ -80,7 +80,7 @@ function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User
                       if (!referrerDoc.exists()) {
                           console.warn("Referrer not found, skipping commission.");
                       } else {
-                          const referrerWalletRef = doc(firestore, 'users', user.referrerId!, 'wallets', 'main');
+                          const referrerWalletRef = doc(firestore, 'users', user.referrerId, 'wallets', 'main');
                           const referrerWalletDoc = await transaction.get(referrerWalletRef);
                           const newBalance = (referrerWalletDoc.data()?.balance || 0) + commissionAmount;
                           const newIncome = (referrerDoc.data()?.referralIncome || 0) + commissionAmount;
@@ -88,7 +88,7 @@ function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User
                           transaction.update(referrerWalletRef, { balance: newBalance });
                           transaction.update(referrerRef, { referralIncome: newIncome });
                           
-                          const referrerTxRef = doc(collection(firestore, 'users', user.referrerId!, 'wallets', 'main', 'transactions'));
+                          const referrerTxRef = doc(collection(firestore, 'users', user.referrerId, 'wallets', 'main', 'transactions'));
                           transaction.set(referrerTxRef, {
                               id: referrerTxRef.id,
                               type: 'referral_income',
