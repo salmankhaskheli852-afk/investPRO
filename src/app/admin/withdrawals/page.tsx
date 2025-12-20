@@ -30,19 +30,17 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
     if (!firestore || !user) return;
     setIsProcessing(true);
     
-    // This is the reference to the transaction in the top-level /transactions collection
     const globalTransactionRef = doc(firestore, 'transactions', tx.id);
-    // This is the reference to the transaction in the user's subcollection
     const userTransactionRef = doc(firestore, 'users', user.id, 'wallets', 'main', 'transactions', tx.id);
     const walletRef = doc(firestore, 'users', user.id, 'wallets', 'main');
 
     try {
       const batch = writeBatch(firestore);
 
-      // If the request failed, refund the amount to the user's balance.
+      // If the request failed, refund the amount to the user's earning balance.
       // The amount was already deducted when the request was made.
       if (newStatus === 'failed') {
-        batch.update(walletRef, { balance: increment(tx.amount) });
+        batch.update(walletRef, { earningBalance: increment(tx.amount) });
       }
 
       // If completed, the amount is already deducted, so no balance change is needed.

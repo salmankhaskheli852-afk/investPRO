@@ -157,8 +157,9 @@ function HomePageContent() {
         const walletRef = doc(collection(firestore, 'users', firebaseUser.uid, 'wallets'), 'main');
         batch.set(walletRef, {
             id: 'main',
-            balance: 0,
             userId: firebaseUser.uid,
+            depositBalance: 0,
+            earningBalance: 0,
         });
         
         // 3. If there was a referrer, update their count

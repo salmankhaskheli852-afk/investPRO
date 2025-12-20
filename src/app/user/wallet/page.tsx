@@ -129,7 +129,6 @@ export default function UserWalletPage() {
     }
 
     try {
-        // Check for duplicate TID
         const existingTxQuery = query(collection(firestore, 'transactions'), where('details.tid', '==', depositTid));
         const existingTxSnapshot = await getDocs(existingTxQuery);
         if (!existingTxSnapshot.empty) {
@@ -198,7 +197,7 @@ export default function UserWalletPage() {
       return;
     }
 
-    if (amountToWithdraw > (walletData.balance || 0)) {
+    if (amountToWithdraw > (walletData.earningBalance || 0)) {
         setShowInsufficientFunds(true);
         return;
     }
@@ -212,12 +211,11 @@ export default function UserWalletPage() {
                 throw new Error("Wallet not found.");
             }
 
-            const currentBalance = walletDoc.data().balance || 0;
-            if (amountToWithdraw > currentBalance) {
-                throw new Error("Insufficient balance.");
+            const currentEarningBalance = walletDoc.data().earningBalance || 0;
+            if (amountToWithdraw > currentEarningBalance) {
+                throw new Error("Insufficient earning balance.");
             }
 
-            // 1. Create global transaction record
             const newTransactionRef = doc(collection(firestore, 'transactions'));
             const transactionData: Omit<Transaction, 'id' | 'date'> & { date: any } = {
                 type: 'withdrawal',
@@ -237,17 +235,15 @@ export default function UserWalletPage() {
             };
             transaction.set(newTransactionRef, { ...transactionData, id: newTransactionRef.id });
 
-            // 2. Create user-specific transaction record
             const userNewTransactionRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'), newTransactionRef.id);
             transaction.set(userNewTransactionRef, { ...transactionData, id: newTransactionRef.id });
             
-            // 3. Update the wallet's balance
-            transaction.update(userWalletRef, { balance: increment(-amountToWithdraw) });
+            // Deduct from EARNING balance
+            transaction.update(userWalletRef, { earningBalance: increment(-amountToWithdraw) });
         });
 
         toast({ title: 'Success', description: 'Your withdrawal request has been submitted.' });
         
-        // Reset form
         setWithdrawAmount('');
         setWithdrawMethod('');
         setWithdrawHolderName('');
@@ -268,7 +264,7 @@ export default function UserWalletPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Insufficient Balance</AlertDialogTitle>
             <AlertDialogDescription>
-              You do not have enough balance in your wallet to withdraw this amount.
+              You do not have enough balance in your earning wallet to withdraw this amount.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -394,7 +390,7 @@ export default function UserWalletPage() {
                           <DialogHeader>
                               <DialogTitle>Withdraw Funds</DialogTitle>
                               <DialogDescription>
-                                  Enter your account details and amount. Your withdrawable balance is {(walletData?.balance || 0).toLocaleString()} PKR.
+                                  Enter your account details and amount. Your withdrawable balance is {(walletData?.earningBalance || 0).toLocaleString()} PKR.
                               </DialogDescription>
                           </DialogHeader>
                           

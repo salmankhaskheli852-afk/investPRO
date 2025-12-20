@@ -108,7 +108,7 @@ export function InvestmentPlanCard({
       return;
     }
     if (!canAfford) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Insufficient balance.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Insufficient deposit balance.' });
       return;
     }
     
@@ -118,33 +118,24 @@ export function InvestmentPlanCard({
     
     try {
         await runTransaction(firestore, async (transaction) => {
-            // --- READS FIRST ---
             const planDoc = await transaction.get(planRef);
             const walletDoc = await transaction.get(walletRef);
 
-            if (!planDoc.exists()) {
-                throw new Error("Plan does not exist.");
-            }
-            if (!walletDoc.exists()) {
-                throw new Error("User wallet not found.");
-            }
+            if (!planDoc.exists()) throw new Error("Plan does not exist.");
+            if (!walletDoc.exists()) throw new Error("User wallet not found.");
 
             const currentPlanData = planDoc.data() as InvestmentPlan;
             const currentWalletData = walletDoc.data();
 
-            // --- VALIDATION ---
             if (currentPlanData.isSoldOut || (currentPlanData.purchaseLimit && (currentPlanData.purchaseCount || 0) >= currentPlanData.purchaseLimit)) {
                 throw new Error("This plan is sold out.");
             }
-            if ((currentWalletData.balance || 0) < plan.price) {
-                throw new Error("Insufficient balance.");
+            if ((currentWalletData.depositBalance || 0) < plan.price) {
+                throw new Error("Insufficient deposit balance.");
             }
 
-            // --- WRITES LAST ---
-            // 1. Update purchase count on plan
             transaction.update(planRef, { purchaseCount: increment(1) });
             
-            // 2. Add investment to user's profile with purchase date
             transaction.update(userRef, {
                 investments: arrayUnion({
                     planId: plan.id,
@@ -152,10 +143,9 @@ export function InvestmentPlanCard({
                 })
             });
 
-            // 3. Deduct price from balance
-            transaction.update(walletRef, { balance: increment(-plan.price) });
+            // Deduct price from DEPOSIT balance
+            transaction.update(walletRef, { depositBalance: increment(-plan.price) });
 
-            // 4. Add an investment transaction
             const transactionRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'));
             transaction.set(transactionRef, {
                 type: 'investment',
@@ -190,7 +180,6 @@ export function InvestmentPlanCard({
   const totalIncome = dailyIncome * plan.incomePeriod;
 
   const renderPurchaseButton = () => {
-    // This button is for the dashboard view where progress is shown.
     if (isPurchased && !showAsPurchased) {
         return (
             <div>
@@ -207,7 +196,6 @@ export function InvestmentPlanCard({
       return null;
     }
 
-    // This is for the main investment page view.
     return (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
@@ -243,7 +231,7 @@ export function InvestmentPlanCard({
 
             <div className="rounded-lg border bg-background/50 p-4 space-y-2">
               <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground flex items-center gap-2"><Wallet className="w-4 h-4" /> Wallet Balance</span>
+                  <span className="text-muted-foreground flex items-center gap-2"><Wallet className="w-4 h-4" /> Deposit Balance</span>
                   <span>{userWalletBalance?.toLocaleString() || 0} Rs</span>
               </div>
                <div className="flex justify-between items-center text-sm">
@@ -257,7 +245,7 @@ export function InvestmentPlanCard({
                 <p className="text-sm text-center text-amber-600">You have already purchased this plan.</p>
             )}
             {!isPurchased && !canAfford && (
-                <p className="text-sm text-center text-destructive">You do not have enough funds to purchase this plan.</p>
+                <p className="text-sm text-center text-destructive">You do not have enough funds in your deposit wallet to purchase this plan.</p>
             )}
           </div>
           <DialogFooter>

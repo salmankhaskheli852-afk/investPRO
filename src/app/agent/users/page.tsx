@@ -68,9 +68,12 @@ function ManagedUserRow({ user }: { user: User }) {
             </div>
             </TableCell>
             <TableCell>
-                {isLoadingWallet ? '...' : `${(wallet?.balance || 0).toLocaleString()} PKR`}
+                {isLoadingWallet ? '...' : `${(wallet?.depositBalance || 0).toLocaleString()} PKR`}
             </TableCell>
              <TableCell>
+                {isLoadingWallet ? '...' : `${(wallet?.earningBalance || 0).toLocaleString()} PKR`}
+            </TableCell>
+            <TableCell>
                 {isLoadingPlans ? '...' : `${totalInvested.toLocaleString()} PKR`}
             </TableCell>
             <TableCell>
@@ -115,10 +118,8 @@ export default function AgentUsersPage() {
         if (!firestore || !agentUser || !agentData) return null;
 
         if (agentData.permissions?.canViewAllUsers) {
-            // Permission to view all users, fetch everyone except other agents/admins
              return query(collection(firestore, 'users'), where('role', '==', 'user'));
         }
-        // Default: fetch only users assigned to this agent
         return query(collection(firestore, 'users'), where('agentId', '==', agentUser.uid))
     },
     [firestore, agentUser, agentData]
@@ -162,7 +163,8 @@ export default function AgentUsersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
-                <TableHead>Wallet Balance</TableHead>
+                <TableHead>Deposit Balance</TableHead>
+                <TableHead>Earning Balance</TableHead>
                 <TableHead>Total Invested</TableHead>
                 <TableHead>Active Plans</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -171,13 +173,13 @@ export default function AgentUsersPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">Loading users...</TableCell>
+                    <TableCell colSpan={6} className="h-24 text-center">Loading users...</TableCell>
                 </TableRow>
               ) : filteredUsers && filteredUsers.length > 0 ? (
                 filteredUsers.map((user) => <ManagedUserRow key={user.id} user={user} />)
               ) : (
                 <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">No users found.</TableCell>
+                    <TableCell colSpan={6} className="h-24 text-center">No users found.</TableCell>
                 </TableRow>
               )}
             </TableBody>

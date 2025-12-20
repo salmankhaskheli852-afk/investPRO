@@ -134,21 +134,10 @@ export default function UserDetailsPage() {
     }
 
     try {
-      const batch = writeBatch(firestore);
-
-      if (['balance'].includes(editingStatField.field)) {
-          batch.update(walletDocRef, { [editingStatField.field]: numericNewValue });
-      } else {
-        toast({ variant: 'destructive', title: 'Not Implemented', description: `Directly editing totals is not supported. Please adjust balances.` });
-        return;
-      }
-      
-      await batch.commit();
-
-      toast({ title: 'Success', description: `${editingStatField.title} has been updated.` });
-      setIsStatEditDialogOpen(false);
-      setEditingStatField(null);
-
+        await updateDoc(walletDocRef, { [editingStatField.field]: numericNewValue });
+        toast({ title: 'Success', description: `${editingStatField.title} has been updated.` });
+        setIsStatEditDialogOpen(false);
+        setEditingStatField(null);
     } catch (e: any) {
        toast({ variant: 'destructive', title: 'Error updating value', description: e.message });
     }
@@ -176,12 +165,17 @@ export default function UserDetailsPage() {
         const txRef = doc(firestore, 'users', userId, 'wallets', 'main', 'transactions', tx.id);
         const walletRef = doc(firestore, 'users', userId, 'wallets', 'main');
 
-        // Adjust wallet balance
         if(tx.status === 'completed') {
-            if (tx.type === 'deposit' || tx.type === 'referral_income' || tx.type === 'income') {
-                batch.update(walletRef, { balance: increment(-tx.amount) });
+            if (tx.type === 'deposit') {
+                batch.update(walletRef, { depositBalance: increment(-tx.amount) });
+            } else if (tx.type === 'referral_income' || tx.type === 'income') {
+                batch.update(walletRef, { earningBalance: increment(-tx.amount) });
             } else if (tx.type === 'withdrawal' || tx.type === 'investment') {
-                batch.update(walletRef, { balance: increment(tx.amount) });
+                // Assuming withdrawal/investment come from earning/deposit balances respectively
+                // This part is complex and depends on which balance they are drawn from.
+                // For simplicity, we assume withdrawal from earning, investment from deposit.
+                if (tx.type === 'withdrawal') batch.update(walletRef, { earningBalance: increment(tx.amount) });
+                if (tx.type === 'investment') batch.update(walletRef, { depositBalance: increment(tx.amount) });
             }
         }
         
@@ -201,13 +195,9 @@ export default function UserDetailsPage() {
         const txRef = doc(firestore, 'users', userId, 'wallets', 'main', 'transactions', tx.id);
         const walletRef = doc(firestore, 'users', userId, 'wallets', 'main');
 
-        // 1. Update the transaction status to 'revoked'
         batch.update(txRef, { status: 'revoked' });
+        batch.update(walletRef, { depositBalance: increment(-tx.amount) });
 
-        // 2. Deduct the amount from the balance
-        batch.update(walletRef, { balance: increment(-tx.amount) });
-
-        // 3. Create a new "revoked" transaction for clarity
         const revokedTxRef = doc(collection(firestore, 'users', userId, 'wallets', 'main', 'transactions'));
         batch.set(revokedTxRef, {
             id: revokedTxRef.id,
@@ -282,12 +272,20 @@ export default function UserDetailsPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <DashboardStatsCard
-          title="Deposit Wallet"
-          value={`${(wallet?.balance || 0).toLocaleString()} PKR`}
-          description="Total available funds"
+          title="Deposit Balance"
+          value={`${(wallet?.depositBalance || 0).toLocaleString()} PKR`}
+          description="For purchasing plans"
           Icon={WalletIcon}
           chartData={[]} chartKey=''
-          onEdit={() => handleEditStatClick('Wallet Balance', wallet?.balance || 0, 'balance')}
+          onEdit={() => handleEditStatClick('Deposit Balance', wallet?.depositBalance || 0, 'depositBalance')}
+        />
+        <DashboardStatsCard
+          title="Earning Balance"
+          value={`${(wallet?.earningBalance || 0).toLocaleString()} PKR`}
+          description="Withdrawable funds"
+          Icon={PiggyBank}
+          chartData={[]} chartKey=''
+          onEdit={() => handleEditStatClick('Earning Balance', wallet?.earningBalance || 0, 'earningBalance')}
         />
         <DashboardStatsCard
           title="Total Invested"
@@ -380,7 +378,7 @@ export default function UserDetailsPage() {
                                       <AlertDialogHeader>
                                         <AlertDialogTitle>Revoke this deposit?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                          This will deduct {tx.amount} PKR from the user's balance and create a "revoked" transaction record. This action cannot be undone.
+                                          This will deduct {tx.amount} PKR from the user's deposit balance. This action cannot be undone.
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
