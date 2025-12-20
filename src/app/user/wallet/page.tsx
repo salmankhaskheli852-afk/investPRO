@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,8 +25,8 @@ import {
   DialogTrigger,
   DialogClose
 } from '@/components/ui/dialog';
-import type { Wallet, Transaction, AdminWallet, AppSettings, User, WithdrawalMethod } from '@/lib/data';
-import { ArrowDownToLine, ArrowUpFromLine, Banknote, Landmark } from 'lucide-react';
+import type { Wallet, Transaction, AppSettings, User, WithdrawalMethod } from '@/lib/data';
+import { ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -37,19 +36,11 @@ import {
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, serverTimestamp, doc, writeBatch, query, where, getDocs, runTransaction, increment } from 'firebase/firestore';
+import { collection, serverTimestamp, doc, writeBatch, query, where, runTransaction, increment } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 
 export default function UserWalletPage() {
-  const [selectedAdminWallet, setSelectedAdminWallet] = React.useState('');
-  
-  // Deposit form state
-  const [depositAmount, setDepositAmount] = React.useState('');
-  const [depositTid, setDepositTid] = React.useState('');
-  const [depositHolderName, setDepositHolderName] = React.useState('');
-  const [depositAccountNumber, setDepositAccountNumber] = React.useState('');
-  
   // Withdrawal form state
   const [withdrawAmount, setWithdrawAmount] = React.useState('');
   const [withdrawMethod, setWithdrawMethod] = React.useState('');
@@ -57,8 +48,6 @@ export default function UserWalletPage() {
   const [withdrawAccountNumber, setWithdrawAccountNumber] = React.useState('');
   const [withdrawBankName, setWithdrawBankName] = React.useState('');
 
-
-  const [isDepositDialogOpen, setIsDepositDialogOpen] = React.useState(false);
   const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = React.useState(false);
 
   const [showInsufficientFunds, setShowInsufficientFunds] = React.useState(false);
@@ -87,12 +76,6 @@ export default function UserWalletPage() {
   );
   const { data: appSettings } = useDoc<AppSettings>(settingsRef);
   
-  const adminWalletsQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, 'admin_wallets'), where('isEnabled', '==', true)) : null),
-    [firestore, user]
-  );
-  const { data: adminWalletsData } = useCollection<AdminWallet>(adminWalletsQuery);
-
   const withdrawalMethodsQuery = useMemoFirebase(
     () => (firestore && user ? query(collection(firestore, 'withdrawal_methods'), where('isEnabled', '==', true)) : null),
     [firestore, user]
@@ -101,76 +84,6 @@ export default function UserWalletPage() {
   
 
   const isWithdrawalDisabled = appSettings?.isVerificationEnabled && !userData?.isVerified;
-
-  React.useEffect(() => {
-    if (adminWalletsData && adminWalletsData.length > 0 && !selectedAdminWallet) {
-      setSelectedAdminWallet(adminWalletsData[0].id);
-    }
-  }, [adminWalletsData, selectedAdminWallet]);
-
-  const handleDepositSubmit = async () => {
-    if (!user || !firestore) {
-      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
-      return;
-    }
-    if (!depositAmount || !depositTid || !depositHolderName || !depositAccountNumber) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please fill all deposit fields.' });
-        return;
-    }
-    
-    const amount = parseFloat(depositAmount);
-    if (appSettings?.minDeposit && amount < appSettings.minDeposit) {
-      toast({ variant: 'destructive', title: 'Deposit amount too low', description: `Minimum deposit is ${appSettings.minDeposit} PKR.` });
-      return;
-    }
-    if (appSettings?.maxDeposit && amount > appSettings.maxDeposit) {
-      toast({ variant: 'destructive', title: 'Deposit amount too high', description: `Maximum deposit is ${appSettings.maxDeposit} PKR.` });
-      return;
-    }
-
-    try {
-        const existingTxQuery = query(collection(firestore, 'transactions'), where('details.tid', '==', depositTid));
-        const existingTxSnapshot = await getDocs(existingTxQuery);
-        if (!existingTxSnapshot.empty) {
-            toast({ variant: 'destructive', title: 'Duplicate Transaction', description: 'This Transaction ID has already been used. Please check and try again.' });
-            return;
-        }
-
-        const globalTransactionsCollectionRef = collection(firestore, 'transactions');
-        const userTransactionsCollectionRef = collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions');
-        const newTransactionRef = doc(globalTransactionsCollectionRef);
-        
-        const transactionData = {
-          id: newTransactionRef.id,
-          type: 'deposit' as const,
-          amount: parseFloat(depositAmount),
-          status: 'pending' as const,
-          date: serverTimestamp(),
-          walletId: 'main',
-          details: {
-            tid: depositTid,
-            senderName: depositHolderName,
-            senderAccount: depositAccountNumber,
-            adminWalletId: selectedAdminWallet,
-            userId: user.uid,
-          }
-        };
-
-        const batch = writeBatch(firestore);
-        batch.set(newTransactionRef, transactionData);
-
-        const userTransactionRef = doc(userTransactionsCollectionRef, newTransactionRef.id);
-        batch.set(userTransactionRef, transactionData);
-
-        await batch.commit();
-
-        toast({ title: 'Success', description: 'Your deposit request has been submitted.' });
-        setIsDepositDialogOpen(false);
-        router.push('/user/history');
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Error', description: e.message || "Failed to submit deposit request." });
-    }
-  };
   
   const handleWithdrawalSubmit = async () => {
     if (isWithdrawalDisabled) {
@@ -197,7 +110,7 @@ export default function UserWalletPage() {
       return;
     }
 
-    if (amountToWithdraw > (walletData.balance || 0)) {
+    if (amountToWithdraw > (walletData.earningBalance || 0)) {
         setShowInsufficientFunds(true);
         return;
     }
@@ -211,9 +124,9 @@ export default function UserWalletPage() {
                 throw new Error("Wallet not found.");
             }
 
-            const currentBalance = walletDoc.data().balance || 0;
+            const currentBalance = walletDoc.data().earningBalance || 0;
             if (amountToWithdraw > currentBalance) {
-                throw new Error("Insufficient balance.");
+                throw new Error("Insufficient earning balance.");
             }
 
             const newTransactionRef = doc(collection(firestore, 'transactions'));
@@ -239,7 +152,7 @@ export default function UserWalletPage() {
             transaction.set(userNewTransactionRef, { ...transactionData, id: newTransactionRef.id });
             
             // Deduct from balance
-            transaction.update(userWalletRef, { balance: increment(-amountToWithdraw) });
+            transaction.update(userWalletRef, { earningBalance: increment(-amountToWithdraw) });
         });
 
         toast({ title: 'Success', description: 'Your withdrawal request has been submitted.' });
@@ -255,7 +168,6 @@ export default function UserWalletPage() {
     }
   };
 
-  const selectedAdminWalletDetails = adminWalletsData?.find(w => w.id === selectedAdminWallet);
 
   return (
     <>
@@ -264,7 +176,7 @@ export default function UserWalletPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Insufficient Balance</AlertDialogTitle>
             <AlertDialogDescription>
-              You do not have enough balance in your wallet to withdraw this amount.
+              You do not have enough balance in your earning wallet to withdraw this amount.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -290,90 +202,15 @@ export default function UserWalletPage() {
       <div className="space-y-8">
         <div>
           <h1 className="text-3xl font-bold font-headline">My Wallet</h1>
-          <p className="text-muted-foreground">Manage your funds, deposit, and withdraw.</p>
+          <p className="text-muted-foreground">Manage your funds and withdraw.</p>
         </div>
         <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card className="max-w-md mx-auto">
           <CardHeader className="text-center">
-              <CardTitle>Quick Actions</CardTitle>
+              <CardTitle>Withdraw Funds</CardTitle>
           </CardHeader>
           <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                  <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button 
-                          size="lg"
-                          variant='outline'
-                      >
-                          <ArrowDownToLine className="mr-2 h-4 w-4" />
-                          Deposit
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-sm">
-                      <DialogHeader>
-                        <DialogTitle>Deposit Funds</DialogTitle>
-                        <DialogDescription>
-                          Send funds to an account below and enter the details to verify.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-                          <Label>Select Admin Account</Label>
-                          <RadioGroup value={selectedAdminWallet} onValueChange={setSelectedAdminWallet}>
-                              {adminWalletsData?.map((wallet) => (
-                                  <Label key={wallet.id} htmlFor={wallet.id} className="flex items-center space-x-3 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
-                                      <RadioGroupItem value={wallet.id} id={wallet.id} />
-                                      {wallet.isBank ? <Landmark className="h-5 w-5" /> : <Banknote className="h-5 w-5" />}
-                                      <span className="font-medium">{wallet.walletName}</span>
-                                  </Label>
-                              ))}
-                          </RadioGroup>
-
-                          {selectedAdminWalletDetails && (
-                              <Card className="bg-muted/50">
-                                  <CardHeader>
-                                      <CardTitle className="text-base">Account Details</CardTitle>
-                                  </CardHeader>
-                                  <CardContent className="text-sm space-y-2">
-                                      <div className="flex justify-between">
-                                          <span className="text-muted-foreground">{selectedAdminWalletDetails.isBank ? 'Bank Name:' : 'Wallet Service:'}</span>
-                                          <span className="font-medium">{selectedAdminWalletDetails.name}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Account Holder:</span>
-                                          <span className="font-medium">{selectedAdminWalletDetails.walletName}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                          <span className="text-muted-foreground">{selectedAdminWalletDetails.isBank ? 'Account Number:' : 'Wallet Number:'}</span>
-                                          <span className="font-medium">{selectedAdminWalletDetails.number}</span>
-                                      </div>
-                                  </CardContent>
-                              </Card>
-                          )}
-                          
-                          <div className="space-y-2 pt-4">
-                              <Label htmlFor="account-holder-name">Your Account Holder Name</Label>
-                              <Input id="account-holder-name" placeholder="Your Name" value={depositHolderName} onChange={e => setDepositHolderName(e.target.value)} />
-                          </div>
-                          <div className="space-y-2">
-                              <Label htmlFor="account-number">Your Account Number</Label>
-                              <Input id="account-number" placeholder="03xxxxxxxx" value={depositAccountNumber} onChange={e => setDepositAccountNumber(e.target.value)} />
-                          </div>
-                          <div className="space-y-2">
-                              <Label htmlFor="amount">Amount (PKR)</Label>
-                              <Input id="amount" type="number" placeholder="500" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} />
-                          </div>
-                          <div className="space-y-2">
-                              <Label htmlFor="tid">Transaction ID (TID)</Label>
-                              <Input id="tid" placeholder="e.g., 1234567890" value={depositTid} onChange={e => setDepositTid(e.target.value)} />
-                          </div>
-                      </div>
-                      <DialogFooter>
-                        <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                        <Button type="submit" className="bg-primary hover:bg-primary/90" onClick={handleDepositSubmit}>Submit Request</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-
+              <div className="grid grid-cols-1 gap-4">
                   <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
                       <DialogTrigger asChild>
                           <Button 
@@ -390,7 +227,7 @@ export default function UserWalletPage() {
                           <DialogHeader>
                               <DialogTitle>Withdraw Funds</DialogTitle>
                               <DialogDescription>
-                                  Enter your account details and amount. Your available balance is {(walletData?.balance || 0).toLocaleString()} PKR.
+                                  Enter your account details and amount. Your available earning balance is {(walletData?.earningBalance || 0).toLocaleString()} PKR.
                               </DialogDescription>
                           </DialogHeader>
                           
