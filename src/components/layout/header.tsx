@@ -64,25 +64,25 @@ export function Header() {
       );
     }
   
-    if (!appSettings?.isVerificationEnabled) {
-      return null;
+    if (appSettings?.isVerificationEnabled && userData) {
+        if (userData.isVerified) {
+          return (
+            <div className="hidden items-center gap-1.5 sm:flex">
+              <ShieldCheck className="h-5 w-5 text-green-600" />
+              <span className="text-sm font-medium text-green-600">{appSettings.verificationBadgeText || "Verified"}</span>
+            </div>
+          );
+        } else {
+           return (
+            <div className="hidden items-center gap-1.5 sm:flex">
+              <ShieldAlert className="h-5 w-5 text-amber-500" />
+              <span className="text-sm font-medium text-amber-500">Not Verified</span>
+            </div>
+          );
+        }
     }
-  
-    if (userData?.isVerified) {
-      return (
-        <div className="hidden items-center gap-1.5 sm:flex">
-          <ShieldCheck className="h-5 w-5 text-green-600" />
-          <span className="text-sm font-medium text-green-600">{appSettings.verificationBadgeText || "Verified"}</span>
-        </div>
-      );
-    }
-  
-    return (
-      <div className="hidden items-center gap-1.5 sm:flex">
-        <ShieldAlert className="h-5 w-5 text-amber-500" />
-        <span className="text-sm font-medium text-amber-500">Not Verified</span>
-      </div>
-    );
+
+    return null;
   }
 
   const renderUserMenu = () => {
