@@ -51,111 +51,105 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
     const userRef = doc(firestore, 'users', user.id);
 
     try {
-      await runTransaction(firestore, async (transaction) => {
-        
-        // --- ALL READS MUST HAPPEN FIRST ---
-        // 1. Check for existing approved transaction with the same TID
-        const completedTxQuery = query(
-            collection(firestore, 'transactions'), 
-            where('details.tid', '==', tx.details.tid),
-            where('status', '==', 'completed')
-        );
-        const completedTxSnapshot = await transaction.get(completedTxQuery);
+        // Using a write batch for simplicity and to avoid transaction read/write order issues.
+        const batch = writeBatch(firestore);
 
-        if (!completedTxSnapshot.empty && newStatus === 'completed') {
-            // Found an already completed transaction with the same TID
-            throw new Error("This Transaction ID has already been processed.");
+        // --- PRE-CHECKS ---
+        if (newStatus === 'completed') {
+            const completedTxQuery = query(
+                collection(firestore, 'transactions'), 
+                where('details.tid', '==', tx.details.tid),
+                where('status', '==', 'completed')
+            );
+            const completedTxSnapshot = await getDocs(completedTxQuery);
+
+            if (!completedTxSnapshot.empty) {
+                throw new Error("This Transaction ID has already been processed.");
+            }
         }
-
-        const walletDoc = await transaction.get(walletRef);
-        const userDoc = await transaction.get(userRef);
+        
+        // --- DATA FETCHING ---
+        const walletDoc = await getDoc(walletRef);
+        const userDoc = await getDoc(userRef);
 
         if (!walletDoc.exists()) throw new Error("Wallet not found!");
         if (!userDoc.exists()) throw new Error("User not found!");
-
+        
         const currentUserData = userDoc.data();
-        let referrerDoc: any = null;
-        let referrerWalletDoc: any = null;
 
-        if (currentUserData.referrerId) {
-            const referrerRef = doc(firestore, 'users', currentUserData.referrerId);
-            const referrerWalletRef = doc(firestore, 'users', currentUserData.referrerId, 'wallets', 'main');
-            referrerDoc = await transaction.get(referrerRef);
-            referrerWalletDoc = await transaction.get(referrerWalletRef);
-        }
-
-        // --- ALL WRITES HAPPEN AFTER READS ---
-
-        const currentBalance = walletDoc.data().balance;
-        
-        // Main logic for deposit completion
+        // --- LOGIC & BATCH WRITES ---
         if (newStatus === 'completed') {
-          // 1. Update wallet balance
-          transaction.update(walletRef, { balance: currentBalance + tx.amount });
-          
-          // Denormalize totalDeposit on user profile
-          const newTotalDeposit = (currentUserData.totalDeposit || 0) + tx.amount;
-          transaction.update(userRef, { totalDeposit: newTotalDeposit });
+            // 1. Update wallet balance
+            batch.update(walletRef, { balance: walletDoc.data().balance + tx.amount });
 
-          // 2. Handle account verification
-          if (appSettings?.isVerificationEnabled && !currentUserData.isVerified) {
-            if (tx.amount >= (appSettings.verificationDepositAmount || 0)) {
-              transaction.update(userRef, { isVerified: true });
+            // 2. Denormalize totalDeposit on user profile
+            const newTotalDeposit = (currentUserData.totalDeposit || 0) + tx.amount;
+            batch.update(userRef, { totalDeposit: newTotalDeposit });
+
+            // 3. Handle account verification
+            if (appSettings?.isVerificationEnabled && !currentUserData.isVerified) {
+                if (tx.amount >= (appSettings.verificationDepositAmount || 0)) {
+                    batch.update(userRef, { isVerified: true });
+                }
             }
-          }
 
-          // 3. Handle referral system on every deposit
-          if (currentUserData.referrerId && referrerDoc && referrerDoc.exists() && referrerWalletDoc && referrerWalletDoc.exists()) {
-              const commissionRate = (appSettings?.referralCommissionPercentage || 0) / 100;
-              const commissionAmount = tx.amount * commissionRate;
+            // 4. Handle referral system
+            if (currentUserData.referrerId) {
+                const commissionRate = (appSettings?.referralCommissionPercentage || 0) / 100;
+                const commissionAmount = tx.amount * commissionRate;
 
-              if (commissionAmount > 0) {
-                  const referrerWalletRef = doc(firestore, 'users', currentUserData.referrerId, 'wallets', 'main');
-                  const newBalance = (referrerWalletDoc.data()?.balance || 0) + commissionAmount;
-                  
-                  // Directly update the referrer's wallet balance
-                  transaction.update(referrerWalletRef, { balance: newBalance });
-                  
-                  // Create a transaction record for the commission
-                  const referrerTxRef = doc(collection(firestore, 'users', currentUserData.referrerId, 'wallets', 'main', 'transactions'));
-                  transaction.set(referrerTxRef, {
-                      id: referrerTxRef.id,
-                      type: 'referral_income',
-                      amount: commissionAmount,
-                      status: 'completed',
-                      date: serverTimestamp(),
-                      walletId: 'main',
-                      details: {
-                          referredUserId: user.id,
-                          referredUserName: user.name,
-                          originalDeposit: tx.amount,
-                      }
-                  });
-              }
-          }
+                if (commissionAmount > 0) {
+                    const referrerWalletRef = doc(firestore, 'users', currentUserData.referrerId, 'wallets', 'main');
+                    const referrerWalletDoc = await getDoc(referrerWalletRef);
+
+                    if (referrerWalletDoc.exists()) {
+                         // Directly update the referrer's wallet balance
+                        const newBalance = (referrerWalletDoc.data()?.balance || 0) + commissionAmount;
+                        batch.update(referrerWalletRef, { balance: newBalance });
+
+                        // Create a transaction record for the commission
+                        const referrerTxRef = doc(collection(firestore, 'users', currentUserData.referrerId, 'wallets', 'main', 'transactions'));
+                        batch.set(referrerTxRef, {
+                            id: referrerTxRef.id,
+                            type: 'referral_income',
+                            amount: commissionAmount,
+                            status: 'completed',
+                            date: serverTimestamp(),
+                            walletId: 'main',
+                            details: {
+                                referredUserId: user.id,
+                                referredUserName: user.name,
+                                originalDeposit: tx.amount,
+                            }
+                        });
+                    }
+                }
+            }
         }
         
-        // 4. Update transaction status in both locations
-        transaction.update(globalTransactionRef, { status: newStatus });
-        transaction.update(userTransactionRef, { status: newStatus });
-      });
+        // 5. Update transaction status in both locations
+        batch.update(globalTransactionRef, { status: newStatus });
+        batch.update(userTransactionRef, { status: newStatus });
 
-      toast({
-        title: `Request ${newStatus}`,
-        description: `The deposit request for ${tx.amount} PKR has been ${newStatus}.`,
-      });
-      onUpdate();
+        // Commit all changes at once
+        await batch.commit();
+
+        toast({
+            title: `Request ${newStatus}`,
+            description: `The deposit request for ${tx.amount} PKR has been ${newStatus}.`,
+        });
+        onUpdate();
 
     } catch (e: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error updating status',
-        description: e.message || 'Could not update the transaction status.',
-      });
+        toast({
+            variant: 'destructive',
+            title: 'Error updating status',
+            description: e.message || 'Could not update the transaction status.',
+        });
     } finally {
-      setIsProcessing(false);
+        setIsProcessing(false);
     }
-  };
+};
 
   const details = tx.details || {};
   const depositToWallet = adminWallets?.find(w => w.id === details.adminWalletId);
