@@ -5,14 +5,14 @@ import React from 'react';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { InvestmentPlan, User, Transaction } from '@/lib/data';
-import { DollarSign, TrendingUp, Users as UsersIcon, UserCog, ArrowDownToLine, ArrowUpFromLine, GitBranch } from 'lucide-react';
+import { DollarSign, TrendingUp, Users as UsersIcon, UserCog, ArrowDownToLine, ArrowUpFromLine, GitBranch, PiggyBank } from 'lucide-react';
 import { collection, query, where } from 'firebase/firestore';
 
 
 const mockRevenueData = [
   { name: 'Jan', revenue: 20000 },
   { name: 'Feb', revenue: 22000 },
-  { name: 'Mar', revenue: 19000 },
+  { name 'Mar', revenue: 19000 },
   { name: 'Apr', revenue: 25000 },
   { name: 'May', revenue: 24000 },
   { name: 'Jun', revenue: 28000 },
@@ -50,6 +50,12 @@ export default function AdminDashboardPage() {
   );
   const { data: investmentPlans, isLoading: isLoadingPlans } = useCollection<InvestmentPlan>(plansQuery);
   
+  const allTransactionsQuery = useMemoFirebase(
+    () => (firestore && user ? collection(firestore, 'transactions') : null),
+    [firestore, user]
+  );
+  const { data: allTransactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(allTransactionsQuery);
+
   const depositsQuery = useMemoFirebase(
     () => firestore && user ? query(collection(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'pending')) : null,
     [firestore, user]
@@ -64,9 +70,22 @@ export default function AdminDashboardPage() {
 
   const totalReferrals = React.useMemo(() => {
     if (!allUsers) return 0;
-    // A more accurate way to count referrals is to count users who have a referrer.
     return allUsers.filter(user => !!user.referrerId).length;
   }, [allUsers]);
+
+  const financialTotals = React.useMemo(() => {
+    if (!allTransactions) return { deposit: 0, withdrawal: 0, income: 0 };
+    return allTransactions.reduce((acc, tx) => {
+        if (tx.status === 'completed') {
+            if (tx.type === 'deposit') acc.deposit += tx.amount;
+            else if (tx.type === 'withdrawal') acc.withdrawal += tx.amount;
+            else if (tx.type === 'income') acc.income += tx.amount;
+        }
+        return acc;
+    }, { deposit: 0, withdrawal: 0, income: 0 });
+  }, [allTransactions]);
+
+  const isLoading = isLoadingUsers || isLoadingAgents || isLoadingPlans || isLoadingTransactions || isLoadingDeposits || isLoadingWithdrawals;
 
   return (
     <div className="space-y-8">
@@ -74,12 +93,28 @@ export default function AdminDashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <DashboardStatsCard
-          title="Total Revenue"
-          value={`0 PKR`}
-          description="Total amount invested by users"
-          Icon={DollarSign}
+          title="Total Deposit"
+          value={`${financialTotals.deposit.toLocaleString()} PKR`}
+          description="Total amount deposited by users"
+          Icon={ArrowDownToLine}
           chartData={mockRevenueData}
           chartKey="revenue"
+        />
+        <DashboardStatsCard
+          title="Total Withdrawals"
+          value={`${financialTotals.withdrawal.toLocaleString()} PKR`}
+          description="Total amount withdrawn by users"
+          Icon={ArrowUpFromLine}
+          chartData={[]}
+          chartKey="value"
+        />
+         <DashboardStatsCard
+          title="Total Income"
+          value={`${financialTotals.income.toLocaleString()} PKR`}
+          description="Total income generated"
+          Icon={PiggyBank}
+          chartData={[]}
+          chartKey="value"
         />
         <DashboardStatsCard
           title="Total Users"
@@ -89,6 +124,8 @@ export default function AdminDashboardPage() {
           chartData={mockUsersData}
           chartKey="users"
         />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <DashboardStatsCard
           title="Total Agents"
           value={isLoadingAgents ? '...' : (agents?.length || 0).toString()}
@@ -105,10 +142,8 @@ export default function AdminDashboardPage() {
           chartData={[{ a:1}, {a:2}]}
           chartKey="a"
         />
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
          <DashboardStatsCard
-          title="Total Deposit Requests"
+          title="Pending Deposits"
           value={isLoadingDeposits ? '...' : (depositRequests?.length || 0).toString()}
           description="Pending deposit approvals"
           Icon={ArrowDownToLine}
@@ -116,18 +151,10 @@ export default function AdminDashboardPage() {
           chartKey="value"
         />
         <DashboardStatsCard
-          title="Total Withdraw Requests"
+          title="Pending Withdrawals"
           value={isLoadingWithdrawals ? '...' : (withdrawalRequests?.length || 0).toString()}
           description="Pending withdrawal approvals"
           Icon={ArrowUpFromLine}
-          chartData={[]}
-          chartKey="value"
-        />
-        <DashboardStatsCard
-          title="Total Referrals"
-          value={isLoadingUsers ? '...' : totalReferrals.toString()}
-          description="Total successful referrals made"
-          Icon={GitBranch}
           chartData={[]}
           chartKey="value"
         />
