@@ -144,7 +144,7 @@ export default function InvitationPage() {
             <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
             <Card className="flex flex-col items-center justify-center text-center h-full">
               <CardHeader>
-                <CardTitle className="text-4xl font-bold">{userData?.referralCount || 0}</CardTitle>
+                <CardTitle className="text-4xl font-bold">{isLoadingTeam ? '...' : myTeam?.length || 0}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">Team Members</p>

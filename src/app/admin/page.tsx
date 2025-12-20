@@ -5,7 +5,7 @@ import React from 'react';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { InvestmentPlan, User, Transaction } from '@/lib/data';
-import { DollarSign, TrendingUp, Users as UsersIcon, UserCog, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { DollarSign, TrendingUp, Users as UsersIcon, UserCog, ArrowDownToLine, ArrowUpFromLine, GitBranch } from 'lucide-react';
 import { collection, query, where } from 'firebase/firestore';
 
 
@@ -62,6 +62,10 @@ export default function AdminDashboardPage() {
   );
   const { data: withdrawalRequests, isLoading: isLoadingWithdrawals } = useCollection<Transaction>(withdrawalsQuery);
 
+  const totalReferrals = React.useMemo(() => {
+    if (!allUsers) return 0;
+    return allUsers.reduce((sum, user) => sum + (user.referralCount || 0), 0);
+  }, [allUsers]);
 
   return (
     <div className="space-y-8">
@@ -101,7 +105,7 @@ export default function AdminDashboardPage() {
           chartKey="a"
         />
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
          <DashboardStatsCard
           title="Total Deposit Requests"
           value={isLoadingDeposits ? '...' : (depositRequests?.length || 0).toString()}
@@ -115,6 +119,14 @@ export default function AdminDashboardPage() {
           value={isLoadingWithdrawals ? '...' : (withdrawalRequests?.length || 0).toString()}
           description="Pending withdrawal approvals"
           Icon={ArrowUpFromLine}
+          chartData={[]}
+          chartKey="value"
+        />
+        <DashboardStatsCard
+          title="Total Referrals"
+          value={isLoadingUsers ? '...' : totalReferrals.toString()}
+          description="Total successful referrals made"
+          Icon={GitBranch}
           chartData={[]}
           chartKey="value"
         />
