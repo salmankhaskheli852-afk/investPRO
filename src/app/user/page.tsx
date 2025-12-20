@@ -1,7 +1,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -169,7 +169,7 @@ export default function UserHomePage() {
     <>
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="relative rounded-xl overflow-hidden p-6 flex items-center justify-center bg-gradient-to-r from-green-300 to-blue-200">
+      <div className="relative rounded-xl overflow-hidden p-6 flex items-center justify-center bg-gradient-to-r from-blue-400 to-blue-500">
         <Image src="/logo.svg" alt="SPF Logo" width={100} height={100} className="opacity-80" />
         <span className="text-5xl font-extrabold text-white opacity-90 ml-4">SPF</span>
       </div>
@@ -293,5 +293,3 @@ export default function UserHomePage() {
     </>
   );
 }
-
-    
