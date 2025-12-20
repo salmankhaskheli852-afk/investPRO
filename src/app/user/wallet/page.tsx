@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -37,7 +36,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, serverTimestamp, doc, writeBatch, query, where } from 'firebase/firestore';
+import { collection, serverTimestamp, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 
@@ -129,6 +128,14 @@ export default function UserWalletPage() {
     }
 
     try {
+        // Check for duplicate TID
+        const existingTxQuery = query(collection(firestore, 'transactions'), where('details.tid', '==', depositTid));
+        const existingTxSnapshot = await getDocs(existingTxQuery);
+        if (!existingTxSnapshot.empty) {
+            toast({ variant: 'destructive', title: 'Duplicate Transaction', description: 'This Transaction ID has already been used. Please check and try again.' });
+            return;
+        }
+
         const globalTransactionsCollectionRef = collection(firestore, 'transactions');
         const userTransactionsCollectionRef = collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions');
         const newTransactionRef = doc(globalTransactionsCollectionRef);

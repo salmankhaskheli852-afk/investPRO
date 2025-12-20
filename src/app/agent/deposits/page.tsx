@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -28,7 +27,7 @@ function DepositRequestRow({ tx, user, adminWallets, onUpdate }: { tx: Transacti
   const [isProcessing, setIsProcessing] = React.useState(false);
 
   const handleUpdateStatus = async (newStatus: 'completed' | 'failed') => {
-    if (!firestore || !user || !agentUser) return;
+    if (!firestore || !user || !agentUser || !tx.details?.tid) return;
     setIsProcessing(true);
 
     const globalTransactionRef = doc(firestore, 'transactions', tx.id);
@@ -37,6 +36,20 @@ function DepositRequestRow({ tx, user, adminWallets, onUpdate }: { tx: Transacti
 
     try {
         await runTransaction(firestore, async (transaction) => {
+            
+            // Check for duplicate TID before proceeding
+            if (newStatus === 'completed') {
+                const completedTxQuery = query(
+                    collection(firestore, 'transactions'),
+                    where('details.tid', '==', tx.details.tid),
+                    where('status', '==', 'completed')
+                );
+                const completedTxSnapshot = await transaction.get(completedTxQuery);
+                if (!completedTxSnapshot.empty) {
+                    throw new Error("This Transaction ID has already been processed.");
+                }
+            }
+
             const walletDoc = await transaction.get(walletRef);
             if (!walletDoc.exists()) {
                 throw new Error("Wallet not found!");

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -42,7 +41,7 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
   };
 
   const handleUpdateStatus = async (newStatus: 'completed' | 'failed') => {
-    if (!firestore || !user || !adminUser) return;
+    if (!firestore || !user || !adminUser || !tx.details?.tid) return;
     setIsProcessing(true);
 
     const globalTransactionRef = doc(firestore, 'transactions', tx.id);
@@ -54,6 +53,19 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
       await runTransaction(firestore, async (transaction) => {
         
         // --- ALL READS MUST HAPPEN FIRST ---
+        // 1. Check for existing approved transaction with the same TID
+        const completedTxQuery = query(
+            collection(firestore, 'transactions'), 
+            where('details.tid', '==', tx.details.tid),
+            where('status', '==', 'completed')
+        );
+        const completedTxSnapshot = await transaction.get(completedTxQuery);
+
+        if (!completedTxSnapshot.empty && newStatus === 'completed') {
+            // Found an already completed transaction with the same TID
+            throw new Error("This Transaction ID has already been processed.");
+        }
+
         const walletDoc = await transaction.get(walletRef);
         const userDoc = await transaction.get(userRef);
 
