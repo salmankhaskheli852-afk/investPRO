@@ -108,9 +108,7 @@ export default function UserDetailsPage() {
       if (tx.status === 'completed') {
         if (tx.type === 'deposit') acc.deposit += tx.amount;
         else if (tx.type === 'withdrawal') acc.withdraw += tx.amount;
-        else if (tx.type === 'income') acc.income += tx.amount;
         else if (tx.type === 'investment') acc.investment += tx.amount;
-        else if (tx.type === 'referral_income') acc.referral_income += tx.amount;
       }
       return acc;
     }, { deposit: 0, withdraw: 0, income: 0, investment: 0, referral_income: 0 });
@@ -310,13 +308,6 @@ export default function UserDetailsPage() {
           Icon={TrendingUp}
           chartData={[]} chartKey=''
         />
-        <DashboardStatsCard
-          title="Total Income"
-          value={`${transactionTotals.income.toLocaleString()} PKR`}
-          description="From investments"
-          Icon={PiggyBank}
-          chartData={[]} chartKey=''
-        />
          <DashboardStatsCard
           title="Total Deposit"
           value={`${transactionTotals.deposit.toLocaleString()} PKR`}
@@ -329,13 +320,6 @@ export default function UserDetailsPage() {
           value={`${transactionTotals.withdraw.toLocaleString()} PKR`}
           description="Funds taken out"
           Icon={ArrowUpFromLine}
-          chartData={[]} chartKey=''
-        />
-         <DashboardStatsCard
-          title="Referral Income"
-          value={`${transactionTotals.referral_income.toLocaleString()} PKR`}
-          description="From commissions"
-          Icon={GitBranch}
           chartData={[]} chartKey=''
         />
       </div>
