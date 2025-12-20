@@ -84,6 +84,15 @@ export default function UserDashboardPage() {
     }).filter((plan): plan is InvestmentPlan => !!plan);
   }, [userData, allPlans]);
 
+  const dailyIncome = React.useMemo(() => {
+    return activeInvestments.reduce((total, plan) => {
+        return total + (plan.price * (plan.dailyIncomePercentage / 100));
+    }, 0);
+  }, [activeInvestments]);
+
+  const totalEarningBalance = (walletData?.earningBalance || 0) + dailyIncome;
+
+
   if (isUserLoading || isUserDocLoading || isWalletLoading || isLoadingTransactions) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
@@ -95,13 +104,7 @@ export default function UserDashboardPage() {
   if (!user || !userData) {
       return null;
   }
-
-  const dailyIncome = activeInvestments.reduce((total, plan) => {
-    return total + (plan.price * (plan.dailyIncomePercentage / 100));
-  }, 0);
   
-  const totalEarningBalance = (walletData?.earningBalance || 0) + dailyIncome;
-
   return (
     <div className="space-y-8">
       <div>
