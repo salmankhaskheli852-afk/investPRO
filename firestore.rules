@@ -53,8 +53,8 @@ service cloud.firestore {
     // A user can read other user profiles (for referral names) but only update their own.
     match /users/{userId} {
       allow read: if isUserAuthenticated();
-      allow update: if isOwner(userId);
       allow create: if isUserAuthenticated();
+      allow update: if isOwner(userId);
     }
     
     // Any user (authenticated or not) can read plans.
