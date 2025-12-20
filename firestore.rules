@@ -56,9 +56,12 @@ service cloud.firestore {
       allow create: if isUserAuthenticated();
     }
     
-    // Authenticated users can update plans (to increment purchase count) but only admins/agents can create/delete them.
+    // Any user (authenticated or not) can read plans.
+    // Authenticated users can update plans (to increment purchase count).
+    // Only admins/agents can create/delete them.
     match /investment_plans/{planId} {
-        allow read, update: if isUserAuthenticated();
+        allow read: if true;
+        allow update: if isUserAuthenticated();
         allow create, delete: if isAdmin() || isAgent();
     }
 
