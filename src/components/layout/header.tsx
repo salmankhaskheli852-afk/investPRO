@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { LogOut, Settings, User as UserIcon, ShieldCheck } from 'lucide-react';
+import { LogOut, Settings, User as UserIcon, ShieldCheck, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -21,6 +21,7 @@ import React from 'react';
 import { doc } from 'firebase/firestore';
 import type { AppSettings, User } from '@/lib/data';
 import { Skeleton } from '../ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 
 export function Header() {
@@ -29,6 +30,7 @@ export function Header() {
   const firestore = useFirestore();
   const router = useRouter();
   const pathname = usePathname();
+  const { toast } = useToast();
 
   const settingsRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
@@ -48,6 +50,14 @@ export function Header() {
     router.push('/');
   };
   
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: 'Copied!',
+      description: `${label} has been copied to your clipboard.`,
+    });
+  };
+
   const showSidebarTrigger = pathname.startsWith('/admin') || pathname.startsWith('/agent');
 
   return (
@@ -102,6 +112,12 @@ export function Header() {
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{user.displayName}</p>
                     <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                    <div className="flex items-center pt-1">
+                        <p className="text-xs leading-none text-muted-foreground truncate">ID: {user.uid}</p>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => handleCopy(user.uid, 'User ID')}>
+                            <Copy className="h-3 w-3" />
+                        </Button>
+                    </div>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
