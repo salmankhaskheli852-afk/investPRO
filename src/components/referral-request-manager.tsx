@@ -50,22 +50,23 @@ export function ReferralRequestManager() {
     const newStatus = approved ? 'approved' : 'rejected';
 
     try {
-        const batch = writeBatch(firestore);
-        
-        // 1. Update the request status
-        batch.update(requestRef, { status: newStatus });
-        
         if (approved) {
-            // 2. Update the target user's (current user) referrerId
-            const currentUserRef = doc(firestore, 'users', user.uid);
-            batch.update(currentUserRef, { referrerId: requestToProcess.requesterId });
+             const currentUserRef = doc(firestore, 'users', user.uid);
+             const batch = writeBatch(firestore);
+             // 1. Update the request status to 'approved'
+             batch.update(requestRef, { status: 'approved' });
+             // 2. Set the referrerId for the current user
+             batch.update(currentUserRef, { referrerId: requestToProcess.requesterId });
+             // 3. Increment the requester's referralCount
+             const requesterRef = doc(firestore, 'users', requestToProcess.requesterId);
+             batch.update(requesterRef, { referralCount: increment(1) });
+             
+             await batch.commit();
 
-            // 3. Increment the referrer's count
-            const requesterRef = doc(firestore, 'users', requestToProcess.requesterId);
-            batch.update(requesterRef, { referralCount: increment(1) });
+        } else {
+            // If rejected, just update the request status
+            await updateDoc(requestRef, { status: 'rejected' });
         }
-        
-        await batch.commit();
 
         toast({
             title: `Request ${newStatus}`,

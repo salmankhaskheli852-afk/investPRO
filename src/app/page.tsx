@@ -133,6 +133,8 @@ function HomePageContent() {
                 await seedInitialData(); 
             }
         }
+        
+        const referrerId = searchParams.get('ref') || null;
 
         // 1. Create the new user's profile
         batch.set(userRef, {
@@ -144,7 +146,7 @@ function HomePageContent() {
             createdAt: serverTimestamp(),
             role: role,
             referralId: firebaseUser.uid,
-            referrerId: searchParams.get('ref') || null,
+            referrerId: referrerId,
             referralCount: 0,
             referralIncome: 0,
             isVerified: false,
@@ -159,9 +161,9 @@ function HomePageContent() {
         });
         
         // 3. If there was a referrer, update their count
-        const referrerId = searchParams.get('ref');
         if (referrerId) {
             const referrerRef = doc(firestore, 'users', referrerId);
+            // We need to check if the referrer exists before trying to update them.
             const referrerDoc = await getDoc(referrerRef);
             if (referrerDoc.exists()) {
                 batch.update(referrerRef, { referralCount: increment(1) });

@@ -8,11 +8,47 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import type { User, AppSettings, ReferralRequest } from '@/lib/data';
+import type { User, AppSettings, ReferralRequest, Transaction } from '@/lib/data';
 import { doc, collection, query, where, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
+
+function TeamMemberRow({ member }: { member: User }) {
+  const firestore = useFirestore();
+  const transactionsQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'users', member.id, 'wallets', 'main', 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'completed')) : null,
+    [firestore, member.id]
+  );
+  const { data: depositTransactions, isLoading } = useCollection<Transaction>(transactionsQuery);
+
+  const totalDeposit = React.useMemo(() => {
+    if (!depositTransactions) return 0;
+    return depositTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+  }, [depositTransactions]);
+
+  return (
+    <TableRow key={member.id}>
+      <TableCell>
+        <div className="flex items-center gap-3">
+          <Avatar>
+            <AvatarImage src={member.avatarUrl} alt={member.name} />
+            <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="font-medium">{member.name}</div>
+            <div className="text-sm text-muted-foreground">{member.email}</div>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>{member.createdAt ? format(member.createdAt.toDate(), 'PP') : 'N/A'}</TableCell>
+      <TableCell className="text-right">
+        {isLoading ? '...' : `${totalDeposit.toLocaleString()} PKR`}
+      </TableCell>
+    </TableRow>
+  );
+}
+
 
 export default function InvitationPage() {
   const { user } = useUser();
@@ -175,38 +211,23 @@ export default function InvitationPage() {
                   <TableRow>
                     <TableHead>User</TableHead>
                     <TableHead>Joined On</TableHead>
+                    <TableHead className="text-right">Total Deposit</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoadingTeam ? (
                     <TableRow>
-                      <TableCell colSpan={2} className="h-24 text-center">
+                      <TableCell colSpan={3} className="h-24 text-center">
                         Loading your team...
                       </TableCell>
                     </TableRow>
                   ) : myTeam && myTeam.length > 0 ? (
                     myTeam.map((member) => (
-                      <TableRow key={member.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarImage src={member.avatarUrl} alt={member.name} />
-                              <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium">{member.name}</div>
-                              <div className="text-sm text-muted-foreground">{member.email}</div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {member.createdAt ? format(member.createdAt.toDate(), 'PP') : 'N/A'}
-                        </TableCell>
-                      </TableRow>
+                      <TeamMemberRow key={member.id} member={member} />
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={2} className="h-24 text-center">
+                      <TableCell colSpan={3} className="h-24 text-center">
                         You have not referred any users yet.
                       </TableCell>
                     </TableRow>
