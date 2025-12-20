@@ -130,8 +130,8 @@ export default function UserDashboardPage() {
         />
          <DashboardStatsCard
           title="Referral Income"
-          value={`PKR ${(userData?.referralIncome || 0).toLocaleString()}`}
-          description={`From ${userData.referralCount || 0} friends`}
+          value={`PKR ${transactionTotals.referral_income.toLocaleString()}`}
+          description="From commissions"
           Icon={GitBranch}
           chartData={[]} chartKey=''
         />

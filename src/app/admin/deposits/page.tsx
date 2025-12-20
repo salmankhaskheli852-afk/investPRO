@@ -109,15 +109,13 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
               const commissionAmount = tx.amount * commissionRate;
 
               if (commissionAmount > 0) {
-                  const referrerRef = doc(firestore, 'users', currentUserData.referrerId);
                   const referrerWalletRef = doc(firestore, 'users', currentUserData.referrerId, 'wallets', 'main');
-
                   const newBalance = (referrerWalletDoc.data()?.balance || 0) + commissionAmount;
-                  const newIncome = (referrerDoc.data()?.referralIncome || 0) + commissionAmount;
-
-                  transaction.update(referrerWalletRef, { balance: newBalance });
-                  transaction.update(referrerRef, { referralIncome: newIncome });
                   
+                  // Directly update the referrer's wallet balance
+                  transaction.update(referrerWalletRef, { balance: newBalance });
+                  
+                  // Create a transaction record for the commission
                   const referrerTxRef = doc(collection(firestore, 'users', currentUserData.referrerId, 'wallets', 'main', 'transactions'));
                   transaction.set(referrerTxRef, {
                       id: referrerTxRef.id,
@@ -325,5 +323,3 @@ export default function AdminDepositsPage() {
     </div>
   );
 }
-
-    
