@@ -63,45 +63,45 @@ function DepositRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User
             }
           }
 
-          // 3. Handle referral commission on first deposit
+          // 3. Handle referral commission on every deposit
           if (user.referrerId) {
-              const userTransactionsQuery = query(collection(firestore, 'users', user.id, 'wallets', 'main', 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'completed'));
-              const previousDepositsSnapshot = await getDocs(userTransactionsQuery);
-              
-              const previousDeposits = previousDepositsSnapshot.docs.filter(doc => doc.id !== tx.id);
+              const commissionRate = (appSettings?.referralCommissionPercentage || 0) / 100;
+              const commissionAmount = tx.amount * commissionRate;
 
-              if (previousDeposits.length === 0) { // This is the first completed deposit
-                  const commissionRate = (appSettings?.referralCommissionPercentage || 0) / 100;
-                  const commissionAmount = tx.amount * commissionRate;
+              if (commissionAmount > 0) {
+                  const referrerRef = doc(firestore, 'users', user.referrerId);
+                  const referrerDoc = await transaction.get(referrerRef);
+                  
+                  if (!referrerDoc.exists()) {
+                      console.warn("Referrer not found, skipping commission.");
+                  } else {
+                      const referrerWalletRef = doc(firestore, 'users', user.referrerId, 'wallets', 'main');
+                      const referrerWalletDoc = await transaction.get(referrerWalletRef);
+                      
+                      // Ensure referrer wallet exists before attempting to update it
+                      if (referrerWalletDoc.exists()) {
+                        const newBalance = (referrerWalletDoc.data()?.balance || 0) + commissionAmount;
+                        const newIncome = (referrerDoc.data()?.referralIncome || 0) + commissionAmount;
 
-                  if (commissionAmount > 0) {
-                      const referrerRef = doc(firestore, 'users', user.referrerId);
-                      const referrerDoc = await transaction.get(referrerRef);
-                      if (!referrerDoc.exists()) {
-                          console.warn("Referrer not found, skipping commission.");
+                        transaction.update(referrerWalletRef, { balance: newBalance });
+                        transaction.update(referrerRef, { referralIncome: newIncome });
+                        
+                        const referrerTxRef = doc(collection(firestore, 'users', user.referrerId, 'wallets', 'main', 'transactions'));
+                        transaction.set(referrerTxRef, {
+                            id: referrerTxRef.id,
+                            type: 'referral_income',
+                            amount: commissionAmount,
+                            status: 'completed',
+                            date: serverTimestamp(),
+                            walletId: 'main',
+                            details: {
+                                referredUserId: user.id,
+                                referredUserName: user.name,
+                                originalDeposit: tx.amount,
+                            }
+                        });
                       } else {
-                          const referrerWalletRef = doc(firestore, 'users', user.referrerId, 'wallets', 'main');
-                          const referrerWalletDoc = await transaction.get(referrerWalletRef);
-                          const newBalance = (referrerWalletDoc.data()?.balance || 0) + commissionAmount;
-                          const newIncome = (referrerDoc.data()?.referralIncome || 0) + commissionAmount;
-
-                          transaction.update(referrerWalletRef, { balance: newBalance });
-                          transaction.update(referrerRef, { referralIncome: newIncome });
-                          
-                          const referrerTxRef = doc(collection(firestore, 'users', user.referrerId, 'wallets', 'main', 'transactions'));
-                          transaction.set(referrerTxRef, {
-                              id: referrerTxRef.id,
-                              type: 'referral_income',
-                              amount: commissionAmount,
-                              status: 'completed',
-                              date: serverTimestamp(),
-                              walletId: 'main',
-                              details: {
-                                  referredUserId: user.id,
-                                  referredUserName: user.name,
-                                  originalDeposit: tx.amount,
-                              }
-                          });
+                         console.warn(`Referrer wallet for ${user.referrerId} not found, skipping commission.`);
                       }
                   }
               }
