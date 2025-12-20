@@ -52,7 +52,7 @@ service cloud.firestore {
 
     // A user can read other user profiles (for referral names) but only update their own.
     match /users/{userId} {
-      allow get: if isUserAuthenticated();
+      allow get, list: if isUserAuthenticated();
       allow create: if isUserAuthenticated();
       allow update: if isOwner(userId);
     }
