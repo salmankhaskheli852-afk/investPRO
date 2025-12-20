@@ -6,17 +6,49 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Copy, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useDoc, useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import type { User, AppSettings } from '@/lib/data';
-import { doc } from 'firebase/firestore';
+import { useDoc, useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
+import type { User, AppSettings, ReferralRequest } from '@/lib/data';
+import { doc, collection, query, where, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { format } from 'date-fns';
+
+function SentRequestRow({ request, targetUser }: { request: ReferralRequest; targetUser: User | undefined }) {
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'bg-green-500/20 text-green-700';
+      case 'pending':
+        return 'bg-amber-500/20 text-amber-700';
+      case 'rejected':
+        return 'bg-red-500/20 text-red-700';
+      default:
+        return '';
+    }
+  };
+
+  return (
+    <TableRow>
+      <TableCell>{targetUser?.name || request.targetId}</TableCell>
+      <TableCell>
+        <Badge variant="outline" className={getStatusBadge(request.status)}>
+          {request.status}
+        </Badge>
+      </TableCell>
+      <TableCell>{format(request.createdAt.toDate(), 'PP')}</TableCell>
+    </TableRow>
+  );
+}
+
 
 export default function InvitationPage() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
-  const [copied, setCopied] = React.useState(false);
+  
+  const [targetUserId, setTargetUserId] = React.useState('');
+  const [isSending, setIsSending] = React.useState(false);
 
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
@@ -29,55 +61,111 @@ export default function InvitationPage() {
     [firestore]
   );
   const { data: appSettings } = useDoc<AppSettings>(settingsRef);
+  
+  // Get all requests sent by the current user
+  const sentRequestsQuery = useMemoFirebase(
+    () => user && firestore ? query(collection(firestore, 'referral_requests'), where('requesterId', '==', user.uid), orderBy('createdAt', 'desc')) : null,
+    [user, firestore]
+  );
+  const { data: sentRequests, isLoading: isLoadingRequests } = useCollection<ReferralRequest>(sentRequestsQuery);
+  
+  // Get all users to find the names of the targeted users
+  const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
+  const { data: allUsers } = useCollection<User>(usersQuery);
 
-  const invitationLink = React.useMemo(() => {
-    if (!appSettings?.baseInvitationUrl || !userData?.referralId) return '';
-    const baseUrl = appSettings.baseInvitationUrl.endsWith('/') ? appSettings.baseInvitationUrl : `${appSettings.baseInvitationUrl}/`;
-    return `${baseUrl}?ref=${userData.referralId}`;
-  }, [appSettings, userData]);
+  const handleSendRequest = async () => {
+    if (!user || !firestore || !userData) return;
+    if (!targetUserId) {
+        toast({ variant: 'destructive', title: 'User ID is required' });
+        return;
+    }
+    if (targetUserId === user.uid) {
+        toast({ variant: 'destructive', title: 'Invalid Action', description: 'You cannot refer yourself.' });
+        return;
+    }
+    
+    setIsSending(true);
 
-  const copyToClipboard = () => {
-    if (!invitationLink) return;
-    navigator.clipboard.writeText(invitationLink);
-    setCopied(true);
-    toast({
-      title: 'Copied to clipboard!',
-      description: 'You can now share your invitation link.',
-    });
-    setTimeout(() => setCopied(false), 2000);
+    try {
+        // Check if target user exists and doesn't already have a referrer
+        const targetUserRef = doc(firestore, 'users', targetUserId);
+        const targetUserDoc = await getDocs(query(collection(firestore, 'users'), where('id', '==', targetUserId)));
+
+        if (targetUserDoc.empty) {
+            throw new Error("User with this ID does not exist.");
+        }
+        const targetUserData = targetUserDoc.docs[0].data() as User;
+        if (targetUserData.referrerId) {
+            throw new Error("This user has already been referred by someone else.");
+        }
+
+        // Check if a pending request already exists
+        const existingRequestQuery = query(
+            collection(firestore, 'referral_requests'),
+            where('requesterId', '==', user.uid),
+            where('targetId', '==', targetUserId)
+        );
+        const existingRequestSnapshot = await getDocs(existingRequestQuery);
+        if (!existingRequestSnapshot.empty) {
+             const existingRequest = existingRequestSnapshot.docs[0].data() as ReferralRequest;
+             if(existingRequest.status === 'pending') {
+                throw new Error("You already have a pending request for this user.");
+             }
+             if(existingRequest.status === 'approved') {
+                 throw new Error("This user is already in your team.");
+             }
+        }
+        
+        await addDoc(collection(firestore, 'referral_requests'), {
+            requesterId: user.uid,
+            requesterName: userData.name,
+            targetId: targetUserId,
+            status: 'pending',
+            createdAt: serverTimestamp(),
+        });
+
+        toast({ title: 'Request Sent!', description: `Your request to add the user has been sent.` });
+        setTargetUserId('');
+
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally {
+        setIsSending(false);
+    }
   };
+
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-headline">Invite Friends</h1>
-        <p className="text-muted-foreground">Share your link and earn commissions on their first deposit.</p>
+        <p className="text-muted-foreground">Add members to your team and earn commissions.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-8">
         <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Invitation Link</CardTitle>
-            <CardDescription>Share this link with your friends to invite them to investPro.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="invitation-link">Your Unique Link</Label>
-              <div className="flex items-center space-x-2">
-                <Input id="invitation-link" value={invitationLink} readOnly />
-                <Button variant="outline" size="icon" onClick={copyToClipboard} disabled={!invitationLink}>
-                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                </Button>
+          <Card>
+            <CardHeader>
+              <CardTitle>Add Team Member</CardTitle>
+              <CardDescription>Enter the User ID of the person you want to invite.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="member-uid">Member's User ID</Label>
+                <div className="flex items-center space-x-2">
+                  <Input id="member-uid" value={targetUserId} onChange={e => setTargetUserId(e.target.value)} placeholder="Enter User ID..." />
+                  <Button onClick={handleSendRequest} disabled={isSending}>
+                    {isSending ? 'Sending...' : 'Send Request'}
+                  </Button>
+                </div>
               </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              When a user signs up using your link, you will earn {appSettings?.referralCommissionPercentage || 0}% commission on their first deposit.
-            </p>
-          </CardContent>
-        </Card>
+              <p className="text-xs text-muted-foreground">
+                When a user approves your request, you will earn {appSettings?.referralCommissionPercentage || 0}% commission on their future deposits.
+              </p>
+            </CardContent>
+          </Card>
         </div>
-        
+
         <div className="grid grid-cols-2 gap-8">
             <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
             <Card className="flex flex-col items-center justify-center text-center h-full">
@@ -85,7 +173,7 @@ export default function InvitationPage() {
                 <CardTitle className="text-4xl font-bold">{userData?.referralCount || 0}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Friends Invited</p>
+                <p className="text-muted-foreground">Team Members</p>
               </CardContent>
             </Card>
             </div>
@@ -100,6 +188,35 @@ export default function InvitationPage() {
             </Card>
             </div>
         </div>
+        
+        <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
+           <Card>
+                <CardHeader>
+                    <CardTitle>Sent Requests</CardTitle>
+                    <CardDescription>Track the status of your sent invitations.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>User</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Date</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoadingRequests && <TableRow><TableCell colSpan={3} className="text-center">Loading...</TableCell></TableRow>}
+                            {!isLoadingRequests && sentRequests?.length === 0 && <TableRow><TableCell colSpan={3} className="text-center">You haven't sent any requests yet.</TableCell></TableRow>}
+                            {sentRequests?.map(req => {
+                                const targetUser = allUsers?.find(u => u.id === req.targetId);
+                                return <SentRequestRow key={req.id} request={req} targetUser={targetUser} />
+                            })}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+           </Card>
+        </div>
+
       </div>
     </div>
   );

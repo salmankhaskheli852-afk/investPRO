@@ -51,7 +51,7 @@ export type User = {
   assignedWallets?: string[]; // array of admin wallet IDs
   permissions?: AgentPermissions;
   referralId: string; // User's own referral ID (same as user ID)
-  referrerId?: string; // The ID of the user who referred them
+  referrerId?: string | null; // The ID of the user who referred them
   referralCount?: number;
   referralIncome?: number;
   createdAt: Timestamp;
@@ -122,6 +122,15 @@ export type AppSettings = {
     verificationPopupTitle?: string;
     verificationPopupMessage?: string;
     verificationDepositAmount?: number;
+}
+
+export type ReferralRequest = {
+  id: string;
+  requesterId: string;
+  requesterName: string;
+  targetId: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: Timestamp;
 }
 
 // This is now seed data for Firestore, not used directly in the app.
