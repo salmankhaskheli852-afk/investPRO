@@ -2,21 +2,23 @@
 'use client';
 
 import React from 'react';
-import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, useAuth } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { collection, doc, orderBy, query, Timestamp } from 'firebase/firestore';
 import type { InvestmentPlan, User, Wallet, Transaction, UserInvestment } from '@/lib/data';
 import { DashboardStatsCard } from '@/components/dashboard-stats-card';
-import { DollarSign, TrendingUp, PiggyBank, GitBranch, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { DollarSign, TrendingUp, PiggyBank, GitBranch, ArrowDownToLine, ArrowUpFromLine, LogOut } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { signOut } from 'firebase/auth';
 
 export default function UserDashboardPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const firestore = useFirestore();
+  const auth = useAuth();
 
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
@@ -46,6 +48,12 @@ export default function UserDashboardPage() {
     [firestore]
   );
   const { data: allPlans } = useCollection<InvestmentPlan>(plansQuery);
+
+  const handleLogout = async () => {
+    if (!auth) return;
+    await signOut(auth);
+    router.push('/');
+  };
 
   const transactionTotals = React.useMemo(() => {
     if (!transactions) return { deposit: 0, withdraw: 0, income: 0, referral_income: 0 };
@@ -167,6 +175,13 @@ export default function UserDashboardPage() {
            )}
         </CardContent>
       </Card>
+
+      <div className="pt-4">
+        <Button variant="outline" className="w-full" onClick={handleLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign Out
+        </Button>
+      </div>
     </div>
   );
 }
