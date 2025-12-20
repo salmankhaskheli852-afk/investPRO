@@ -91,7 +91,7 @@ export default function UserDashboardPage() {
   }, [activeInvestments]);
 
   // Correctly calculate total earning balance
-  const totalEarningBalance = (walletData?.earningBalance || 0);
+  const totalEarningBalance = (walletData?.earningBalance || 0) + dailyIncome;
 
 
   if (isUserLoading || isUserDocLoading || isWalletLoading || isLoadingTransactions) {
