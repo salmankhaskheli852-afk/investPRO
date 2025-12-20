@@ -26,6 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { generateImageFromPrompt } from '@/ai/flows/image-generation-flow';
 
 export default function AppSettingsPage() {
   const [whatsappNumber, setWhatsappNumber] = React.useState('');
@@ -41,7 +42,7 @@ export default function AppSettingsPage() {
   const [userMaintenanceMessage, setUserMaintenanceMessage] = React.useState('');
   const [agentMaintenanceMode, setAgentMaintenanceMode] = React.useState(false);
   const [agentMaintenanceMessage, setAgentMaintenanceMessage] = React.useState('');
-  const [newImageUrl, setNewImageUrl] = React.useState('');
+  const [imagePrompt, setImagePrompt] = React.useState('');
 
   // Verification system state
   const [isVerificationEnabled, setIsVerificationEnabled] = React.useState(false);
@@ -50,6 +51,7 @@ export default function AppSettingsPage() {
   const [verificationDepositAmount, setVerificationDepositAmount] = React.useState('');
 
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = React.useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
 
@@ -121,16 +123,23 @@ export default function AppSettingsPage() {
     }
   };
   
-  const handleAddImage = async () => {
-    if (!settingsRef || !newImageUrl) return;
+  const handleGenerateAndAddImage = async () => {
+    if (!settingsRef || !imagePrompt) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please enter a description for the image.' });
+      return;
+    }
+    setIsGeneratingImage(true);
     try {
+      const { imageUrl } = await generateImageFromPrompt(imagePrompt);
       await updateDoc(settingsRef, {
-        carouselImages: arrayUnion(newImageUrl)
+        carouselImages: arrayUnion(imageUrl)
       });
-      toast({ title: 'Image Added' });
-      setNewImageUrl('');
+      toast({ title: 'Image Added', description: 'The new image has been generated and added to the carousel.' });
+      setImagePrompt('');
     } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Error', description: e.message });
+      toast({ variant: 'destructive', title: 'Image Generation Failed', description: e.message || 'Could not generate the image.' });
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
@@ -265,20 +274,24 @@ export default function AppSettingsPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Home Page Carousel</CardTitle>
-                    <CardDescription>Manage the images that appear in the user home page slider.</CardDescription>
+                    <CardDescription>Generate and manage images for the user home page slider.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="space-y-2">
-                        <Label htmlFor="new-image-url">New Image URL</Label>
+                        <Label htmlFor="image-prompt">Image Description</Label>
                         <div className="flex gap-2">
                             <Input
-                                id="new-image-url"
-                                value={newImageUrl}
-                                onChange={(e) => setNewImageUrl(e.target.value)}
-                                placeholder="https://..."
+                                id="image-prompt"
+                                value={imagePrompt}
+                                onChange={(e) => setImagePrompt(e.target.value)}
+                                placeholder="e.g., A luxurious car on a mountain road"
+                                disabled={isGeneratingImage}
                             />
-                            <Button onClick={handleAddImage}>Add Image</Button>
+                            <Button onClick={handleGenerateAndAddImage} disabled={isGeneratingImage}>
+                                {isGeneratingImage ? 'Generating...' : 'Generate & Add'}
+                            </Button>
                         </div>
+                         <p className="text-xs text-muted-foreground">Describe the image you want the AI to create.</p>
                     </div>
                     <Separator />
                     <div className="space-y-4">
