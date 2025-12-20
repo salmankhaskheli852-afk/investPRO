@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -185,6 +184,60 @@ export default function InvitationPage() {
               </CardContent>
             </Card>
             </div>
+        </div>
+
+        <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
+            <Card>
+                <CardHeader>
+                    <CardTitle>My Team</CardTitle>
+                    <CardDescription>Users you have successfully referred.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>User</TableHead>
+                                <TableHead>Date Joined</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoadingTeam ? (
+                                <TableRow>
+                                    <TableCell colSpan={2} className="h-24 text-center">
+                                        Loading team...
+                                    </TableCell>
+                                </TableRow>
+                            ) : myTeam && myTeam.length > 0 ? (
+                                myTeam.map(member => (
+                                    <TableRow key={member.id}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-3">
+                                                <Avatar>
+                                                    <AvatarImage src={member.avatarUrl} alt={member.name} />
+                                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <div className="font-medium">{member.name}</div>
+                                                    <div className="text-sm text-muted-foreground">{member.email}</div>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {member.createdAt ? format(member.createdAt.toDate(), 'PPP') : 'N/A'}
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={2} className="h-24 text-center">
+                                        You haven't referred any users yet.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
         </div>
 
       </div>
