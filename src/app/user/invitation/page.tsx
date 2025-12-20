@@ -13,6 +13,8 @@ import { doc, collection, query, where, addDoc, serverTimestamp, getDocs } from 
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
 
 
 export default function InvitationPage() {
@@ -68,9 +70,6 @@ export default function InvitationPage() {
 
         if (targetUserId === user.uid) {
             throw new Error('You cannot refer yourself.');
-        }
-        if (targetUserData.referrerId) {
-            throw new Error("This user has already been referred by someone else.");
         }
 
         const existingRequestQuery = query(
@@ -164,57 +163,6 @@ export default function InvitationPage() {
               </CardContent>
             </Card>
             </div>
-        </div>
-
-         <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-            <Card>
-                <CardHeader>
-                    <CardTitle>My Team</CardTitle>
-                    <CardDescription>A list of users you have successfully referred.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>User</TableHead>
-                                <TableHead>Joined On</TableHead>
-                                <TableHead>Total Deposit</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoadingTeam && (
-                                <TableRow>
-                                    <TableCell colSpan={3} className="text-center h-24">Loading team...</TableCell>
-                                </TableRow>
-                            )}
-                            {!isLoadingTeam && myTeam && myTeam.length > 0 ? (
-                                myTeam.map(member => (
-                                    <TableRow key={member.id}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <Avatar className="h-9 w-9">
-                                                    <AvatarImage src={member.avatarUrl} alt={member.name} />
-                                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <div className="font-medium">{member.name}</div>
-                                                    <div className="text-sm text-muted-foreground">{member.email}</div>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>{member.createdAt ? format(member.createdAt.toDate(), 'PP') : 'N/A'}</TableCell>
-                                        <TableCell>{(member.totalDeposit || 0).toLocaleString()} PKR</TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={3} className="text-center h-24">You have not referred any users yet.</TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
         </div>
 
       </div>
