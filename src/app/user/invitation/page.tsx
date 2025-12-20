@@ -45,13 +45,14 @@ export default function InvitationPage() {
 
     try {
         // Check if target user exists and doesn't already have a referrer
-        const targetUserRef = doc(firestore, 'users', targetUserId);
-        const targetUserDoc = await getDocs(query(collection(firestore, 'users'), where('id', '==', targetUserId)));
+        const targetUserQuery = query(collection(firestore, 'users'), where('id', '==', targetUserId));
+        const targetUserSnapshot = await getDocs(targetUserQuery);
 
-        if (targetUserDoc.empty) {
+
+        if (targetUserSnapshot.empty) {
             throw new Error("User with this ID does not exist.");
         }
-        const targetUserData = targetUserDoc.docs[0].data() as User;
+        const targetUserData = targetUserSnapshot.docs[0].data() as User;
         if (targetUserData.referrerId) {
             throw new Error("This user has already been referred by someone else.");
         }
