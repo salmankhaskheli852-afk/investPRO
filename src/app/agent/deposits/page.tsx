@@ -15,19 +15,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { User, Transaction, AdminWallet } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, getDoc, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc, collectionGroup, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
-function DepositRequestRow({ tx, user, adminWallets }: { tx: Transaction; user: User | undefined, adminWallets: AdminWallet[] | null }) {
+function DepositRequestRow({ tx, user, adminWallets, onUpdate }: { tx: Transaction; user: User | undefined, adminWallets: AdminWallet[] | null, onUpdate: () => void }) {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { user: agentUser } = useUser();
   const [isProcessing, setIsProcessing] = React.useState(false);
 
   const handleUpdateStatus = async (newStatus: 'completed' | 'failed') => {
-    if (!firestore || !user) return;
+    if (!firestore || !user || !agentUser) return;
     setIsProcessing(true);
 
     const globalTransactionRef = doc(firestore, 'transactions', tx.id);
@@ -35,24 +36,32 @@ function DepositRequestRow({ tx, user, adminWallets }: { tx: Transaction; user: 
     const walletRef = doc(firestore, 'users', user.id, 'wallets', 'main');
 
     try {
-      const batch = writeBatch(firestore);
+        await runTransaction(firestore, async (transaction) => {
+            const walletDoc = await transaction.get(walletRef);
+            if (!walletDoc.exists()) {
+                throw new Error("Wallet not found!");
+            }
+            const currentBalance = walletDoc.data().balance;
 
-      if (newStatus === 'completed') {
-        const walletSnapshot = await getDoc(walletRef);
-        const walletData = walletSnapshot.data();
-        const currentBalance = walletData?.balance || 0;
-        batch.update(walletRef, { balance: currentBalance + tx.amount });
-      }
+            if (newStatus === 'completed') {
+                transaction.update(walletRef, { balance: currentBalance + tx.amount });
+            }
 
-      batch.update(globalTransactionRef, { status: newStatus });
-      batch.update(userTransactionRef, { status: newStatus });
+            const updateData = {
+                status: newStatus,
+                approverId: agentUser.uid,
+            };
 
-      await batch.commit();
+            transaction.update(globalTransactionRef, updateData);
+            transaction.update(userTransactionRef, updateData);
+        });
 
       toast({
         title: `Request ${newStatus}`,
         description: `The deposit request for ${tx.amount} PKR has been ${newStatus}.`,
       });
+      onUpdate();
+
     } catch (e: any) {
       toast({
         variant: 'destructive',
@@ -154,7 +163,7 @@ export default function AgentDepositsPage() {
     },
     [firestore, agentUser]
   );
-  const { data: depositRequests, isLoading: isLoadingDeposits } = useCollection<Transaction>(depositsQuery);
+  const { data: depositRequests, isLoading: isLoadingDeposits, forceRefetch } = useCollection<Transaction>(depositsQuery);
   
   const findUserForTx = (tx: Transaction) => allUsers?.find(u => u.id === tx.details?.userId);
   
@@ -227,7 +236,7 @@ export default function AgentDepositsPage() {
                 </TableRow>
               ) : filteredRequests && filteredRequests.length > 0 ? (
                 filteredRequests.map((tx) => (
-                  <DepositRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} adminWallets={adminWallets} />
+                  <DepositRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} adminWallets={adminWallets} onUpdate={forceRefetch} />
                 ))
               ) : (
                 <TableRow>

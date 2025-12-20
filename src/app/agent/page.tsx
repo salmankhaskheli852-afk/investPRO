@@ -8,9 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { User, Transaction, InvestmentPlan } from '@/lib/data';
-import { DollarSign, Users, Activity } from 'lucide-react';
+import { DollarSign, Users, Activity, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 
@@ -49,18 +49,34 @@ export default function AgentDashboardPage() {
   );
   const { data: userActivities, isLoading: isLoadingActivities } = useCollection<Transaction>(userActivitiesQuery);
 
-  const totalCommission = React.useMemo(() => {
-    if (!userActivities || !investmentPlans) return 0;
-    return userActivities.reduce((acc, tx) => {
-        if (tx.type === 'investment' && tx.status === 'completed') {
-            const plan = investmentPlans.find(p => p.id === tx.details.planId);
-            if (plan) {
-                 return acc + (plan.price * 0.05); // 5% commission
-            }
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayStartTimestamp = Timestamp.fromDate(todayStart);
+
+  const todaysApprovalsQuery = useMemoFirebase(() => {
+    if (!firestore || !agentUser) return null;
+    return query(
+      collection(firestore, 'transactions'),
+      where('approverId', '==', agentUser.uid),
+      where('status', '==', 'completed'),
+      where('date', '>=', todayStartTimestamp)
+    );
+  }, [firestore, agentUser]);
+
+  const { data: todaysApprovals, isLoading: isLoadingApprovals } = useCollection<Transaction>(todaysApprovalsQuery);
+  
+  const dailyStats = React.useMemo(() => {
+    if (!todaysApprovals) return { deposit: 0, withdrawal: 0 };
+    return todaysApprovals.reduce((acc, tx) => {
+        if (tx.type === 'deposit') {
+            acc.deposit += tx.amount;
+        } else if (tx.type === 'withdrawal') {
+            acc.withdrawal += tx.amount;
         }
         return acc;
-    }, 0);
-  }, [userActivities, investmentPlans]);
+    }, { deposit: 0, withdrawal: 0 });
+  }, [todaysApprovals]);
+
   
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -75,13 +91,13 @@ export default function AgentDashboardPage() {
     }
   };
   
-  const isLoading = isUserLoading || isLoadingUsers || isLoadingActivities;
+  const isLoading = isUserLoading || isLoadingUsers || isLoadingActivities || isLoadingApprovals;
 
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-bold font-headline">Agent Dashboard</h1>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <DashboardStatsCard
           title="My Users"
           value={isLoadingUsers ? '...' : (managedUsers?.length || 0).toString()}
@@ -92,9 +108,25 @@ export default function AgentDashboardPage() {
         />
         <DashboardStatsCard
           title="Total Commission"
-          value={`${totalCommission.toLocaleString('en-US', { style: 'currency', currency: 'PKR' })}`}
+          value={`PKR 0.00`}
           description="Your estimated earnings"
           Icon={DollarSign}
+          chartData={[]}
+          chartKey=''
+        />
+        <DashboardStatsCard
+          title="Today's Approved Deposits"
+          value={`${dailyStats.deposit.toLocaleString()} PKR`}
+          description="Total amount you approved today"
+          Icon={ArrowDownToLine}
+          chartData={[]}
+          chartKey=''
+        />
+         <DashboardStatsCard
+          title="Today's Approved Withdrawals"
+          value={`${dailyStats.withdrawal.toLocaleString()} PKR`}
+          description="Total amount you approved today"
+          Icon={ArrowUpFromLine}
           chartData={[]}
           chartKey=''
         />

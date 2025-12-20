@@ -21,18 +21,17 @@ import { useToast } from '@/hooks/use-toast';
 import { Check, X, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
-function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | undefined }) {
+function WithdrawalRequestRow({ tx, user, onUpdate }: { tx: Transaction; user: User | undefined; onUpdate: () => void }) {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { user: agentUser } = useUser();
   const [isProcessing, setIsProcessing] = React.useState(false);
 
   const handleUpdateStatus = async (newStatus: 'completed' | 'failed') => {
-    if (!firestore || !user) return;
+    if (!firestore || !user || !agentUser) return;
     setIsProcessing(true);
     
-    // This is the reference to the transaction in the top-level /transactions collection
     const globalTransactionRef = doc(firestore, 'transactions', tx.id);
-    // This is the reference to the transaction in the user's subcollection
     const userTransactionRef = doc(firestore, 'users', user.id, 'wallets', 'main', 'transactions', tx.id);
     const walletRef = doc(firestore, 'users', user.id, 'wallets', 'main');
 
@@ -45,10 +44,14 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
         const currentBalance = walletData?.balance || 0;
         batch.update(walletRef, { balance: currentBalance + tx.amount });
       }
+      
+      const updateData = {
+        status: newStatus,
+        approverId: agentUser.uid,
+      };
 
-      // Update both transaction documents
-      batch.update(globalTransactionRef, { status: newStatus });
-      batch.update(userTransactionRef, { status: newStatus });
+      batch.update(globalTransactionRef, updateData);
+      batch.update(userTransactionRef, updateData);
 
       await batch.commit();
 
@@ -56,6 +59,7 @@ function WithdrawalRequestRow({ tx, user }: { tx: Transaction; user: User | unde
         title: `Request ${newStatus}`,
         description: `The withdrawal request for ${tx.amount} PKR has been ${newStatus}.`,
       });
+      onUpdate();
     } catch (e: any) {
       toast({
         variant: 'destructive',
@@ -134,7 +138,7 @@ export default function AgentWithdrawalsPage() {
     () => (firestore && agentUser ? query(collection(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null),
     [firestore, agentUser]
   );
-  const { data: withdrawalRequests, isLoading: isLoadingWithdrawals } = useCollection<Transaction>(withdrawalsQuery);
+  const { data: withdrawalRequests, isLoading: isLoadingWithdrawals, forceRefetch } = useCollection<Transaction>(withdrawalsQuery);
   
   const findUserForTx = (tx: Transaction) => allUsers?.find(u => u.id === tx.details?.userId);
   
@@ -198,7 +202,7 @@ export default function AgentWithdrawalsPage() {
                 </TableRow>
               ) : filteredRequests && filteredRequests.length > 0 ? (
                 filteredRequests.map((tx) => (
-                  <WithdrawalRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} />
+                  <WithdrawalRequestRow key={tx.id} tx={tx} user={findUserForTx(tx)} onUpdate={forceRefetch} />
                 ))
               ) : (
                 <TableRow>
