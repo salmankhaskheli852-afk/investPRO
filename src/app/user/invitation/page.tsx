@@ -8,25 +8,13 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import type { User, AppSettings, ReferralRequest, Transaction } from '@/lib/data';
+import type { User, AppSettings, ReferralRequest } from '@/lib/data';
 import { doc, collection, query, where, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 
 function TeamMemberRow({ member }: { member: User }) {
-  const firestore = useFirestore();
-  const transactionsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'users', member.id, 'wallets', 'main', 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'completed')) : null,
-    [firestore, member.id]
-  );
-  const { data: depositTransactions, isLoading } = useCollection<Transaction>(transactionsQuery);
-
-  const totalDeposit = React.useMemo(() => {
-    if (!depositTransactions) return 0;
-    return depositTransactions.reduce((sum, tx) => sum + tx.amount, 0);
-  }, [depositTransactions]);
-
   return (
     <TableRow key={member.id}>
       <TableCell>
@@ -43,7 +31,7 @@ function TeamMemberRow({ member }: { member: User }) {
       </TableCell>
       <TableCell>{member.createdAt ? format(member.createdAt.toDate(), 'PP') : 'N/A'}</TableCell>
       <TableCell className="text-right">
-        {isLoading ? '...' : `${totalDeposit.toLocaleString()} PKR`}
+        {(member.totalDeposit || 0).toLocaleString()} PKR
       </TableCell>
     </TableRow>
   );

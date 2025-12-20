@@ -70,6 +70,10 @@ function DepositRequestRow({ tx, user, onUpdate, adminWallets }: { tx: Transacti
         if (newStatus === 'completed') {
           // 1. Update wallet balance
           transaction.update(walletRef, { balance: currentBalance + tx.amount });
+          
+          // Denormalize totalDeposit on user profile
+          const newTotalDeposit = (currentUserData.totalDeposit || 0) + tx.amount;
+          transaction.update(userRef, { totalDeposit: newTotalDeposit });
 
           // 2. Handle account verification
           if (appSettings?.isVerificationEnabled && !currentUserData.isVerified) {

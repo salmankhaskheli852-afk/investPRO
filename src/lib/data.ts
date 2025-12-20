@@ -56,6 +56,7 @@ export type User = {
   referralIncome?: number;
   createdAt: Timestamp;
   isVerified?: boolean;
+  totalDeposit?: number;
 };
 
 export type Wallet = {
