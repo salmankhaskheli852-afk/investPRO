@@ -81,6 +81,11 @@ service cloud.firestore {
         allow read: if isUserAuthenticated();
     }
 
+    // Any authenticated user can read withdrawal methods.
+    match /withdrawal_methods/{methodId} {
+      allow read: if isUserAuthenticated();
+    }
+
     // Anyone can read chat settings for the WhatsApp widget.
     match /app_config/{setting} {
       allow get: if true;
@@ -89,7 +94,7 @@ service cloud.firestore {
     // Admins can list transactions. Regular users can create new ones.
     match /transactions/{transactionId} {
       allow create: if isUserAuthenticated();
-      allow list: if isAdmin();
+      allow list: if isAdmin() || isAgent();
     }
   }
 }
