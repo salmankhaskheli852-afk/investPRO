@@ -86,15 +86,18 @@ export function Header() {
                 description: 'The share link has been copied to your clipboard.',
             });
         }
-    } catch (err) {
-        // Handle cases where sharing is cancelled or fails
-        console.error('Error sharing:', err);
-        // Fallback to clipboard copy if navigator.share fails (e.g., on desktop)
-        navigator.clipboard.writeText(shareLink);
-        toast({
-            title: 'Link Copied!',
-            description: 'The share link has been copied to your clipboard.',
-        });
+    } catch (err: any) {
+        // If the user cancels the share dialog, it throws a "NotAllowedError".
+        // We catch it and fall back to copying the link to the clipboard.
+        if (err.name === 'NotAllowedError') {
+             navigator.clipboard.writeText(shareLink);
+             toast({
+                title: 'Link Copied!',
+                description: 'The share link has been copied to your clipboard.',
+            });
+        } else {
+            console.error('Error sharing:', err);
+        }
     }
 };
 
