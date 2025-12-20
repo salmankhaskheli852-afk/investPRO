@@ -8,10 +8,10 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
-export const GenerateImageInputSchema = z.string().describe('The text prompt to generate an image from.');
+const GenerateImageInputSchema = z.string().describe('The text prompt to generate an image from.');
 export type GenerateImageInput = z.infer<typeof GenerateImageInputSchema>;
 
-export const GenerateImageOutputSchema = z.object({
+const GenerateImageOutputSchema = z.object({
     imageUrl: z.string().describe("The generated image as a data URI. Format: 'data:<mimetype>;base64,<encoded_data>'."),
 });
 export type GenerateImageOutput = z.infer<typeof GenerateImageOutputSchema>;
