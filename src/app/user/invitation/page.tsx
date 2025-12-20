@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -6,16 +7,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useDoc, useUser, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import type { User, AppSettings, ReferralRequest } from '@/lib/data';
-import { doc, collection, query, where, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { doc, collection, query, where, addDoc, serverTimestamp, getDocs, orderBy } from 'firebase/firestore';
 
 export default function InvitationPage() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [targetUserId, setTargetUserId] = React.useState('');
+  const [targetIdentifier, setTargetIdentifier] = React.useState('');
   const [isSending, setIsSending] = React.useState(false);
 
   const userDocRef = useMemoFirebase(
@@ -32,32 +33,38 @@ export default function InvitationPage() {
   
   const handleSendRequest = async () => {
     if (!user || !firestore || !userData) return;
-    if (!targetUserId) {
-        toast({ variant: 'destructive', title: 'User ID is required' });
-        return;
-    }
-    if (targetUserId === user.uid) {
-        toast({ variant: 'destructive', title: 'Invalid Action', description: 'You cannot refer yourself.' });
+    if (!targetIdentifier) {
+        toast({ variant: 'destructive', title: 'User ID or Email is required' });
         return;
     }
     
     setIsSending(true);
 
     try {
-        // Check if target user exists and doesn't already have a referrer
-        const targetUserQuery = query(collection(firestore, 'users'), where('id', '==', targetUserId));
-        const targetUserSnapshot = await getDocs(targetUserQuery);
+        // Step 1: Find the target user by either ID or Email
+        const isEmail = targetIdentifier.includes('@');
+        
+        const findUserQuery = isEmail 
+            ? query(collection(firestore, 'users'), where('email', '==', targetIdentifier))
+            : query(collection(firestore, 'users'), where('id', '==', targetIdentifier));
 
+        const targetUserSnapshot = await getDocs(findUserQuery);
 
         if (targetUserSnapshot.empty) {
-            throw new Error("User with this ID does not exist.");
+            throw new Error("User not found with the provided ID or Email.");
         }
+        
         const targetUserData = targetUserSnapshot.docs[0].data() as User;
+        const targetUserId = targetUserData.id;
+
+        if (targetUserId === user.uid) {
+            throw new Error('You cannot refer yourself.');
+        }
         if (targetUserData.referrerId) {
             throw new Error("This user has already been referred by someone else.");
         }
 
-        // Check if a pending request already exists
+        // Step 2: Check if a request already exists
         const existingRequestQuery = query(
             collection(firestore, 'referral_requests'),
             where('requesterId', '==', user.uid),
@@ -74,6 +81,7 @@ export default function InvitationPage() {
              }
         }
         
+        // Step 3: Create the request
         await addDoc(collection(firestore, 'referral_requests'), {
             requesterId: user.uid,
             requesterName: userData.name,
@@ -83,7 +91,7 @@ export default function InvitationPage() {
         });
 
         toast({ title: 'Request Sent!', description: `Your request to add the user has been sent.` });
-        setTargetUserId('');
+        setTargetIdentifier('');
 
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Error', description: e.message });
@@ -105,13 +113,13 @@ export default function InvitationPage() {
           <Card>
             <CardHeader>
               <CardTitle>Add Team Member</CardTitle>
-              <CardDescription>Enter the User ID of the person you want to invite.</CardDescription>
+              <CardDescription>Enter the User ID or Email of the person you want to invite.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="member-uid">Member's User ID</Label>
+                <Label htmlFor="member-uid">Member's User ID or Email</Label>
                 <div className="flex items-center space-x-2">
-                  <Input id="member-uid" value={targetUserId} onChange={e => setTargetUserId(e.target.value)} placeholder="Enter User ID..." />
+                  <Input id="member-uid" value={targetIdentifier} onChange={e => setTargetIdentifier(e.target.value)} placeholder="Enter User ID or Email..." />
                   <Button onClick={handleSendRequest} disabled={isSending}>
                     {isSending ? 'Sending...' : 'Send Request'}
                   </Button>
