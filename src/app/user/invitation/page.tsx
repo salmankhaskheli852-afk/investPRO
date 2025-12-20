@@ -10,8 +10,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useDoc, useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import type { User, AppSettings, ReferralRequest } from '@/lib/data';
 import { doc, collection, query, where, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Info } from 'lucide-react';
+import { format } from 'date-fns';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
 export default function InvitationPage() {
@@ -50,10 +51,6 @@ export default function InvitationPage() {
     setIsSending(true);
 
     try {
-        if(userData.referrerId) {
-            throw new Error("You are already part of a team and cannot refer others.");
-        }
-
         const isEmail = targetIdentifier.includes('@');
         
         const findUserQuery = isEmail 
@@ -112,8 +109,6 @@ export default function InvitationPage() {
     }
   };
 
-  const alreadyReferred = !isLoadingUser && userData?.referrerId;
-
 
   return (
     <div className="space-y-8">
@@ -124,16 +119,7 @@ export default function InvitationPage() {
 
       <div className="grid grid-cols-1 gap-8">
         
-        {alreadyReferred ? (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>Referral Not Available</AlertTitle>
-              <AlertDescription>
-                You are already part of a team, so you cannot refer other users.
-              </AlertDescription>
-            </Alert>
-        ) : (
-          <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
+        <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
             <Card>
               <CardHeader>
                 <CardTitle>Add Team Member</CardTitle>
@@ -154,8 +140,8 @@ export default function InvitationPage() {
                 </p>
               </CardContent>
             </Card>
-          </div>
-        )}
+        </div>
+        
 
         <div className="grid grid-cols-2 gap-8">
             <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
@@ -178,6 +164,57 @@ export default function InvitationPage() {
               </CardContent>
             </Card>
             </div>
+        </div>
+
+         <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
+            <Card>
+                <CardHeader>
+                    <CardTitle>My Team</CardTitle>
+                    <CardDescription>A list of users you have successfully referred.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>User</TableHead>
+                                <TableHead>Joined On</TableHead>
+                                <TableHead>Total Deposit</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoadingTeam && (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="text-center h-24">Loading team...</TableCell>
+                                </TableRow>
+                            )}
+                            {!isLoadingTeam && myTeam && myTeam.length > 0 ? (
+                                myTeam.map(member => (
+                                    <TableRow key={member.id}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="h-9 w-9">
+                                                    <AvatarImage src={member.avatarUrl} alt={member.name} />
+                                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <div className="font-medium">{member.name}</div>
+                                                    <div className="text-sm text-muted-foreground">{member.email}</div>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>{member.createdAt ? format(member.createdAt.toDate(), 'PP') : 'N/A'}</TableCell>
+                                        <TableCell>{(member.totalDeposit || 0).toLocaleString()} PKR</TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="text-center h-24">You have not referred any users yet.</TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
         </div>
 
       </div>

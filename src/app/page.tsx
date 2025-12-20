@@ -180,24 +180,23 @@ function HomePageContent() {
         await batch.commit();
     } else {
         // User already exists, check if they are being referred now but weren't before.
-        const existingUserData = userDoc.data() as User;
         const referrerId = searchParams.get('ref') || null;
-        if (referrerId && !existingUserData.referrerId) {
-            // This user was not referred before, but is now signing in with a referral link.
-            // Let's assign the referrer.
-            const batch = writeBatch(firestore);
-            
-            // 1. Update the current user's referrerId
-            batch.update(userRef, { referrerId: referrerId });
-
-            // 2. Increment the referrer's count
-            const referrerRef = doc(firestore, 'users', referrerId);
-            const referrerDoc = await getDoc(referrerRef);
-            if (referrerDoc.exists()) {
-                batch.update(referrerRef, { referralCount: increment(1) });
+        if (referrerId) {
+            // This logic is simplified. A referred user should not be able to be re-referred.
+            // But we will allow a user without a referrer to gain one.
+            const existingUserData = userDoc.data() as User;
+            if (!existingUserData.referrerId) {
+                const batch = writeBatch(firestore);
+                // 1. Update the current user's referrerId
+                batch.update(userRef, { referrerId: referrerId });
+                // 2. Increment the referrer's count
+                const referrerRef = doc(firestore, 'users', referrerId);
+                const referrerDoc = await getDoc(referrerRef);
+                if (referrerDoc.exists()) {
+                    batch.update(referrerRef, { referralCount: increment(1) });
+                }
+                await batch.commit();
             }
-            
-            await batch.commit();
         }
     }
 };
