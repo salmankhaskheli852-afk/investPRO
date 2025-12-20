@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -9,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import type { User, AppSettings, ReferralRequest } from '@/lib/data';
-import { doc, collection, query, where, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { doc, collection, query, where, addDoc, serverTimestamp, getDocs, orderBy } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
@@ -36,7 +35,7 @@ function SentRequestRow({ request, targetUser }: { request: ReferralRequest; tar
           {request.status}
         </Badge>
       </TableCell>
-      <TableCell>{format(request.createdAt.toDate(), 'PP')}</TableCell>
+      <TableCell>{request.createdAt.toDate().toLocaleDateString()}</TableCell>
     </TableRow>
   );
 }
