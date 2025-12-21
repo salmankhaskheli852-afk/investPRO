@@ -152,14 +152,14 @@ function LoginPageContent() {
     <main className="flex min-h-screen flex-col items-center justify-center bg-login-gradient p-4">
       <div className="w-full max-w-sm rounded-xl p-1 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card className="shadow-lg">
-          <CardContent className="p-8">
-            <div className="flex flex-col justify-center items-center gap-2 mb-8">
+          <CardContent className="p-0">
+            <div className="flex flex-col justify-center items-center gap-2 py-8">
               <Image src="/logo.png" alt="investPro Logo" width={128} height={128} />
               <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
               <p className="text-muted-foreground text-sm text-center">Your trusted partner in modern investments.</p>
             </div>
             
-            <div className="space-y-6">
+            <div className="space-y-6 px-8 pb-8">
                 <Button onClick={handleGoogleSignIn} className="w-full h-12 text-md" disabled={isProcessing}>
                     {isProcessing ? (
                         'Signing in...'
@@ -186,7 +186,7 @@ function LoginPageContent() {
                 </div>
             </div>
             
-            <div className="mt-8 flex justify-around text-muted-foreground">
+            <div className="mt-8 flex justify-around text-muted-foreground p-8 border-t">
                 <div className="flex items-center gap-2 text-xs">
                     <ShieldCheck className="h-4 w-4 text-green-500" />
                     <span>Secure</span>
