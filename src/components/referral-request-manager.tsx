@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -27,7 +26,7 @@ export function ReferralRequestManager() {
   const incomingRequestsQuery = useMemoFirebase(
     () => user && firestore ? query(
       collection(firestore, 'referral_requests'),
-      where('targetId', '==', user.uid),
+      where('requesterId', '==', user.uid),
       where('status', '==', 'pending')
     ) : null,
     [user, firestore]
@@ -37,11 +36,33 @@ export function ReferralRequestManager() {
 
   React.useEffect(() => {
     if (incomingRequests && incomingRequests.length > 0) {
-      setRequestToProcess(incomingRequests[0]);
+      // Find the first request that is being sent TO someone else, but initiated BY the current user.
+      // This seems to be the logic based on the user's latest request. Let's adjust this.
+      // The user who needs to approve the request is the `targetId`.
+      // So the query should be `where('targetId', '==', user.uid)`
+      // Let's correct this logic.
+    }
+  }, [incomingRequests]);
+
+  // Correct query to find requests SENT TO the current user
+  const correctIncomingRequestsQuery = useMemoFirebase(
+    () => user && firestore ? query(
+      collection(firestore, 'referral_requests'),
+      where('targetId', '==', user.uid),
+      where('status', '==', 'pending')
+    ) : null,
+    [user, firestore]
+  );
+  const { data: correctIncomingRequests } = useCollection<ReferralRequest>(correctIncomingRequestsQuery);
+
+  React.useEffect(() => {
+    if (correctIncomingRequests && correctIncomingRequests.length > 0) {
+      setRequestToProcess(correctIncomingRequests[0]);
     } else {
       setRequestToProcess(null);
     }
-  }, [incomingRequests]);
+  }, [correctIncomingRequests]);
+
 
   const handleResponse = async (approved: boolean) => {
     if (!requestToProcess || !user || !firestore) return;
@@ -55,7 +76,7 @@ export function ReferralRequestManager() {
              const batch = writeBatch(firestore);
              // 1. Update the request status to 'approved'
              batch.update(requestRef, { status: 'approved' });
-             // 2. Set the referrerId for the current user
+             // 2. Set the referrerId for the current user (the target of the request)
              batch.update(currentUserRef, { referrerId: requestToProcess.requesterId });
              
              await batch.commit();

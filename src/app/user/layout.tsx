@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -9,6 +8,7 @@ import { doc } from 'firebase/firestore';
 import { MaintenancePage } from '@/components/maintenance-page';
 import { VerificationPopup } from '@/components/verification-popup';
 import { BottomNav } from '@/components/layout/bottom-nav';
+import { ReferralRequestManager } from '@/components/referral-request-manager';
 
 
 export default function UserLayout({
@@ -57,7 +57,7 @@ export default function UserLayout({
         <Header />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24">
           {showVerificationPopup && <VerificationPopup />}
-          
+          <ReferralRequestManager />
           {children}
         </main>
         <WhatsAppWidget />
