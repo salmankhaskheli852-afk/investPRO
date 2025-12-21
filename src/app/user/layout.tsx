@@ -53,7 +53,7 @@ export default function UserLayout({
   const showVerificationPopup = appSettings?.isVerificationEnabled && userData && !userData.isVerified;
 
   return (
-    <div className="bg-muted min-h-screen">
+    <div className="bg-login-gradient min-h-screen">
       <div className="relative mx-auto max-w-md min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24">
