@@ -67,7 +67,7 @@ export default function Home() {
     } catch (error: any) {
       console.error("OTP send error:", error);
       toast({ variant: 'destructive', title: 'Failed to Send OTP', description: error.message });
-       // Reset reCAPTCHA
+       // Reset reCAPTCHA on error to allow retries
       if (window.recaptchaVerifier) {
         window.recaptchaVerifier.render().then((widgetId) => {
            // @ts-ignore
