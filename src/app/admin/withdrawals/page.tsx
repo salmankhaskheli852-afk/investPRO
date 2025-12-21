@@ -15,13 +15,33 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import type { User, Transaction, Wallet } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, getDoc, increment } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc, increment, deleteDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X, Search } from 'lucide-react';
+import { Check, X, Search, MoreHorizontal, Eye, Trash2, ShieldX } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import Link from 'next/link';
 
-function WithdrawalRequestRow({ tx }: { tx: Transaction }) {
+function WithdrawalRequestRow({ tx, onUpdate }: { tx: Transaction; onUpdate: () => void }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = React.useState(false);
@@ -50,16 +70,10 @@ function WithdrawalRequestRow({ tx }: { tx: Transaction }) {
     try {
       const batch = writeBatch(firestore);
 
-      // If the request failed, refund the amount to the user's balance.
-      // The amount was already deducted when the request was made.
       if (newStatus === 'failed') {
         batch.update(walletRef, { balance: increment(tx.amount) });
       }
 
-      // If completed, the amount is already deducted, so no balance change is needed.
-      // We just confirm the status.
-
-      // Update both transaction documents
       batch.update(globalTransactionRef, { status: newStatus });
       batch.update(userTransactionRef, { status: newStatus });
 
@@ -69,6 +83,7 @@ function WithdrawalRequestRow({ tx }: { tx: Transaction }) {
         title: `Request ${newStatus}`,
         description: `The withdrawal request for ${tx.amount} PKR has been ${newStatus}.`,
       });
+      onUpdate();
     } catch (e: any) {
       toast({
         variant: 'destructive',
@@ -79,6 +94,31 @@ function WithdrawalRequestRow({ tx }: { tx: Transaction }) {
       setIsProcessing(false);
     }
   };
+
+  const handleDelete = async () => {
+    if (!firestore || !user) return;
+    setIsProcessing(true);
+    const globalTransactionRef = doc(firestore, 'transactions', tx.id);
+    const userTransactionRef = doc(firestore, 'users', user.id, 'wallets', 'main', 'transactions', tx.id);
+    
+    try {
+        const batch = writeBatch(firestore);
+        batch.delete(globalTransactionRef);
+        batch.delete(userTransactionRef);
+        await batch.commit();
+        toast({ title: 'Request Deleted', description: 'The withdrawal request has been deleted.' });
+        onUpdate();
+    } catch (e: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error deleting request',
+            description: e.message
+        });
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
 
   const details = tx.details || {};
 
@@ -112,27 +152,76 @@ function WithdrawalRequestRow({ tx }: { tx: Transaction }) {
         {tx.date ? format(tx.date.toDate(), 'PPp') : 'N/A'}
       </TableCell>
       <TableCell className="text-right">
-        <div className="flex gap-2 justify-end">
-          <Button
-            size="sm"
-            variant="outline"
-            className="bg-green-500/10 text-green-700 hover:bg-green-500/20 hover:text-green-800"
-            onClick={() => handleUpdateStatus('completed')}
-            disabled={isProcessing || isLoadingUser || isLoadingWallet}
-          >
-            <Check className="mr-2 h-4 w-4" />
-            Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => handleUpdateStatus('failed')}
-            disabled={isProcessing || isLoadingUser || isLoadingWallet}
-          >
-             <X className="mr-2 h-4 w-4" />
-            Reject
-          </Button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" disabled={isProcessing}>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+             {userId && (
+              <DropdownMenuItem asChild>
+                <Link href={`/admin/users/${userId}`}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View User Details
+                </Link>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              className="text-green-600 focus:text-green-700"
+              onClick={() => handleUpdateStatus('completed')}
+            >
+              <Check className="mr-2 h-4 w-4" />
+              Approve
+            </DropdownMenuItem>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
+                  <ShieldX className="mr-2 h-4 w-4" />
+                  Mark as Fake
+                </div>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Mark as Fake?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will mark the request as 'failed' and refund the amount to the user. Are you sure?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleUpdateStatus('failed')}>
+                    Confirm
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </div>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this request?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone and will permanently delete the request. The user's balance will not be refunded.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDelete}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
     </TableRow>
   );
@@ -147,7 +236,7 @@ export default function AdminWithdrawalsPage() {
     () => (firestore && adminUser ? query(collection(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', '==', 'pending')) : null),
     [firestore, adminUser]
   );
-  const { data: withdrawalRequests, isLoading: isLoadingWithdrawals } = useCollection<Transaction>(withdrawalsQuery);
+  const { data: withdrawalRequests, isLoading: isLoadingWithdrawals, forceRefetch } = useCollection<Transaction>(withdrawalsQuery);
   
   const filteredRequests = React.useMemo(() => {
     if (!withdrawalRequests) return [];
@@ -196,13 +285,13 @@ export default function AdminWithdrawalsPage() {
             <TableBody>
               {isLoadingWithdrawals ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={5} className="text-center h-24">
                     Loading requests...
                   </TableCell>
                 </TableRow>
               ) : filteredRequests && filteredRequests.length > 0 ? (
                 filteredRequests.map((tx) => (
-                  <WithdrawalRequestRow key={tx.id} tx={tx} />
+                  <WithdrawalRequestRow key={tx.id} tx={tx} onUpdate={forceRefetch}/>
                 ))
               ) : (
                 <TableRow>
@@ -219,5 +308,3 @@ export default function AdminWithdrawalsPage() {
     </div>
   );
 }
-
-    
