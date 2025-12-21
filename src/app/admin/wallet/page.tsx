@@ -259,7 +259,7 @@ export default function AdminWalletPage() {
       </div>
       
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-      <Card>
+      <Card className="rounded-lg">
         <CardHeader>
             <CardTitle>Withdrawal Method Settings</CardTitle>
             <CardDescription>Enable or disable withdrawal options for all users.</CardDescription>
@@ -303,7 +303,7 @@ export default function AdminWalletPage() {
       </div>
 
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-      <Card>
+      <Card className="rounded-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Deposit Accounts</CardTitle>

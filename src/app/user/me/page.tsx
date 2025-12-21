@@ -128,7 +128,7 @@ export default function UserDashboardPage() {
   return (
     <div className="space-y-8">
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-        <Card>
+        <Card className="rounded-lg">
           <CardContent className="p-6">
             <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
             <p className="text-muted-foreground">Welcome back, {userData?.name || userData?.email}!</p>
@@ -145,7 +145,7 @@ export default function UserDashboardPage() {
       </div>
       
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-        <Card className="relative overflow-hidden">
+        <Card className="relative overflow-hidden rounded-lg">
             <CardContent className="p-6 relative z-10">
                 <div className="flex flex-col items-center text-center space-y-2 mb-6">
                     <p className="text-sm text-muted-foreground">Total Wallet Balance</p>
@@ -207,7 +207,7 @@ export default function UserDashboardPage() {
       </div>
 
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader>
             <CardTitle>My Active Investments</CardTitle>
             <CardDescription>
@@ -234,7 +234,7 @@ export default function UserDashboardPage() {
        </div>
 
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-        <Card>
+        <Card className="rounded-lg">
           <CardContent className="p-4">
             <Button variant="outline" className="w-full" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />

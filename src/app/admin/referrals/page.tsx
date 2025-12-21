@@ -63,7 +63,7 @@ export default function ReferralSettingsPage() {
       </div>
 
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-      <Card className="max-w-2xl">
+      <Card className="max-w-2xl rounded-lg">
         <CardHeader>
           <CardTitle>Invitation & Commission</CardTitle>
           <CardDescription>

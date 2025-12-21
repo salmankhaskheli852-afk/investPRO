@@ -88,7 +88,7 @@ export default function AgentDashboardPage() {
       </div>
 
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-      <Card>
+      <Card className="rounded-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="w-5 h-5" />

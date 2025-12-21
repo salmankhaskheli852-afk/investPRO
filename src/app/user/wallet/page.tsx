@@ -205,7 +205,7 @@ export default function UserWalletPage() {
           <p className="text-muted-foreground">Manage your funds and withdraw.</p>
         </div>
         <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-        <Card className="max-w-md mx-auto">
+        <Card className="max-w-md mx-auto rounded-lg">
           <CardHeader className="text-center">
               <CardTitle>Withdraw Funds</CardTitle>
           </CardHeader>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -160,7 +161,7 @@ export default function AgentHistorySearchPage() {
       <div className="space-y-8">
         {searchResults.map(({ user, transactions }) => (
           <div key={user.id} className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-            <Card>
+            <Card className="rounded-lg">
               <CardHeader>
                 <CardTitle>{user.name}</CardTitle>
                 <CardDescription>ID: {user.id}</CardDescription>

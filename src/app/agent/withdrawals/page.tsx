@@ -165,7 +165,7 @@ export default function AgentWithdrawalsPage() {
       </div>
 
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-      <Card>
+      <Card className="rounded-lg">
         <CardHeader>
             <CardTitle>Pending Requests</CardTitle>
             <div className="flex justify-between items-center">
@@ -195,7 +195,7 @@ export default function AgentWithdrawalsPage() {
             <TableBody>
               {isLoadingWithdrawals ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={5} className="text-center h-24">
                     Loading requests...
                   </TableCell>
                 </TableRow>

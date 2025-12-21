@@ -72,7 +72,7 @@ export default function UserHistoryPage() {
       </div>
 
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-      <Card>
+      <Card className="rounded-lg">
         <CardContent className="pt-6">
           <Table>
             <TableHeader>

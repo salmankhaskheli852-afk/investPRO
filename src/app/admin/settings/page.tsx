@@ -157,7 +157,7 @@ export default function AppSettingsPage() {
       <div className="grid max-w-2xl gap-8">
           {/* General Settings */}
           <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-          <Card>
+          <Card className="rounded-lg">
             <CardHeader>
               <CardTitle>General Settings</CardTitle>
               <CardDescription>
@@ -250,7 +250,7 @@ export default function AppSettingsPage() {
 
           {/* Carousel Settings */}
           <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-            <Card>
+            <Card className="rounded-lg">
                 <CardHeader>
                     <CardTitle>Home Page Carousel</CardTitle>
                     <CardDescription>Manage images for the user home page slider.</CardDescription>
@@ -309,7 +309,7 @@ export default function AppSettingsPage() {
 
           {/* Verification Settings */}
           <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-            <Card>
+            <Card className="rounded-lg">
                 <CardHeader>
                     <CardTitle>Account Verification System</CardTitle>
                 </CardHeader>
@@ -368,7 +368,7 @@ export default function AppSettingsPage() {
 
           {/* Maintenance Settings */}
           <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-            <Card>
+            <Card className="rounded-lg">
                 <CardHeader>
                     <CardTitle>Maintenance Mode</CardTitle>
                 </CardHeader>

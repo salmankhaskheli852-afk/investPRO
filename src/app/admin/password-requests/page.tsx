@@ -121,7 +121,7 @@ export default function AdminPasswordRequestsPage() {
       </div>
 
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader>
             <CardTitle>Pending Requests</CardTitle>
             <CardDescription>Review the following password reset requests.</CardDescription>

@@ -91,7 +91,7 @@ export default function InvitationPage() {
       <div className="grid grid-cols-1 gap-8">
         
         <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-          <Card>
+          <Card className="rounded-lg">
             <CardHeader>
               <CardTitle>Your Invitation Link</CardTitle>
               <CardDescription>
@@ -120,7 +120,7 @@ export default function InvitationPage() {
 
         <div className="grid grid-cols-2 gap-8">
             <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-            <Card className="flex flex-col items-center justify-center text-center h-full">
+            <Card className="flex flex-col items-center justify-center text-center h-full rounded-lg">
               <CardHeader>
                 <CardTitle className="text-4xl font-bold">{isLoadingTeam ? '...' : myTeam?.length || 0}</CardTitle>
               </CardHeader>
@@ -130,7 +130,7 @@ export default function InvitationPage() {
             </Card>
             </div>
             <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-            <Card className="flex flex-col items-center justify-center text-center h-full">
+            <Card className="flex flex-col items-center justify-center text-center h-full rounded-lg">
               <CardHeader>
                 <CardTitle className="text-4xl font-bold">{isLoadingTransactions ? '...' : totalReferralIncome.toLocaleString()} <span className="text-lg text-muted-foreground">PKR</span></CardTitle>
               </CardHeader>
@@ -142,7 +142,7 @@ export default function InvitationPage() {
         </div>
 
         <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-            <Card>
+            <Card className="rounded-lg">
                 <CardHeader>
                     <CardTitle>My Team</CardTitle>
                     <CardDescription>Users you have successfully referred.</CardDescription>
