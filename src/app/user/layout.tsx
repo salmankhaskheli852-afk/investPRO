@@ -54,7 +54,7 @@ export default function UserLayout({
 
   return (
     <div className="bg-login-gradient min-h-screen">
-      <div className="relative mx-auto max-w-md bg-background min-h-screen flex flex-col">
+      <div className="relative mx-auto max-w-md min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24">
           {showVerificationPopup && <VerificationPopup />}
