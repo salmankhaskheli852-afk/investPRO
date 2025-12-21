@@ -109,12 +109,12 @@ export function Header() {
   const showSidebarTrigger = pathname.startsWith('/admin') || pathname.startsWith('/agent');
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-login-gradient px-4 sm:px-6">
+    <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b bg-login-gradient px-4 sm:px-6">
       <div className="flex items-center gap-2">
         {showSidebarTrigger && <SidebarTrigger className="md:hidden text-white hover:bg-white/20" />}
         <Link href="/" className="flex items-center gap-2">
-           <Image src="/logo.png" alt="investPro Logo" width={40} height={40} />
-          <span className="font-headline text-2xl font-semibold text-white">investPro</span>
+           <Image src="/logo.png" alt="investPro Logo" width={48} height={48} />
+          <span className="font-headline text-3xl font-semibold text-white">investPro</span>
         </Link>
          {!isLoadingSettings && appSettings?.isVerificationBadgeEnabled && appSettings?.verificationBadgeText && (
           <div className="hidden md:flex items-center gap-1.5 ml-4 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
@@ -190,3 +190,5 @@ export function Header() {
     </header>
   );
 }
+
+    
