@@ -36,7 +36,7 @@ export function Header() {
     () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
     [firestore]
   );
-  const { data: appSettings } = useDoc<AppSettings>(settingsRef);
+  const { data: appSettings, isLoading: isLoadingSettings } = useDoc<AppSettings>(settingsRef);
   
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
@@ -128,7 +128,7 @@ export function Header() {
           </svg>
           <span className="font-headline text-lg font-semibold text-white">investPro</span>
         </Link>
-         {appSettings?.isVerificationBadgeEnabled && appSettings?.verificationBadgeText && (
+         {!isLoadingSettings && appSettings?.isVerificationBadgeEnabled && appSettings?.verificationBadgeText && (
           <div className="hidden md:flex items-center gap-1.5 ml-4 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
             <ShieldCheck className="h-4 w-4" />
             <span>{appSettings.verificationBadgeText}</span>
