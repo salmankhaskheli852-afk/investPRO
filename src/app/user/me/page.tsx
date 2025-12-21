@@ -6,7 +6,7 @@ import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, useAuth 
 import { useRouter } from 'next/navigation';
 import { collection, doc, orderBy, query, Timestamp } from 'firebase/firestore';
 import type { InvestmentPlan, User, Wallet, Transaction, UserInvestment } from '@/lib/data';
-import { DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, LogOut, Wallet as WalletIcon, GitBranch } from 'lucide-react';
+import { DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, LogOut, Wallet as WalletIcon, GitBranch, Copy } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { Button } from '@/components/ui/button';
@@ -14,12 +14,14 @@ import Link from 'next/link';
 import { signOut } from 'firebase/auth';
 import { Separator } from '@/components/ui/separator';
 import { Area, AreaChart, ResponsiveContainer } from 'recharts';
+import { useToast } from '@/hooks/use-toast';
 
 export default function UserDashboardPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const firestore = useFirestore();
   const auth = useAuth();
+  const { toast } = useToast();
 
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
@@ -54,6 +56,14 @@ export default function UserDashboardPage() {
     if (!auth) return;
     await signOut(auth);
     router.push('/');
+  };
+
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: 'Copied!',
+      description: `${label} has been copied to your clipboard.`,
+    });
   };
 
   const transactionTotals = React.useMemo(() => {
@@ -120,6 +130,14 @@ export default function UserDashboardPage() {
       <div>
         <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
         <p className="text-muted-foreground">Welcome back, {userData?.name || userData?.phoneNumber}!</p>
+        {userData.numericId && (
+            <div className="flex items-center text-sm mt-1">
+                <span className="text-muted-foreground">ID: {userData.numericId}</span>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopy(String(userData.numericId), 'User ID')}>
+                    <Copy className="h-4 w-4 text-muted-foreground" />
+                </Button>
+            </div>
+        )}
       </div>
       
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
