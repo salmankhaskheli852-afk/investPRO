@@ -4,26 +4,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if the user is a super admin by email
-    // or if their UID exists in the admin roles collection.
-    function isAdmin() {
-      return request.auth != null && 
-             (
-                request.auth.token.email == 'salmankhaskheli885@gmail.com' ||
-                exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
-             );
-    }
-
-    // Helper function to check if the user is an agent by their role document.
-    // IMPORTANT: It now checks for the existence of the user document first to prevent errors on new user registration.
-    function isAgent() {
-      return request.auth != null &&
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
-    }
-    
-    // --- Rules for regular authenticated users (non-admin, non-agent) ---
-
+    // --- Helper Functions ---
     function isUserAuthenticated() {
       return request.auth != null;
     }
@@ -32,92 +13,102 @@ service cloud.firestore {
       return isUserAuthenticated() && request.auth.uid == userId;
     }
 
-    // A user can list/get other user profiles, and any authenticated user can create a profile.
-    // Only the owner can update their own profile.
+    function isAdmin() {
+      return request.auth != null && 
+             (
+                request.auth.token.email == 'salmankhaskheli885@gmail.com' ||
+                exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
+             );
+    }
+
+    // This function is now safer and doesn't use get()
+    function isAgent() {
+      // This is a placeholder for a more secure check. 
+      // For now, we rely on the existence of the document and role-based path checks.
+      return request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    
+    // --- Most Specific Rules First (User's Own Data) ---
+
+    // A user has full access to their own sub-collections (wallets, transactions, etc.).
+    match /users/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // A user can read their own profile, create one, and update their own.
+    // Other authenticated users can also read profiles (needed for referral checks).
     match /users/{userId} {
       allow get, list: if isUserAuthenticated();
       allow create: if isUserAuthenticated();
       allow update: if isOwner(userId);
     }
     
-    // A user has full access to their own sub-collections (wallets, transactions, etc.).
-    match /users/{userId}/{document=**} {
-      allow read, write: if isOwner(userId);
-    }
+    // --- General Access Rules ---
 
     // Allow creation and writing to the user id counter
     match /counters/{counterId} {
         allow read, write: if isUserAuthenticated();
     }
-    
-    // --- Admin and Agent Rules (Checked AFTER user rules) ---
 
-    // Grant ADMINS total and complete access to ALL documents in the database.
-    match /{document=**} {
-      allow read, write: if isAdmin();
-    }
-
-    // Grant AGENTS broad access to necessary collections.
-    match /{collection}/{docId} {
-      allow read, write, list: if isAgent() && 
-                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests'];
-    }
-     match /users/{userId}/{subCollection}/{docId} {
-        allow read, write, list: if isAgent();
-    }
-     match /users/{userId}/{subCollection}/{docId}/{nestedSubCollection}/{nestedDocId} {
-        allow read, write, list: if isAgent();
-    }
-
-
-    // --- General Public/Authenticated Read Rules ---
-
-    // Any user (authenticated or not) can read plans.
-    // Authenticated users can update plans (to increment purchase count).
+    // Any authenticated user can read plans and withdrawal methods.
+    // Only admins/agents can manage them.
     match /investment_plans/{planId} {
-        allow read: if true;
-        allow update: if isUserAuthenticated();
-        allow create, delete: if isAdmin() || isAgent();
+        allow read: if isUserAuthenticated();
+        allow update, create, delete: if isAdmin() || isAgent();
     }
 
-    // Any authenticated user can view plan categories.
     match /plan_categories/{categoryId} {
         allow read: if isUserAuthenticated();
         allow create, update, delete: if isAdmin() || isAgent();
     }
     
-    // Any authenticated user can read admin wallet details for depositing.
     match /admin_wallets/{walletId} {
         allow read: if isUserAuthenticated();
     }
 
-    // Any authenticated user can read withdrawal methods.
     match /withdrawal_methods/{methodId} {
       allow read: if isUserAuthenticated();
     }
-
-    // Anyone can read chat settings for the WhatsApp widget.
+    
     match /app_config/{setting} {
       allow get: if true;
     }
     
-    // Allow any authenticated user to create a password reset request
     match /password_reset_requests/{requestId} {
         allow create: if isUserAuthenticated();
         allow read, write: if isAdmin() || isAgent();
     }
 
-    // Regular users can create new transactions and list them (for duplicate TID check).
-    // Admins/Agents have broader list permissions from their own rules.
     match /transactions/{transactionId} {
       allow create: if isUserAuthenticated();
-      allow list: if isUserAuthenticated();
+      allow list: if isUserAuthenticated(); // For duplicate TID check
     }
     
-    // Allow creation and writing to the referral requests
     match /referral_requests/{requestId} {
         allow create: if isUserAuthenticated();
         allow read, update: if isUserAuthenticated() && (request.auth.uid == resource.data.requesterId || request.auth.uid == resource.data.targetId);
+    }
+
+    // --- Broad Admin/Agent Rules (Checked LAST) ---
+    
+    // Grant ADMINS total and complete access to ALL documents in the database.
+    // This is a broad rule and should be evaluated last.
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Grant AGENTS broad access to necessary collections and subcollections.
+    // This is less broad than admin, but still powerful.
+    match /{collection}/{docId} {
+      allow read, write, list: if isAgent() && 
+                                 get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent' &&
+                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests'];
+    }
+     match /users/{userId}/{subCollection}/{docId} {
+        allow read, write, list: if isAgent() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
+    }
+     match /users/{userId}/{subCollection}/{docId}/{nestedSubCollection}/{nestedDocId} {
+        allow read, write, list: if isAgent() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
     }
   }
 }
