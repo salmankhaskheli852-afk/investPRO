@@ -15,6 +15,7 @@ service cloud.firestore {
     }
 
     // Helper function to check if the user is an agent by their role document.
+    // IMPORTANT: It now checks for the existence of the user document first to prevent errors on new user registration.
     function isAgent() {
       return request.auth != null &&
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -59,7 +60,7 @@ service cloud.firestore {
     
     // A user has full access to their own sub-collections (wallets, transactions, etc.).
     match /users/{userId}/{document=**} {
-      allow read, write: if isUserAuthenticated() && request.auth.uid == userId;
+      allow read, write: if isOwner(userId);
     }
     
     // Any user (authenticated or not) can read plans.
@@ -73,6 +74,7 @@ service cloud.firestore {
     // Any authenticated user can view plan categories.
     match /plan_categories/{categoryId} {
         allow read: if isUserAuthenticated();
+        allow create, update, delete: if isAdmin() || isAgent();
     }
     
     // Any authenticated user can read admin wallet details for depositing.
