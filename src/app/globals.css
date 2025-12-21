@@ -95,9 +95,9 @@ body {
   .bg-login-gradient {
     background-color: #f0f4f8;
     background-image:
-      radial-gradient(at 0% 0%, hsla(212, 80%, 85%, 0.4) 0px, transparent 50%),
-      radial-gradient(at 95% 20%, hsla(330, 80%, 88%, 0.4) 0px, transparent 50%),
-      radial-gradient(at 20% 90%, hsla(280, 70%, 90%, 0.4) 0px, transparent 50%);
+      radial-gradient(at 0% 0%, hsla(212, 80%, 85%, 0.5) 0px, transparent 50%),
+      radial-gradient(at 95% 20%, hsla(330, 80%, 88%, 0.5) 0px, transparent 50%),
+      radial-gradient(at 20% 90%, hsla(280, 70%, 90%, 0.5) 0px, transparent 50%);
   }
   .tab-active-border::after {
     content: '';
