@@ -269,7 +269,7 @@ export function InvestmentPlanCard({
             src={plan.imageUrl}
             alt={plan.name}
             fill
-            className="object-cover rounded-l-lg"
+            className="object-cover"
             data-ai-hint={plan.imageHint}
           />
           {isPurchased && showAsPurchased && (
@@ -322,5 +322,8 @@ export function InvestmentPlanCard({
       </Card>
     </div>
   );
+
+    
+
 
     
