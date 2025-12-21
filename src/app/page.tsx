@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth, useUser, useFirestore } from '@/firebase';
@@ -56,40 +56,45 @@ export default function Home() {
       }
     } catch (error: any) {
       console.error("Google Sign-In Error:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Google Sign-In Failed',
-        description: error.message || 'An unknown error occurred.',
-      });
+      // Check if the error is the one from createUserProfile and avoid showing a generic message
+      if (error.message !== "Could not create user profile.") {
+        toast({
+            variant: 'destructive',
+            title: 'Google Sign-In Failed',
+            description: error.message || 'An unknown error occurred.',
+        });
+      }
       setIsProcessing(false);
     }
   };
 
-  const createUserProfile = async (uid: string, email: string, name: string | null, photoURL: string | null, referrerIdFromInput: string | null) => {
+  const createUserProfile = async (uid: string, email: string, name: string | null, photoURL: string | null, referrerNumericId: string | null) => {
     if (!firestore) return;
 
+    let finalReferrerUid: string | null = null;
+
+    // Step 1: Perform the referral check *outside* the transaction.
+    if (referrerNumericId) {
+        const numericReferrerId = parseInt(referrerNumericId, 10);
+        if (!isNaN(numericReferrerId)) {
+            const referrerQuery = query(collection(firestore, 'users'), where('numericId', '==', numericReferrerId));
+            const referrerSnapshot = await getDocs(referrerQuery);
+            if (!referrerSnapshot.empty) {
+                const referrerDoc = referrerSnapshot.docs[0];
+                if (referrerDoc.id !== uid) { // Can't refer yourself
+                    finalReferrerUid = referrerDoc.id;
+                }
+            }
+        }
+    }
+
+    // Step 2: Run the transaction to write data.
     const counterRef = doc(firestore, 'counters', 'user_id_counter');
     const userRef = doc(firestore, 'users', uid);
     const walletRef = doc(firestore, 'users', uid, 'wallets', 'main');
 
     try {
       await runTransaction(firestore, async (transaction) => {
-        let referrerValid = false;
-        let referrerDoc;
-        if (referrerIdFromInput) {
-          const numericReferrerId = parseInt(referrerIdFromInput, 10);
-          if (!isNaN(numericReferrerId)) {
-            const referrerQuery = query(collection(firestore, 'users'), where('numericId', '==', numericReferrerId));
-            const referrerSnapshot = await getDocs(referrerQuery);
-            if (!referrerSnapshot.empty) {
-                referrerDoc = referrerSnapshot.docs[0];
-                if(referrerDoc.id !== uid) { // Can't refer yourself
-                    referrerValid = true;
-                }
-            }
-          }
-        }
-
         const counterDoc = await transaction.get(counterRef);
         let newNumericId = 1001;
         if (counterDoc.exists()) {
@@ -111,8 +116,8 @@ export default function Home() {
           totalDeposit: 0,
         };
         
-        if (referrerValid && referrerDoc) {
-          newUser.referrerId = referrerDoc.id;
+        if (finalReferrerUid) {
+          newUser.referrerId = finalReferrerUid;
         }
 
         transaction.set(userRef, newUser);
