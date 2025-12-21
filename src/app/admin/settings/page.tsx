@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -7,14 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, useStorage } from '@/firebase';
 import { doc, setDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import type { AppSettings } from '@/lib/data';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { Trash2, PlusCircle } from 'lucide-react';
+import { Trash2, PlusCircle, Upload } from 'lucide-react';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Progress } from '@/components/ui/progress';
 
 export default function AppSettingsPage() {
   const [whatsappNumber, setWhatsappNumber] = React.useState('');
@@ -47,10 +48,16 @@ export default function AppSettingsPage() {
   const [verificationPopupMessage, setVerificationPopupMessage] = React.useState('');
   const [verificationDepositAmount, setVerificationDepositAmount] = React.useState('');
 
-  const [newImageUrl, setNewImageUrl] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const storage = useStorage();
+
+  // File upload state
+  const [imageFile, setImageFile] = React.useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = React.useState(0);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const settingsRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
@@ -117,24 +124,49 @@ export default function AppSettingsPage() {
       setIsSaving(false);
     }
   };
-  
-  const handleAddImage = async () => {
-    if (!newImageUrl || !settingsRef) {
-        toast({ variant: 'destructive', title: 'URL is missing', description: 'Please provide an image URL to add.' });
-        return;
-    }
-    
-    try {
-        await updateDoc(settingsRef, {
-            carouselImages: arrayUnion(newImageUrl)
-        });
-        toast({ title: 'Image Added', description: 'The new image has been added to the carousel.' });
-        setNewImageUrl(''); // Clear input after adding
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Update Failed', description: e.message });
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setImageFile(event.target.files[0]);
     }
   };
 
+  const handleUploadImage = async () => {
+    if (!imageFile || !storage || !settingsRef) {
+      toast({ variant: 'destructive', title: 'No file selected', description: 'Please select an image to upload.' });
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    const storageRef = ref(storage, `carousel_images/${Date.now()}_${imageFile.name}`);
+    const uploadTask = uploadBytesResumable(storageRef, imageFile);
+
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        setUploadProgress(progress);
+      },
+      (error) => {
+        setIsUploading(false);
+        toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
+      },
+      () => {
+        getDownloadURL(uploadTask.snapshot.ref).then(async (downloadURL) => {
+          await updateDoc(settingsRef, {
+            carouselImages: arrayUnion(downloadURL)
+          });
+          toast({ title: 'Image Uploaded!', description: 'The new image has been added to the carousel.' });
+          setImageFile(null);
+          if(fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+          setIsUploading(false);
+        });
+      }
+    );
+  };
+  
   const handleDeleteImage = async (imageUrlToDelete: string) => {
     if (!settingsRef) return;
     try {
@@ -256,20 +288,34 @@ export default function AppSettingsPage() {
                     <CardDescription>Manage images for the user home page slider.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="space-y-2">
-                        <Label htmlFor="new-image-url">Image URL</Label>
+                    <div className="space-y-4">
+                        <Label htmlFor="new-image-url">Upload New Image</Label>
                         <div className="flex gap-2">
                             <Input
                                 id="new-image-url"
-                                value={newImageUrl}
-                                onChange={(e) => setNewImageUrl(e.target.value)}
-                                placeholder="https://..."
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
                             />
-                            <Button onClick={handleAddImage}>
+                            <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                                <Upload className="mr-2 h-4 w-4" />
+                                {imageFile ? 'Change File' : 'Choose File'}
+                            </Button>
+                            <Button onClick={handleUploadImage} disabled={isUploading || !imageFile}>
                                 <PlusCircle className="mr-2 h-4 w-4" />
-                                Add Image
+                                {isUploading ? `Uploading...` : 'Add Image'}
                             </Button>
                         </div>
+                        {imageFile && !isUploading && (
+                          <p className="text-sm text-muted-foreground">Selected: {imageFile.name}</p>
+                        )}
+                        {isUploading && (
+                          <div className="space-y-1">
+                             <Progress value={uploadProgress} />
+                             <p className="text-xs text-muted-foreground text-center">{Math.round(uploadProgress)}%</p>
+                          </div>
+                        )}
                     </div>
                     <Separator />
                     <div className="space-y-4">
