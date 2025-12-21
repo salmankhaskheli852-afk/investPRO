@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 
 export type PlanCategory = {
@@ -45,8 +46,8 @@ export type User = {
   id: string;
   numericId: number;
   name?: string;
-  email: string; // This will store the generated email like +92...@yourapp.com
-  phoneNumber: string; // This will store the actual phone number
+  email: string;
+  phoneNumber?: string; // Made optional for Google Sign-In
   avatarUrl?: string;
   investments: UserInvestment[]; // array of user investment objects
   agentId: string | null; // Can be null if no agent is assigned

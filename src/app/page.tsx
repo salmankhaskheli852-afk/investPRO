@@ -6,15 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { doc, setDoc, getDoc, serverTimestamp, runTransaction, collection, query, where, getDocs, DocumentSnapshot, Unsubscribe, WriteBatch } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, runTransaction, collection, query, where, getDocs } from 'firebase/firestore';
 import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, User as FirebaseAuthUser } from 'firebase/auth';
+import { ShieldCheck, TrendingUp, Users, Copy } from 'lucide-react';
+import Image from 'next/image';
 
-const FAKE_EMAIL_DOMAIN = 'yourapp.com';
 
 function LoginPageContent() {
   const auth = useAuth();
@@ -25,84 +23,48 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
 
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  // Login state
-  const [loginPhoneNumber, setLoginPhoneNumber] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  
-  // Register state
-  const [registerPhoneNumber, setRegisterPhoneNumber] = useState('');
-  const [registerPassword, setRegisterPassword] = useState('');
-  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
   const [invitationCode, setInvitationCode] = useState('');
-  const [isInvitationCodeEditable, setIsInvitationCodeEditable] = useState(true);
 
   useEffect(() => {
     const refCode = searchParams.get('ref');
     if (refCode) {
       setInvitationCode(refCode);
-      setIsInvitationCodeEditable(false);
     }
   }, [searchParams]);
 
-  const formatEmailFromPhoneNumber = (phone: string) => {
-    let sanitizedPhone = phone.replace(/\s+/g, ''); // remove spaces
-    if (sanitizedPhone.startsWith('0')) {
-        sanitizedPhone = '+92' + sanitizedPhone.substring(1);
-    }
-    if (!sanitizedPhone.startsWith('+')) {
-        sanitizedPhone = '+' + sanitizedPhone;
-    }
-    return `${sanitizedPhone}@${FAKE_EMAIL_DOMAIN}`;
-  };
-
-  const handleLogin = async () => {
-    if (!auth || !loginPhoneNumber || !loginPassword) {
-      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please enter your phone number and password.' });
-      return;
-    }
-    setIsProcessing(true);
-    const email = formatEmailFromPhoneNumber(loginPhoneNumber);
-    try {
-      await signInWithEmailAndPassword(auth, email, loginPassword);
-      // onAuthStateChanged will handle redirection
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Login Failed', description: error.message });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleRegister = async () => {
+  const handleGoogleSignIn = async () => {
     if (!auth || !firestore) return;
-    if (!registerPhoneNumber || !registerPassword || !registerConfirmPassword) {
-      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please fill all required fields.' });
-      return;
-    }
-    if (registerPassword !== registerConfirmPassword) {
-      toast({ variant: 'destructive', title: 'Passwords do not match.' });
-      return;
-    }
+
     setIsProcessing(true);
-    const email = formatEmailFromPhoneNumber(registerPhoneNumber);
+    const provider = new GoogleAuthProvider();
+
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, registerPassword);
-      const newUser = userCredential.user;
+      const result = await signInWithPopup(auth, provider);
+      const googleUser = result.user;
       
-      if (newUser) {
-        await createUserProfile(newUser.uid, email, registerPhoneNumber, invitationCode);
+      const userDocRef = doc(firestore, 'users', googleUser.uid);
+      const docSnap = await getDoc(userDocRef);
+
+      if (!docSnap.exists()) {
+        // New user, create a profile for them
+        await createUserProfile(googleUser, invitationCode);
       }
-      // onAuthStateChanged will handle redirection
+      // For both new and existing users, the useEffect will handle redirection
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Registration Failed', description: error.message });
+      console.error("Google Sign-In Error:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description: error.code === 'auth/popup-closed-by-user' ? 'Sign-in was cancelled.' : error.message,
+      });
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const createUserProfile = async (uid: string, email: string, phoneNumber: string, referrerIdFromInput: string | null) => {
+  const createUserProfile = async (googleUser: FirebaseAuthUser, referrerIdFromInput: string | null) => {
     if (!firestore) return;
-    
+
     let finalReferrerUid: string | null = null;
     
     if (referrerIdFromInput) {
@@ -112,9 +74,11 @@ function LoginPageContent() {
             const referrerSnapshot = await getDocs(referrerQuery);
             if (!referrerSnapshot.empty) {
                 const referrerDoc = referrerSnapshot.docs[0];
-                if (referrerDoc.id !== uid) {
+                if (referrerDoc.id !== googleUser.uid) { // Ensure user isn't referring themselves
                     finalReferrerUid = referrerDoc.id;
                 }
+            } else {
+                 toast({ variant: 'destructive', title: 'Invalid Referrer', description: `Referrer with ID ${numericReferrerId} not found.` });
             }
         }
     }
@@ -122,8 +86,8 @@ function LoginPageContent() {
     try {
       await runTransaction(firestore, async (transaction) => {
         const counterRef = doc(firestore, 'counters', 'user_id_counter');
-        const userRef = doc(firestore, 'users', uid);
-        const walletRef = doc(firestore, 'users', uid, 'wallets', 'main');
+        const userRef = doc(firestore, 'users', googleUser.uid);
+        const walletRef = doc(firestore, 'users', googleUser.uid, 'wallets', 'main');
 
         const counterDoc = await transaction.get(counterRef);
         let newNumericId = 1001;
@@ -132,30 +96,27 @@ function LoginPageContent() {
         }
         transaction.set(counterRef, { currentId: newNumericId }, { merge: true });
 
-        const newUser: Partial<AppUser> = {
-          id: uid,
+        const newUser: AppUser = {
+          id: googleUser.uid,
           numericId: newNumericId,
-          email: email,
-          phoneNumber: phoneNumber,
-          name: `User ${String(newNumericId)}`,
-          avatarUrl: `https://picsum.photos/seed/${newNumericId}/200`,
+          email: googleUser.email!,
+          name: googleUser.displayName || `User ${newNumericId}`,
+          avatarUrl: googleUser.photoURL || `https://picsum.photos/seed/${newNumericId}/200`,
           role: 'user',
           investments: [],
           agentId: null,
           createdAt: serverTimestamp() as any,
           isVerified: false,
           totalDeposit: 0,
+          referralId: String(newNumericId), // User's own referral ID
+          referrerId: finalReferrerUid, // ID of who referred them
         };
         
-        if (finalReferrerUid) {
-          newUser.referrerId = finalReferrerUid;
-        }
-
         transaction.set(userRef, newUser);
 
         const newWallet: Wallet = {
           id: 'main',
-          userId: uid,
+          userId: googleUser.uid,
           balance: 0,
         };
         transaction.set(walletRef, newWallet);
@@ -180,8 +141,6 @@ function LoginPageContent() {
           } else {
             router.push('/user/me');
           }
-        } else {
-           console.log("User is authenticated but profile document not found.");
         }
       });
     }
@@ -199,8 +158,8 @@ function LoginPageContent() {
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
       <div className="w-full max-w-sm rounded-xl p-1 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card className="shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex justify-center items-center gap-2 mb-6">
+          <CardContent className="p-8">
+            <div className="flex flex-col justify-center items-center gap-2 mb-8">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
@@ -209,61 +168,42 @@ function LoginPageContent() {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="h-8 w-8 text-primary"
+                className="h-10 w-10 text-primary"
               >
                 <path d="M12 2L2 7l10 5 10-5-10-5z" />
                 <path d="M2 17l10 5 10-5" />
                 <path d="M2 12l10 5 10-5" />
               </svg>
               <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
+              <p className="text-muted-foreground text-sm text-center">Your trusted partner in modern investments.</p>
+            </div>
+            
+            <Button onClick={handleGoogleSignIn} className="w-full h-12 text-md" disabled={isProcessing}>
+                {isProcessing ? (
+                    'Signing in...'
+                ) : (
+                    <>
+                        <Image src="/google-logo.svg" alt="Google" width={20} height={20} className="mr-2" />
+                        Sign in with Google
+                    </>
+                )}
+            </Button>
+            
+            <div className="mt-8 flex justify-around text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs">
+                    <ShieldCheck className="h-4 w-4 text-green-500" />
+                    <span>Secure</span>
+                </div>
+                 <div className="flex items-center gap-2 text-xs">
+                    <TrendingUp className="h-4 w-4 text-blue-500" />
+                    <span>Reliable</span>
+                </div>
+                 <div className="flex items-center gap-2 text-xs">
+                    <Users className="h-4 w-4 text-purple-500" />
+                    <span>Community</span>
+                </div>
             </div>
 
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Log in</TabsTrigger>
-                <TabsTrigger value="register">Register</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="login">
-                <div className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-phone">Phone Number</Label>
-                    <Input id="login-phone" type="tel" value={loginPhoneNumber} onChange={e => setLoginPhoneNumber(e.target.value)} placeholder="+92" disabled={isProcessing} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password">Password</Label>
-                    <Input id="login-password" type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} disabled={isProcessing} />
-                  </div>
-                  <Button onClick={handleLogin} className="w-full" disabled={isProcessing}>
-                    {isProcessing ? 'Logging in...' : 'Log In'}
-                  </Button>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="register">
-                <div className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="register-phone">Phone Number</Label>
-                    <Input id="register-phone" type="tel" value={registerPhoneNumber} onChange={e => setRegisterPhoneNumber(e.target.value)} placeholder="+92" disabled={isProcessing} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="register-password">Password</Label>
-                    <Input id="register-password" type="password" value={registerPassword} onChange={e => setRegisterPassword(e.target.value)} disabled={isProcessing} />
-                  </div>
-                   <div className="space-y-2">
-                    <Label htmlFor="register-confirm-password">Confirm Password</Label>
-                    <Input id="register-confirm-password" type="password" value={registerConfirmPassword} onChange={e => setRegisterConfirmPassword(e.target.value)} disabled={isProcessing} />
-                  </div>
-                   <div className="space-y-2">
-                    <Label htmlFor="invitation-code">Invitation Code (Optional)</Label>
-                    <Input id="invitation-code" value={invitationCode} onChange={e => setInvitationCode(e.target.value)} placeholder="Code from your inviter" disabled={isProcessing || !isInvitationCodeEditable} />
-                  </div>
-                  <Button onClick={handleRegister} className="w-full" disabled={isProcessing}>
-                    {isProcessing ? 'Registering...' : 'Register'}
-                  </Button>
-                </div>
-              </TabsContent>
-            </Tabs>
           </CardContent>
         </Card>
       </div>
