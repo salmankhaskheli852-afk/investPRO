@@ -322,8 +322,4 @@ export function InvestmentPlanCard({
       </Card>
     </div>
   );
-
-    
-
-
-    
+}
