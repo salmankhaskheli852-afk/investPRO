@@ -114,8 +114,8 @@ function ForgotPasswordDialog() {
 
     const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
-        // Allow only numbers and limit to 10 digits
-        if (/^\d*$/.test(value) && value.length <= 10) {
+        // Allow only numbers
+        if (/^\d*$/.test(value)) {
             setPhoneNumber(value);
         }
     };
