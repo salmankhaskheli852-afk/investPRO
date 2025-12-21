@@ -303,7 +303,7 @@ export function InvestmentPlanCard({
           <div className="flex-1 space-y-2">
               <div className="flex flex-col">
                   <span className="text-xs text-muted-foreground">Product price</span> 
-                  <span className="font-bold text-foreground text-base">{plan.price.toLocaleString()} Rs</span>
+                  <span className="font-bold text-base text-foreground">{plan.price.toLocaleString()} Rs</span>
               </div>
               <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-sm">
                   <div className="flex flex-col">
@@ -323,5 +323,3 @@ export function InvestmentPlanCard({
     </div>
   );
 }
-
-    
