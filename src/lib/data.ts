@@ -43,6 +43,7 @@ export type UserInvestment = {
 
 export type User = {
   id: string;
+  numericId: number;
   name?: string;
   email?: string;
   phoneNumber?: string | null;

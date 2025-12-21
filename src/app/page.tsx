@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
-import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch, increment, query, where } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch, increment, query, where, runTransaction } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import type { User } from '@/lib/data';
@@ -90,47 +90,67 @@ function AuthForm() {
   
   const createUserProfile = async (firebaseUser: FirebaseUser) => {
     if (!firestore) return;
-    
+  
     const userRef = doc(firestore, 'users', firebaseUser.uid);
-    const userDoc = await getDoc(userRef);
-
-    if (!userDoc.exists()) {
-        const batch = writeBatch(firestore);
-        const name = "User " + firebaseUser.uid.slice(-4);
-        // Use invitation code from the form field as referrerId
-        const referrerId = invitationCode || null;
-
-        batch.set(userRef, {
-            id: firebaseUser.uid,
-            name: name,
-            phoneNumber: `+92${phoneNumber}`,
-            investments: [],
-            createdAt: serverTimestamp(),
-            role: 'user',
-            referralId: firebaseUser.uid,
-            referrerId: referrerId,
-            referralCount: 0,
-            referralIncome: 0,
-            isVerified: false,
-            totalDeposit: 0,
-        });
-
-        const walletRef = doc(collection(firestore, 'users', firebaseUser.uid, 'wallets'), 'main');
-        batch.set(walletRef, {
-            id: 'main',
-            userId: firebaseUser.uid,
-            balance: 0,
-        });
-        
-        if (referrerId) {
-            const referrerRef = doc(firestore, 'users', referrerId);
-            const referrerDoc = await getDoc(referrerRef);
-            if (referrerDoc.exists()) {
-                batch.update(referrerRef, { referralCount: increment(1) });
-            }
+    const counterRef = doc(firestore, 'counters', 'user_id_counter');
+  
+    try {
+      await runTransaction(firestore, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        if (userDoc.exists()) {
+          // User profile already exists, do nothing.
+          return;
         }
-        
-        await batch.commit();
+  
+        // Get and increment the numeric ID counter
+        const counterDoc = await transaction.get(counterRef);
+        let nextNumericId = 10001; // Start from 10001
+        if (counterDoc.exists()) {
+          nextNumericId = counterDoc.data().currentId + 1;
+        }
+        transaction.set(counterRef, { currentId: nextNumericId }, { merge: true });
+  
+        const name = "User " + firebaseUser.uid.slice(-4);
+        const referrerId = invitationCode || null;
+  
+        const newUserProfile: Omit<User, 'createdAt' | 'investments'> & { createdAt: any } = {
+          id: firebaseUser.uid,
+          numericId: nextNumericId,
+          name: name,
+          phoneNumber: `+92${phoneNumber}`,
+          role: 'user',
+          referralId: firebaseUser.uid,
+          referrerId: referrerId,
+          referralCount: 0,
+          referralIncome: 0,
+          isVerified: false,
+          totalDeposit: 0,
+          createdAt: serverTimestamp(),
+        };
+  
+        transaction.set(userRef, newUserProfile);
+  
+        const walletRef = doc(collection(firestore, 'users', firebaseUser.uid, 'wallets'), 'main');
+        transaction.set(walletRef, {
+          id: 'main',
+          userId: firebaseUser.uid,
+          balance: 0,
+        });
+  
+        if (referrerId) {
+          const referrerUserQuery = query(collection(firestore, 'users'), where('numericId', '==', parseInt(referrerId)));
+          const referrerSnapshot = await getDocs(referrerUserQuery);
+          if (!referrerSnapshot.empty) {
+            const referrerDoc = referrerSnapshot.docs[0];
+            transaction.update(referrerDoc.ref, { referralCount: increment(1) });
+          } else {
+            console.warn(`Referrer with numericId ${referrerId} not found.`);
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Transaction failed: ", error);
+      throw error; // Re-throw to be caught by the calling function
     }
   };
 
