@@ -86,11 +86,7 @@ body {
     @apply bg-background text-foreground;
   }
   .card {
-    background-color: hsl(90 40% 98%);
-    background-image:
-      radial-gradient(at 0% 0%, hsla(90, 60%, 90%, 0.4) 0px, transparent 50%),
-      radial-gradient(at 95% 20%, hsla(90, 70%, 85%, 0.4) 0px, transparent 50%),
-      radial-gradient(at 20% 90%, hsla(90, 65%, 88%, 0.4) 0px, transparent 50%);
+    background-color: hsl(var(--card));
   }
 }
 

@@ -90,36 +90,33 @@ export default function InvitationPage() {
 
       <div className="grid grid-cols-1 gap-8">
         
-        <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-          <Card className="rounded-lg">
-            <CardHeader>
-              <CardTitle>Your Invitation Link</CardTitle>
-              <CardDescription>
-                Share this link with your friends. When they sign up, they will automatically join your team.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Input 
-                  id="referral-link" 
-                  value={referralLink || 'Generating link...'}
-                  readOnly
-                />
-                <Button 
-                  onClick={handleCopyLink} 
-                  disabled={!referralLink}
-                  aria-label="Copy Link"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="rounded-lg">
+          <CardHeader>
+            <CardTitle>Your Invitation Link</CardTitle>
+            <CardDescription>
+              Share this link with your friends. When they sign up, they will automatically join your team.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Input 
+                id="referral-link" 
+                value={referralLink || 'Generating link...'}
+                readOnly
+              />
+              <Button 
+                onClick={handleCopyLink} 
+                disabled={!referralLink}
+                aria-label="Copy Link"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
         
 
         <div className="grid grid-cols-2 gap-8">
-            <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
             <Card className="flex flex-col items-center justify-center text-center h-full rounded-lg">
               <CardHeader>
                 <CardTitle className="text-4xl font-bold">{isLoadingTeam ? '...' : myTeam?.length || 0}</CardTitle>
@@ -128,8 +125,6 @@ export default function InvitationPage() {
                 <p className="text-muted-foreground">Team Members</p>
               </CardContent>
             </Card>
-            </div>
-            <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
             <Card className="flex flex-col items-center justify-center text-center h-full rounded-lg">
               <CardHeader>
                 <CardTitle className="text-4xl font-bold">{isLoadingTransactions ? '...' : totalReferralIncome.toLocaleString()} <span className="text-lg text-muted-foreground">PKR</span></CardTitle>
@@ -138,62 +133,59 @@ export default function InvitationPage() {
                 <p className="text-muted-foreground">Total Earnings</p>
               </CardContent>
             </Card>
-            </div>
         </div>
 
-        <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-            <Card className="rounded-lg">
-                <CardHeader>
-                    <CardTitle>My Team</CardTitle>
-                    <CardDescription>Users you have successfully referred.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
+        <Card className="rounded-lg">
+            <CardHeader>
+                <CardTitle>My Team</CardTitle>
+                <CardDescription>Users you have successfully referred.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>User</TableHead>
+                            <TableHead>Date Joined</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isLoadingTeam ? (
                             <TableRow>
-                                <TableHead>User</TableHead>
-                                <TableHead>Date Joined</TableHead>
+                                <TableCell colSpan={2} className="h-24 text-center">
+                                    Loading team...
+                                </TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoadingTeam ? (
-                                <TableRow>
-                                    <TableCell colSpan={2} className="h-24 text-center">
-                                        Loading team...
-                                    </TableCell>
-                                </TableRow>
-                            ) : myTeam && myTeam.length > 0 ? (
-                                myTeam.map(member => (
-                                    <TableRow key={member.id}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <Avatar>
-                                                    <AvatarImage src={member.avatarUrl} alt={member.name} />
-                                                    <AvatarFallback>{member.name ? member.name.charAt(0) : 'U'}</AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <div className="font-medium">{member.name}</div>
-                                                    <div className="text-sm text-muted-foreground">{member.email}</div>
-                                                </div>
+                        ) : myTeam && myTeam.length > 0 ? (
+                            myTeam.map(member => (
+                                <TableRow key={member.id}>
+                                    <TableCell>
+                                        <div className="flex items-center gap-3">
+                                            <Avatar>
+                                                <AvatarImage src={member.avatarUrl} alt={member.name} />
+                                                <AvatarFallback>{member.name ? member.name.charAt(0) : 'U'}</AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <div className="font-medium">{member.name}</div>
+                                                <div className="text-sm text-muted-foreground">{member.email}</div>
                                             </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {member.createdAt ? format(member.createdAt.toDate(), 'PPP') : 'N/A'}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={2} className="h-24 text-center">
-                                        You haven't referred any users yet.
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        {member.createdAt ? format(member.createdAt.toDate(), 'PPP') : 'N/A'}
                                     </TableCell>
                                 </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-        </div>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={2} className="h-24 text-center">
+                                    You haven't referred any users yet.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
 
       </div>
     </div>
