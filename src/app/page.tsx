@@ -153,7 +153,7 @@ function LoginPageContent() {
       <div className="w-full max-w-sm rounded-xl p-1 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card className="shadow-lg overflow-hidden">
           <CardContent className="p-0">
-            <div className="relative aspect-video w-full">
+            <div className="relative h-48 w-full">
               <Image src="/logo.png" alt="investPro Logo" fill className="object-cover" />
             </div>
             <div className="flex flex-col justify-center items-center gap-2 pt-4 pb-8">
