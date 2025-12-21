@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth, useUser, useFirestore } from '@/firebase';
@@ -47,16 +47,16 @@ export default function Home() {
         const userDocRef = doc(firestore, 'users', loggedInUser.uid);
         const docSnap = await getDoc(userDocRef);
 
+        // IMPORTANT: Only create a profile if one does not already exist.
         if (!docSnap.exists()) {
-          // New user, create their profile
+          // This is a new user
           await createUserProfile(loggedInUser.uid, loggedInUser.email!, loggedInUser.displayName, loggedInUser.photoURL, invitationCode);
         }
-        // Whether new or existing, now redirect
-        router.push('/user/me');
+        // Whether new or existing, the useEffect hook below will handle redirection.
       }
     } catch (error: any) {
       console.error("Google Sign-In Error:", error);
-      // Check if the error is the one from createUserProfile and avoid showing a generic message
+      // Avoid showing a generic message if the specific error from createUserProfile was already shown.
       if (error.message !== "Could not create user profile.") {
         toast({
             variant: 'destructive',
@@ -64,18 +64,20 @@ export default function Home() {
             description: error.message || 'An unknown error occurred.',
         });
       }
-      setIsProcessing(false);
+    } finally {
+        // Set processing to false here so the UI can update, redirection is handled by useEffect
+        setIsProcessing(false);
     }
   };
 
-  const createUserProfile = async (uid: string, email: string, name: string | null, photoURL: string | null, referrerNumericId: string | null) => {
+  const createUserProfile = async (uid: string, email: string, name: string | null, photoURL: string | null, referrerIdFromInput: string | null) => {
     if (!firestore) return;
 
     let finalReferrerUid: string | null = null;
 
-    // Step 1: Perform the referral check *outside* the transaction.
-    if (referrerNumericId) {
-        const numericReferrerId = parseInt(referrerNumericId, 10);
+    // Step 1: Perform the referral check *outside* the transaction if a code is provided.
+    if (referrerIdFromInput) {
+        const numericReferrerId = parseInt(referrerIdFromInput, 10);
         if (!isNaN(numericReferrerId)) {
             const referrerQuery = query(collection(firestore, 'users'), where('numericId', '==', numericReferrerId));
             const referrerSnapshot = await getDocs(referrerQuery);
@@ -88,7 +90,7 @@ export default function Home() {
         }
     }
 
-    // Step 2: Run the transaction to write data.
+    // Step 2: Run the transaction to write data atomically.
     const counterRef = doc(firestore, 'counters', 'user_id_counter');
     const userRef = doc(firestore, 'users', uid);
     const walletRef = doc(firestore, 'users', uid, 'wallets', 'main');
@@ -132,11 +134,13 @@ export default function Home() {
     } catch (e: any) {
       console.error("Transaction failed: ", e);
       toast({ variant: 'destructive', title: 'Profile Creation Failed', description: e.message });
+      // Throw the error so it can be caught by the caller function
       throw new Error("Could not create user profile.");
     }
   };
 
   useEffect(() => {
+    // This hook is responsible for all redirections after login state is confirmed.
     if (!isUserLoading && user) {
       const userDocRef = doc(firestore, 'users', user.uid);
       getDoc(userDocRef).then(docSnap => {
@@ -150,15 +154,13 @@ export default function Home() {
             router.push('/user/me');
           }
         }
-        // If doc doesn't exist, it means user just signed up via popup and profile was created.
-        // The redirection is handled inside handleGoogleSignIn.
+        // If the doc doesn't exist yet, it means the profile is currently being created.
+        // We wait for the next auth state change or re-render to redirect.
       });
-    } else if (!isUserLoading && !user) {
-        setIsProcessing(false);
     }
   }, [user, isUserLoading, firestore, router]);
   
-  if (isUserLoading || (user && !isProcessing)) { // Show loading until auth state is confirmed and user doc loaded
+  if (isUserLoading || (user && !isProcessing)) { // Show loading until auth state is confirmed
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Loading...</p>
