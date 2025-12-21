@@ -1,18 +1,18 @@
 
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { doc, setDoc, getDoc, serverTimestamp, runTransaction, collection, query, where, getDocs } from 'firebase/firestore';
 import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Smartphone, ShieldCheck, Lock, Heart, User as UserIcon, Mail } from 'lucide-react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { Heart } from 'lucide-react';
+import { GoogleAuthProvider, signInWithRedirect } from 'firebase/auth';
 
 export default function Home() {
   const auth = useAuth();
@@ -20,179 +20,146 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState('login');
-  
-  // Login State
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  
-  // Register State
-  const [regEmail, setRegEmail] = useState('');
-  const [regPassword, setRegPassword] = useState('');
-  const [regConfirmPassword, setRegConfirmPassword] = useState('');
-  const [regInvitationCode, setRegInvitationCode] = useState('');
-  const [regVerificationCode, setRegVerificationCode] = useState('');
-
-  const [captchaCode, setCaptchaCode] = useState('');
+  const [invitationCode, setInvitationCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isCodeFromUrl, setIsCodeFromUrl] = useState(false);
 
   useEffect(() => {
-    generateCaptcha();
-  }, []);
-  
-  const generateCaptcha = () => {
-    const chars = '0123456789';
-    let code = '';
-    for (let i = 0; i < 4; i++) {
-      code += chars[Math.floor(Math.random() * chars.length)];
+    const refFromUrl = searchParams.get('ref');
+    if (refFromUrl) {
+      setInvitationCode(refFromUrl);
+      setIsCodeFromUrl(true); // Mark that the code came from the URL
     }
-    setCaptchaCode(code);
-  };
-  
-  const handleRegister = async () => {
+  }, [searchParams]);
+
+  const handleGoogleSignIn = async () => {
     if (!auth || !firestore) return;
-    if (!regEmail || !regPassword || !regConfirmPassword) {
-      return toast({ variant: 'destructive', title: 'Missing fields', description: 'Please fill all required fields.' });
-    }
-    if (regPassword !== regConfirmPassword) {
-      return toast({ variant: 'destructive', title: 'Passwords do not match' });
-    }
-    if (regVerificationCode !== captchaCode) {
-      generateCaptcha();
-      return toast({ variant: 'destructive', title: 'Invalid verification code' });
-    }
-
     setIsProcessing(true);
+    
+    // Store the invitation code in sessionStorage before redirecting
+    sessionStorage.setItem('invitationCode', invitationCode);
 
+    const provider = new GoogleAuthProvider();
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, regEmail, regPassword);
-      const newUser = userCredential.user;
-      
-      await createUserProfile(newUser.uid, regEmail, regInvitationCode);
-      // Let the useEffect handle redirection
+      // We use signInWithRedirect because it's more robust on mobile devices.
+      await signInWithRedirect(auth, provider);
+      // The rest of the logic (profile creation) will be handled by the useEffect below
+      // after the redirect comes back.
     } catch (error: any) {
-      let message = 'An unknown error occurred.';
-      if (error.code === 'auth/email-already-in-use') {
-        message = 'This email address is already registered.';
-      } else if (error.code === 'auth/weak-password') {
-        message = 'Password should be at least 6 characters.';
-      } else if (error.code === 'auth/invalid-email') {
-          message = 'Please enter a valid email address.';
-      }
-      toast({ variant: 'destructive', title: 'Registration Failed', description: message });
-    } finally {
+      console.error("Google Sign-In Error:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Google Sign-In Failed',
+        description: error.message || 'An unknown error occurred.',
+      });
       setIsProcessing(false);
     }
   };
 
-  const handleLogin = async () => {
-    if (!auth) return;
-    if (!loginEmail || !loginPassword) {
-      return toast({ variant: 'destructive', title: 'Missing fields' });
-    }
-    setIsProcessing(true);
+  const createUserProfile = async (uid: string, email: string, name: string | null, photoURL: string | null, referrerIdFromInput: string | null) => {
+    if (!firestore) return;
+
+    const counterRef = doc(firestore, 'counters', 'user_id_counter');
+    const userRef = doc(firestore, 'users', uid);
+    const walletRef = doc(firestore, 'users', uid, 'wallets', 'main');
+
     try {
-      await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
-      // Let the useEffect handle redirection
-    } catch (error: any) {
-       toast({ variant: 'destructive', title: 'Login Failed', description: 'Incorrect email or password.' });
-    } finally {
-      setIsProcessing(false);
+      await runTransaction(firestore, async (transaction) => {
+        let referrerValid = false;
+        let referrerDoc;
+        if (referrerIdFromInput) {
+          const numericReferrerId = parseInt(referrerIdFromInput, 10);
+          if (!isNaN(numericReferrerId)) {
+            const referrerQuery = query(collection(firestore, 'users'), where('numericId', '==', numericReferrerId));
+            const referrerSnapshot = await transaction.get(referrerQuery);
+            if (!referrerSnapshot.empty) {
+              referrerValid = true;
+              referrerDoc = referrerSnapshot.docs[0];
+            }
+          }
+        }
+
+        const counterDoc = await transaction.get(counterRef);
+        let newNumericId = 1001; // Default starting ID
+        if (counterDoc.exists()) {
+          newNumericId = (counterDoc.data().currentId || 1000) + 1;
+        }
+        transaction.set(counterRef, { currentId: newNumericId }, { merge: true });
+
+        const newUser: Partial<AppUser> = {
+          id: uid,
+          numericId: newNumericId,
+          email: email,
+          name: name || `User ${String(newNumericId)}`,
+          avatarUrl: photoURL || `https://picsum.photos/seed/${newNumericId}/200`,
+          role: 'user',
+          investments: [],
+          agentId: null,
+          referralId: uid,
+          createdAt: serverTimestamp() as any,
+          isVerified: false,
+          totalDeposit: 0,
+        };
+        
+        if (referrerValid && referrerDoc) {
+          newUser.referrerId = referrerDoc.id;
+        }
+
+        transaction.set(userRef, newUser);
+
+        const newWallet: Wallet = {
+          id: 'main',
+          userId: uid,
+          balance: 0,
+        };
+        transaction.set(walletRef, newWallet);
+      });
+    } catch (e: any) {
+      console.error("Transaction failed: ", e);
+      toast({ variant: 'destructive', title: 'Profile Creation Failed', description: e.message });
+      throw new Error("Could not create user profile.");
     }
   };
-
-
-  const createUserProfile = async (uid: string, email: string, referrerIdFromInput: string | null) => {
-     if (!firestore) return;
-
-     const counterRef = doc(firestore, 'counters', 'user_id_counter');
-     const userRef = doc(firestore, 'users', uid);
-     const walletRef = doc(firestore, 'users', uid, 'wallets', 'main');
-
-     try {
-        await runTransaction(firestore, async (transaction) => {
-            let referrerValid = false;
-            let referrerDoc;
-            if (referrerIdFromInput) {
-                let referrerQuery;
-                const numericReferrerId = parseInt(referrerIdFromInput, 10);
-                if (!isNaN(numericReferrerId)) {
-                    referrerQuery = query(collection(firestore, 'users'), where('numericId', '==', numericReferrerId));
-                } else {
-                    referrerQuery = query(collection(firestore, 'users'), where('id', '==', referrerIdFromInput));
-                }
-                const referrerSnapshot = await getDocs(referrerQuery);
-                if (!referrerSnapshot.empty) {
-                    referrerValid = true;
-                    referrerDoc = referrerSnapshot.docs[0];
-                }
-            }
-
-
-            const counterDoc = await transaction.get(counterRef);
-            let newNumericId = 1001; // Default starting ID
-            if (counterDoc.exists()) {
-                newNumericId = (counterDoc.data().currentId || 1000) + 1;
-            }
-            transaction.set(counterRef, { currentId: newNumericId }, { merge: true });
-
-            const newUser: Partial<AppUser> = {
-                id: uid,
-                numericId: newNumericId,
-                email: email,
-                name: `User ${String(newNumericId)}`,
-                avatarUrl: `https://picsum.photos/seed/${newNumericId}/200`,
-                role: 'user',
-                investments: [],
-                agentId: null,
-                referralId: uid,
-                createdAt: serverTimestamp() as any,
-                isVerified: false,
-                totalDeposit: 0,
-            };
-            
-            if (referrerValid && referrerDoc) {
-                newUser.referrerId = referrerDoc.id;
-            }
-
-            transaction.set(userRef, newUser);
-
-            const newWallet: Wallet = {
-                id: 'main',
-                userId: uid,
-                balance: 0,
-            };
-            transaction.set(walletRef, newWallet);
-        });
-     } catch (e: any) {
-        console.error("Transaction failed: ", e);
-        throw new Error("Could not create user profile.");
-     }
-  };
-
 
   useEffect(() => {
-    if (!isUserLoading && user) {
-        const userDocRef = doc(firestore, 'users', user.uid);
-        getDoc(userDocRef).then(docSnap => {
-            if (docSnap.exists()) {
-                const userData = docSnap.data() as AppUser;
-                if (userData.role === 'admin') {
-                    router.push('/admin');
-                } else if (userData.role === 'agent') {
-                    router.push('/agent');
-                } else {
-                    router.push('/user/me');
-                }
-            } else {
-                console.log("User authenticated but no profile found, might be a new registration.");
-            }
-        });
+    if (!isUserLoading && user && firestore) {
+      const userDocRef = doc(firestore, 'users', user.uid);
+      
+      getDoc(userDocRef).then(docSnap => {
+        if (docSnap.exists()) {
+          // User profile exists, redirect to their dashboard
+          const userData = docSnap.data() as AppUser;
+          if (userData.role === 'admin') {
+            router.push('/admin');
+          } else if (userData.role === 'agent') {
+            router.push('/agent');
+          } else {
+            router.push('/user/me');
+          }
+        } else {
+          // New user signed in with Google, create their profile
+          const savedInvitationCode = sessionStorage.getItem('invitationCode');
+          sessionStorage.removeItem('invitationCode'); // Clean up
+
+          createUserProfile(user.uid, user.email!, user.displayName, user.photoURL, savedInvitationCode)
+            .then(() => {
+              router.push('/user/me');
+            })
+            .catch(err => {
+              console.error(err);
+              setIsProcessing(false);
+            });
+        }
+      });
+    } else if (!isUserLoading && !user) {
+        setIsProcessing(false);
     }
-  }, [user, isUserLoading, router, firestore]);
+  }, [user, isUserLoading, firestore, router]);
   
-  if (isUserLoading || user) {
+  // This state is just to show a loading indicator while Firebase initializes or user logs in.
+  if (isUserLoading || isProcessing) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Loading...</p>
@@ -200,151 +167,51 @@ export default function Home() {
     );
   }
 
-  const renderLoginTab = () => (
-    <div className="space-y-4">
-        <div className="space-y-2">
-            <Label htmlFor="email-login">Email</Label>
-            <Input 
-                id="email-login" 
-                type="email" 
-                placeholder="you@example.com" 
-                value={loginEmail} 
-                onChange={(e) => setLoginEmail(e.target.value)}
-                icon={<Mail className="h-5 w-5 text-muted-foreground" />}
-            />
-        </div>
-        <div className="space-y-2">
-            <Label htmlFor="password-login">Password</Label>
-            <Input 
-                id="password-login" 
-                type="password" 
-                placeholder="Enter your password" 
-                value={loginPassword} 
-                onChange={(e) => setLoginPassword(e.target.value)}
-                icon={<Lock className="h-5 w-5 text-muted-foreground" />}
-            />
-        </div>
-        <Button onClick={handleLogin} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
-            {isProcessing ? 'Logging in...' : 'Log In'}
-        </Button>
-    </div>
-  );
-
- const renderRegisterTab = () => (
-    <div className="space-y-4">
-        <div className="space-y-2">
-            <Label htmlFor="email-reg">Email</Label>
-            <Input 
-                id="email-reg" 
-                type="email" 
-                placeholder="you@example.com" 
-                value={regEmail} 
-                onChange={(e) => setRegEmail(e.target.value)} 
-                icon={<Mail className="h-5 w-5 text-muted-foreground" />}
-            />
-        </div>
-        <div className="space-y-2">
-            <Label htmlFor="password-reg">Create Password</Label>
-            <Input 
-                id="password-reg" 
-                type="password" 
-                placeholder="Must be at least 6 characters"
-                value={regPassword} 
-                onChange={(e) => setRegPassword(e.target.value)}
-                icon={<Lock className="h-5 w-5 text-muted-foreground" />}
-            />
-        </div>
-        <div className="space-y-2">
-            <Label htmlFor="confirm-password-reg">Confirm Password</Label>
-            <Input 
-                id="confirm-password-reg" 
-                type="password" 
-                placeholder="Re-enter your password"
-                value={regConfirmPassword} 
-                onChange={(e) => setRegConfirmPassword(e.target.value)}
-                icon={<Lock className="h-5 w-5 text-muted-foreground" />}
-            />
-        </div>
-        <div className="space-y-2">
-            <Label htmlFor="invitation-code">Invitation Code (Optional)</Label>
-            <Input 
-                id="invitation-code" 
-                type="text" 
-                placeholder="Enter referrer's code"
-                value={regInvitationCode} 
-                onChange={(e) => setRegInvitationCode(e.target.value)}
-                icon={<Heart className="h-5 w-5 text-muted-foreground" />}
-            />
-        </div>
-        <div className="flex items-end gap-2">
-            <div className="space-y-2 flex-grow">
-                <Label htmlFor="verification-code">Verification Code</Label>
-                <Input 
-                    id="verification-code" 
-                    type="text"
-                    value={regVerificationCode} 
-                    onChange={(e) => setRegVerificationCode(e.target.value)} 
-                    icon={<ShieldCheck className="h-5 w-5 text-muted-foreground" />}
-                    maxLength={4}
-                />
-            </div>
-            <div 
-                className="h-10 px-4 py-2 border rounded-md bg-muted select-none flex items-center justify-center font-mono text-lg tracking-widest"
-                onClick={generateCaptcha}
-                title="Click to refresh"
-            >
-                {captchaCode}
-            </div>
-        </div>
-        <Button onClick={handleRegister} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
-            {isProcessing ? 'Registering...' : 'Register'}
-        </Button>
-    </div>
- );
-
-
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
       <div className="w-full max-w-sm rounded-xl p-1 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card className="shadow-lg">
           <CardContent className="p-6">
-            <div className="flex justify-center items-center gap-2 mb-6">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-8 w-8 text-primary"
-                >
-                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                    <path d="M2 17l10 5 10-5" />
-                    <path d="M2 12l10 5 10-5" />
+            <div className="flex justify-center items-center gap-2 mb-8">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-8 w-8 text-primary"
+              >
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+              <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
+            </div>
+
+            <div className="space-y-6">
+              <Button onClick={handleGoogleSignIn} className="w-full h-12 rounded-full text-lg" variant="outline">
+                <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+                  <path fill="currentColor" d="M488 261.8C488 403.3 381.5 512 244 512 111.8 512 0 400.2 0 264.1 0 128.1 111.8 16.5 244 16.5c70.3 0 129.5 27.2 176.4 71.8l-68.3 64.6C314.5 118.2 282.8 100 244 100c-77.5 0-140.7 63.2-140.7 140.7s63.2 140.7 140.7 140.7c86.3 0 112.5-63.2 115.8-93.1H244v-75.5h236.4c2.5 13.3 3.6 27.5 3.6 42.9z"></path>
                 </svg>
-                <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
-            </div>
+                Sign in with Google
+              </Button>
 
-            <div className="flex mb-4 border-b">
-                <button
-                    onClick={() => setActiveTab('login')}
-                    className={`flex-1 py-2 text-center text-lg font-semibold relative ${activeTab === 'login' ? 'text-primary tab-active-border' : 'text-muted-foreground'}`}
-                >
-                    Log in
-                </button>
-                <button
-                    onClick={() => setActiveTab('register')}
-                    className={`flex-1 py-2 text-center text-lg font-semibold relative ${activeTab === 'register' ? 'text-primary tab-active-border' : 'text-muted-foreground'}`}
-                >
-                    Register
-                </button>
+              <div className="space-y-2">
+                <Label htmlFor="invitation-code">Invitation Code (Optional)</Label>
+                <Input 
+                  id="invitation-code" 
+                  type="text" 
+                  placeholder="Code from your inviter"
+                  value={invitationCode}
+                  onChange={(e) => setInvitationCode(e.target.value)}
+                  icon={<Heart className="h-5 w-5 text-muted-foreground" />}
+                  readOnly={isCodeFromUrl} // Make it read-only if filled from URL
+                  className={isCodeFromUrl ? 'bg-muted/50 cursor-not-allowed' : ''}
+                />
+              </div>
             </div>
-
-            <div className="pt-4">
-                {activeTab === 'login' ? renderLoginTab() : renderRegisterTab()}
-            </div>
-          
           </CardContent>
         </Card>
       </div>
