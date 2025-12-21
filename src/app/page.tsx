@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Heart } from 'lucide-react';
-import { GoogleAuthProvider, signInWithRedirect } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, UserCredential } from 'firebase/auth';
 
 export default function Home() {
   const auth = useAuth();
@@ -30,23 +30,30 @@ export default function Home() {
     const refFromUrl = searchParams.get('ref');
     if (refFromUrl) {
       setInvitationCode(refFromUrl);
-      setIsCodeFromUrl(true); // Mark that the code came from the URL
+      setIsCodeFromUrl(true);
     }
   }, [searchParams]);
 
   const handleGoogleSignIn = async () => {
     if (!auth || !firestore) return;
     setIsProcessing(true);
-    
-    // Store the invitation code in sessionStorage before redirecting
-    sessionStorage.setItem('invitationCode', invitationCode);
 
     const provider = new GoogleAuthProvider();
     try {
-      // We use signInWithRedirect because it's more robust on mobile devices.
-      await signInWithRedirect(auth, provider);
-      // The rest of the logic (profile creation) will be handled by the useEffect below
-      // after the redirect comes back.
+      const result: UserCredential = await signInWithPopup(auth, provider);
+      const loggedInUser = result.user;
+
+      if (loggedInUser) {
+        const userDocRef = doc(firestore, 'users', loggedInUser.uid);
+        const docSnap = await getDoc(userDocRef);
+
+        if (!docSnap.exists()) {
+          // New user, create their profile
+          await createUserProfile(loggedInUser.uid, loggedInUser.email!, loggedInUser.displayName, loggedInUser.photoURL, invitationCode);
+        }
+        // Whether new or existing, now redirect
+        router.push('/user/me');
+      }
     } catch (error: any) {
       console.error("Google Sign-In Error:", error);
       toast({
@@ -73,16 +80,18 @@ export default function Home() {
           const numericReferrerId = parseInt(referrerIdFromInput, 10);
           if (!isNaN(numericReferrerId)) {
             const referrerQuery = query(collection(firestore, 'users'), where('numericId', '==', numericReferrerId));
-            const referrerSnapshot = await transaction.get(referrerQuery);
+            const referrerSnapshot = await getDocs(referrerQuery);
             if (!referrerSnapshot.empty) {
-              referrerValid = true;
-              referrerDoc = referrerSnapshot.docs[0];
+                referrerDoc = referrerSnapshot.docs[0];
+                if(referrerDoc.id !== uid) { // Can't refer yourself
+                    referrerValid = true;
+                }
             }
           }
         }
 
         const counterDoc = await transaction.get(counterRef);
-        let newNumericId = 1001; // Default starting ID
+        let newNumericId = 1001;
         if (counterDoc.exists()) {
           newNumericId = (counterDoc.data().currentId || 1000) + 1;
         }
@@ -97,7 +106,6 @@ export default function Home() {
           role: 'user',
           investments: [],
           agentId: null,
-          referralId: uid,
           createdAt: serverTimestamp() as any,
           isVerified: false,
           totalDeposit: 0,
@@ -124,12 +132,10 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (!isUserLoading && user && firestore) {
+    if (!isUserLoading && user) {
       const userDocRef = doc(firestore, 'users', user.uid);
-      
       getDoc(userDocRef).then(docSnap => {
         if (docSnap.exists()) {
-          // User profile exists, redirect to their dashboard
           const userData = docSnap.data() as AppUser;
           if (userData.role === 'admin') {
             router.push('/admin');
@@ -138,28 +144,16 @@ export default function Home() {
           } else {
             router.push('/user/me');
           }
-        } else {
-          // New user signed in with Google, create their profile
-          const savedInvitationCode = sessionStorage.getItem('invitationCode');
-          sessionStorage.removeItem('invitationCode'); // Clean up
-
-          createUserProfile(user.uid, user.email!, user.displayName, user.photoURL, savedInvitationCode)
-            .then(() => {
-              router.push('/user/me');
-            })
-            .catch(err => {
-              console.error(err);
-              setIsProcessing(false);
-            });
         }
+        // If doc doesn't exist, it means user just signed up via popup and profile was created.
+        // The redirection is handled inside handleGoogleSignIn.
       });
     } else if (!isUserLoading && !user) {
         setIsProcessing(false);
     }
   }, [user, isUserLoading, firestore, router]);
   
-  // This state is just to show a loading indicator while Firebase initializes or user logs in.
-  if (isUserLoading || isProcessing) {
+  if (isUserLoading || (user && !isProcessing)) { // Show loading until auth state is confirmed and user doc loaded
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Loading...</p>
@@ -191,11 +185,11 @@ export default function Home() {
             </div>
 
             <div className="space-y-6">
-              <Button onClick={handleGoogleSignIn} className="w-full h-12 rounded-full text-lg" variant="outline">
+              <Button onClick={handleGoogleSignIn} className="w-full h-12 rounded-full text-lg" variant="outline" disabled={isProcessing}>
                 <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
                   <path fill="currentColor" d="M488 261.8C488 403.3 381.5 512 244 512 111.8 512 0 400.2 0 264.1 0 128.1 111.8 16.5 244 16.5c70.3 0 129.5 27.2 176.4 71.8l-68.3 64.6C314.5 118.2 282.8 100 244 100c-77.5 0-140.7 63.2-140.7 140.7s63.2 140.7 140.7 140.7c86.3 0 112.5-63.2 115.8-93.1H244v-75.5h236.4c2.5 13.3 3.6 27.5 3.6 42.9z"></path>
                 </svg>
-                Sign in with Google
+                {isProcessing ? 'Processing...' : 'Sign in with Google'}
               </Button>
 
               <div className="space-y-2">
@@ -207,7 +201,7 @@ export default function Home() {
                   value={invitationCode}
                   onChange={(e) => setInvitationCode(e.target.value)}
                   icon={<Heart className="h-5 w-5 text-muted-foreground" />}
-                  readOnly={isCodeFromUrl} // Make it read-only if filled from URL
+                  readOnly={isCodeFromUrl}
                   className={isCodeFromUrl ? 'bg-muted/50 cursor-not-allowed' : ''}
                 />
               </div>
