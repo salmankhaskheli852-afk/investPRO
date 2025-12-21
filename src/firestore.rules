@@ -1,0 +1,103 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if the user is a super admin by email
+    // or if their UID exists in the admin roles collection.
+    function isAdmin() {
+      return request.auth != null && 
+             (
+                request.auth.token.email == 'salmankhaskheli885@gmail.com' ||
+                exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
+             );
+    }
+    
+    // Grant ADMINS total and complete access to ALL documents in the database.
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // --- Rules for regular authenticated users (non-admin, non-agent) ---
+
+    function isUserAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isUserAuthenticated() && request.auth.uid == userId;
+    }
+
+    // A user can list/get other user profiles (for referral names) but only update their own.
+    match /users/{userId} {
+      allow get, list: if isUserAuthenticated();
+      allow create: if isUserAuthenticated();
+      allow update: if isOwner(userId);
+    }
+    
+    // A user has full access to their own sub-collections (wallets, transactions, etc.).
+    // This recursive wildcard match is crucial for nested data like transactions.
+    match /users/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Any user (authenticated or not) can read plans.
+    // Authenticated users can update plans (to increment purchase count).
+    match /investment_plans/{planId} {
+        allow read: if true;
+        allow update: if isUserAuthenticated();
+        allow create, delete: if isAdmin() || isAgent();
+    }
+
+    // Any authenticated user can view plan categories.
+    match /plan_categories/{categoryId} {
+        allow read: if isUserAuthenticated();
+    }
+    
+    // Any authenticated user can read admin wallet details for depositing.
+    match /admin_wallets/{walletId} {
+        allow read: if isUserAuthenticated();
+    }
+
+    // Any authenticated user can read withdrawal methods.
+    match /withdrawal_methods/{methodId} {
+      allow read: if isUserAuthenticated();
+    }
+
+    // Anyone can read chat settings for the WhatsApp widget.
+    match /app_config/{setting} {
+      allow get: if true;
+    }
+
+    // Regular users can create new transactions and list them (for duplicate TID check).
+    // Admins/Agents have broader list permissions from their own rules.
+    match /transactions/{transactionId} {
+      allow create: if isUserAuthenticated();
+      allow list: if isUserAuthenticated();
+    }
+    
+
+    // --- Rules for AGENTS ---
+    
+    // Helper function to check if the user is an agent by their role document.
+    function isAgent() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
+    }
+
+    // Grant AGENTS broad access to necessary collections.
+    // This allows them to manage users, plans, and transactions without restriction.
+    match /{collection}/{docId} {
+      allow read, write, list: if isAgent() && 
+                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods'];
+    }
+     match /users/{userId}/{subCollection}/{docId} {
+        allow read, write, list: if isAgent();
+    }
+     match /users/{userId}/{subCollection}/{docId}/{nestedSubCollection}/{nestedDocId} {
+        allow read, write, list: if isAgent();
+    }
+  }
+}

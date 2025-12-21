@@ -8,11 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import type { User, Transaction, ReferralRequest } from '@/lib/data';
+import type { User, Transaction, AppSettings } from '@/lib/data';
 import { doc, collection, query, where, orderBy, getDocs, writeBatch, serverTimestamp, addDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Copy } from 'lucide-react';
 
 
 export default function InvitationPage() {
@@ -20,14 +21,13 @@ export default function InvitationPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [targetIdentifier, setTargetIdentifier] = React.useState('');
-  const [isSending, setIsSending] = React.useState(false);
+  const [invitationLink, setInvitationLink] = React.useState('');
 
-  const userDocRef = useMemoFirebase(
-    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
-    [firestore, user]
+  const settingsRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore]
   );
-  const { data: userData, isLoading: isLoadingUser } = useDoc<User>(userDocRef);
+  const { data: appSettings } = useDoc<AppSettings>(settingsRef);
   
   const myTeamQuery = useMemoFirebase(
     () => (user && firestore ? query(collection(firestore, 'users'), where('referrerId', '==', user.uid)) : null),
@@ -46,6 +46,26 @@ export default function InvitationPage() {
   );
   const { data: transactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(transactionsQuery);
 
+  React.useEffect(() => {
+    if (user && appSettings?.baseInvitationUrl) {
+      const url = new URL(appSettings.baseInvitationUrl);
+      url.searchParams.set('ref', user.uid);
+      setInvitationLink(url.toString());
+    } else if (user) {
+      const url = new URL(window.location.origin);
+      url.searchParams.set('ref', user.uid);
+      setInvitationLink(url.toString());
+    }
+  }, [user, appSettings]);
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(invitationLink);
+    toast({
+      title: 'Link Copied!',
+      description: 'Your invitation link has been copied to your clipboard.',
+    });
+  };
+
   const totalReferralIncome = React.useMemo(() => {
     if (!transactions) return 0;
     return transactions.reduce((acc, tx) => {
@@ -55,72 +75,6 @@ export default function InvitationPage() {
       return acc;
     }, 0);
   }, [transactions]);
-
-  const handleSendRequest = async () => {
-    if (!user || !firestore || !userData || !targetIdentifier) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Missing information.' });
-      return;
-    }
-    setIsSending(true);
-
-    try {
-        // Determine if identifier is email or UID
-        const isEmail = targetIdentifier.includes('@');
-        let targetQuery;
-        if (isEmail) {
-            targetQuery = query(collection(firestore, 'users'), where('email', '==', targetIdentifier));
-        } else {
-            // Assume it's a UID. A simple getDoc would be more efficient if we're sure it's a UID.
-            // But for flexibility, we'll query.
-             targetQuery = query(collection(firestore, 'users'), where('id', '==', targetIdentifier));
-        }
-        
-        const targetSnapshot = await getDocs(targetQuery);
-
-        if (targetSnapshot.empty) {
-            throw new Error('User not found. Please check the ID or Email and try again.');
-        }
-
-        const targetUser = targetSnapshot.docs[0].data() as User;
-
-        if (targetUser.id === user.uid) {
-            throw new Error("You cannot send a referral request to yourself.");
-        }
-
-        if (targetUser.referrerId) {
-            throw new Error('This user has already been referred by someone else.');
-        }
-
-        const existingRequestQuery = query(collection(firestore, 'referral_requests'), 
-            where('requesterId', '==', user.uid),
-            where('targetId', '==', targetUser.id)
-        );
-        const existingRequestSnapshot = await getDocs(existingRequestQuery);
-        if (!existingRequestSnapshot.empty) {
-            throw new Error('You have already sent a request to this user.');
-        }
-
-        await addDoc(collection(firestore, 'referral_requests'), {
-            requesterId: user.uid,
-            requesterName: userData.name,
-            targetId: targetUser.id,
-            status: 'pending',
-            createdAt: serverTimestamp(),
-        });
-        
-        toast({ title: 'Request Sent!', description: `Your invitation has been sent to ${targetUser.name}.` });
-        setTargetIdentifier('');
-
-    } catch (e: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Error Sending Request',
-            description: e.message || 'An unknown error occurred.',
-        });
-    } finally {
-        setIsSending(false);
-    }
-  };
 
 
   return (
@@ -133,23 +87,21 @@ export default function InvitationPage() {
       <div className="grid grid-cols-1 gap-8">
         
         <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-            <Card>
-              <CardHeader>
-                <CardTitle>Send a Team Invitation</CardTitle>
-                <CardDescription>Enter the User ID or Email of the person you want to invite.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="invitation-target">Enter User ID or Email</Label>
-                  <div className="flex items-center space-x-2">
-                    <Input id="invitation-target" value={targetIdentifier} onChange={(e) => setTargetIdentifier(e.target.value)} placeholder="User ID or email address" />
-                    <Button onClick={handleSendRequest} disabled={isSending || !targetIdentifier}>
-                      {isSending ? 'Sending...' : 'Send Request'}
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Invitation Link</CardTitle>
+              <CardDescription>Share this link with your friends to invite them to your team.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Input id="invitation-link" value={invitationLink} readOnly />
+                <Button onClick={handleCopyLink} disabled={!invitationLink}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
         
 
@@ -204,11 +156,11 @@ export default function InvitationPage() {
                                             <div className="flex items-center gap-3">
                                                 <Avatar>
                                                     <AvatarImage src={member.avatarUrl} alt={member.name} />
-                                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                                    <AvatarFallback>{member.name ? member.name.charAt(0) : 'U'}</AvatarFallback>
                                                 </Avatar>
                                                 <div>
                                                     <div className="font-medium">{member.name}</div>
-                                                    <div className="text-sm text-muted-foreground">{member.email}</div>
+                                                    <div className="text-sm text-muted-foreground">{member.phoneNumber}</div>
                                                 </div>
                                             </div>
                                         </TableCell>

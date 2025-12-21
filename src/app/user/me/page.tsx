@@ -119,7 +119,7 @@ export default function UserDashboardPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, {userData?.name}!</p>
+        <p className="text-muted-foreground">Welcome back, {userData?.name || userData?.phoneNumber}!</p>
       </div>
       
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">

@@ -1,0 +1,150 @@
+
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the investPro platform.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the user entity." },
+        "googleId": { "type": "string", "description": "The Google ID of the user, obtained from Google Authentication." },
+        "email": { "type": "string", "description": "The email address of the user.", "format": "email" },
+        "firstName": { "type": "string", "description": "The first name of the user." },
+        "lastName": { "type": "string", "description": "The last name of the user." },
+        "role": { "type": "string", "description": "The role of the user (e.g., 'admin', 'agent', 'user')." },
+        "referralId": { "type": "string", "description": "The user's own unique referral ID (typically same as user ID)." },
+        "referrerId": { "type": ["string", "null"], "description": "The user ID of the person who referred this user." },
+        "referralCount": { "type": "number", "description": "The number of users this user has successfully referred." },
+        "referralIncome": { "type": "number", "description": "The total income earned from referrals." }
+      },
+      "required": ["id", "googleId", "email", "firstName", "lastName", "role", "referralId"]
+    },
+    "InvestmentPlan": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "InvestmentPlan",
+      "type": "object",
+      "description": "Represents an investment plan offered on the investPro platform.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the investment plan." },
+        "name": { "type": "string", "description": "The name of the investment plan." },
+        "price": { "type": "number", "description": "The price of the investment plan." },
+        "dailyIncomePercentage": { "type": "number", "description": "The daily income percentage of the investment plan." },
+        "totalIncome": { "type": "number", "description": "The total income of the investment plan." },
+        "imageUrl": { "type": "string", "description": "The URL of the image for the investment plan.", "format": "uri" }
+      },
+      "required": ["id", "name", "price", "dailyIncomePercentage", "totalIncome", "imageUrl"]
+    },
+    "Wallet": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Wallet",
+      "type": "object",
+      "description": "Represents a user's wallet for managing funds.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the wallet." },
+        "userId": { "type": "string", "description": "Reference to User. (Relationship: User 1:N Wallet)" },
+        "balance": { "type": "number", "description": "The total balance of the user's wallet." }
+      },
+      "required": ["id", "userId", "balance"]
+    },
+    "Transaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Transaction",
+      "type": "object",
+      "description": "Represents a deposit or withdrawal transaction.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the transaction." },
+        "walletId": { "type": "string", "description": "Reference to Wallet. (Relationship: Wallet 1:N Transaction)" },
+        "type": { "type": "string", "description": "The type of transaction ('deposit', 'withdrawal', 'referral_income')." },
+        "amount": { "type": "number", "description": "The amount of the transaction." },
+        "transactionDate": { "type": "string", "description": "The date and time of the transaction.", "format": "date-time" },
+        "adminWalletNumber": { "type": "string", "description": "The admin's wallet number (for deposits)." },
+        "adminWalletName": { "type": "string", "description": "The admin's wallet name (for deposits)." },
+        "userWalletNumber": { "type": "string", "description": "The user's wallet number (for withdrawals)." },
+        "userWalletName": { "type": "string", "description": "The user's wallet name (for withdrawals)." }
+      },
+      "required": ["id", "walletId", "type", "amount", "transactionDate"]
+    },
+    "PlanCategory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlanCategory",
+      "type": "object",
+      "description": "Represents a category for investment plans.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the category." },
+        "name": { "type": "string", "description": "The name of the category." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "The timestamp when the category was created." }
+      },
+      "required": ["id", "name", "createdAt"]
+    }
+  },
+  "auth": {
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": { "$ref": "#/backend/entities/User" },
+          "description": "Stores user profiles.  'userId' is derived from request.auth.uid. No denormalized data is required.",
+          "params": [{ "name": "userId", "description": "The unique identifier of the user." }]
+        }
+      },
+      {
+        "path": "/investment_plans/{planId}",
+        "definition": {
+          "entityName": "InvestmentPlan",
+          "schema": { "$ref": "#/backend/entities/InvestmentPlan" },
+          "description": "Stores investment plan details. No denormalized data is required.",
+          "params": [{ "name": "planId", "description": "The unique identifier of the investment plan." }]
+        }
+      },
+      {
+        "path": "/plan_categories/{categoryId}",
+        "definition": {
+          "entityName": "PlanCategory",
+          "schema": { "$ref": "#/backend/entities/PlanCategory" },
+          "description": "Stores investment plan categories.",
+          "params": [{ "name": "categoryId", "description": "The unique identifier of the category." }]
+        }
+      },
+      {
+        "path": "/users/{userId}/wallets/{walletId}",
+        "definition": {
+          "entityName": "Wallet",
+          "schema": { "$ref": "#/backend/entities/Wallet" },
+          "description": "Stores user's wallet information. 'userId' is derived from request.auth.uid.",
+          "params": [
+            { "name": "userId", "description": "The unique identifier of the user." },
+            { "name": "walletId", "description": "The unique identifier of the wallet." }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/wallets/{walletId}/transactions/{transactionId}",
+        "definition": {
+          "entityName": "Transaction",
+          "schema": { "$ref": "#/backend/entities/Transaction" },
+          "description": "Stores transaction history for a wallet. 'userId' is derived from request.auth.uid, inherited from the parent.",
+          "params": [
+            { "name": "userId", "description": "The unique identifier of the user." },
+            { "name": "walletId", "description": "The unique identifier of the wallet." },
+            { "name": "transactionId", "description": "The unique identifier of the transaction." }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{userId}",
+        "definition": {
+          "entityName": "role",
+          "schema": { "$ref": "#/backend/entities/User" },
+          "description": "Indicates admin privileges for a user. Existence of the document grants admin rights.",
+          "params": [{ "name": "userId", "description": "The unique identifier of the user." }]
+        }
+      }
+    ],
+    "reasoning": "This Firestore structure is designed to support the investPro application with separate panels for agents, admins, and users, focusing on investment plans and wallet management. It incorporates Google authentication and provides distinct data access patterns for each role. The structure emphasizes authorization independence through denormalization, which is critical for robust security rules and atomic operations.\n\n*Users Collection: /users/{userId}:*  Stores user profiles. Security rules should ensure only the user or an admin can read/write their profile data. The `userId` is derived from `request.auth.uid`. Authorization Independence is achieved because user data does not depend on any parent document.\n\n*Investment Plans Collection: /investment_plans/{planId}:*  Stores investment plan details.  Admin-only access for create, update, and delete operations is enforced through role-based checks in security rules.  List operations can be performed securely with rules that prevent unauthorized data exposure. Authorization independence is maintained because access doesn't depend on a parent document.\n\n*User Wallets Collection: /users/{userId}/wallets/{walletId}:* Each user has a wallet. This subcollection enables path-based ownership. Security rules will use `request.auth.uid == userId` to ensure only the user can access their wallets.  \n\n*Wallet Transactions Subcollection: /users/{userId}/wallets/{walletId}/transactions/{transactionId}:*  Stores transaction history for each wallet.  Security rules should restrict access based on wallet ownership. Because the collection is nested under the user's wallet, the `userId` is available in the path and can be used in rules. \n\n*Admin Roles Collection: /roles_admin/{userId}:*  Document existence in this collection grants admin privileges. Security rules use `exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))` to verify admin status.\n\n*Plan Categories Collection: /plan_categories/{categoryId}:* Stores the categories for investment plans. Admins can manage these categories.\n\n\n*QAPs Support:*\n\n*   *Secure List Operations:* Structural segregation ensures that list operations on collections like `/investment_plans` don't expose private data. Role-based access control ensures that only authorized users (e.g., admins) can modify investment plans.\n*   *Authorization Independence:* By avoiding `get()` calls in security rules (achieved through path-based ownership and dedicated admin roles), the structure supports atomic operations (transactions and batches) and improves security rule performance and debuggability."
+  }
+}

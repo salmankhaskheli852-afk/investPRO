@@ -147,8 +147,8 @@ export function Header() {
                  <Skeleton className="h-9 w-9 rounded-full" />
               ) : (
                 <Avatar className="h-9 w-9">
-                  <AvatarImage src={user?.photoURL || undefined} alt="User Avatar" />
-                  <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                  <AvatarImage src={userData?.avatarUrl || undefined} alt="User Avatar" />
+                  <AvatarFallback>{userData?.name?.charAt(0) || 'U'}</AvatarFallback>
                 </Avatar>
               )}
             </Button>
@@ -160,8 +160,8 @@ export function Header() {
               <>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.displayName}</p>
-                    <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                    <p className="text-sm font-medium leading-none">{userData?.name || 'User'}</p>
+                    <p className="text-xs leading-none text-muted-foreground">{user.phoneNumber}</p>
                     <div className="flex items-center pt-1">
                         <p className="text-xs leading-none text-muted-foreground truncate">ID: {user.uid}</p>
                         <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => handleCopy(user.uid, 'User ID')}>

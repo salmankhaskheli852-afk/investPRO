@@ -43,9 +43,10 @@ export type UserInvestment = {
 
 export type User = {
   id: string;
-  name: string;
-  email: string;
-  avatarUrl: string;
+  name?: string;
+  email?: string;
+  phoneNumber?: string | null;
+  avatarUrl?: string;
   investments: UserInvestment[]; // array of user investment objects
   agentId: string | null; // Can be null if no agent is assigned
   role: 'user' | 'agent' | 'admin';
@@ -130,14 +131,7 @@ export type AppSettings = {
     carouselImages?: string[];
 }
 
-export type ReferralRequest = {
-  id: string;
-  requesterId: string;
-  requesterName: string;
-  targetId: string;
-  status: 'pending' | 'approved' | 'rejected';
-  createdAt: Timestamp;
-}
+
 
 // This is now seed data for Firestore, not used directly in the app.
 export const investmentPlans: InvestmentPlan[] = [];

@@ -1,39 +1,26 @@
 
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShieldCheck, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
-import { useUser, useDoc } from '@/firebase';
+import { useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { signInWithGoogle } from '@/firebase/auth/sign-in';
-import { useAuth, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, getDoc, serverTimestamp, collection, getDocs, writeBatch, updateDoc, increment } from 'firebase/firestore';
+import { useAuth, useFirestore } from '@/firebase';
+import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch, increment } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
+import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
 import type { User, AdminWallet, WithdrawalMethod, InvestmentPlan } from '@/lib/data';
-import { planCategories, investmentPlans as seedPlans } from '@/lib/data';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+
 
 // By exporting this, we tell Next.js to always render this page dynamically
 // which is required because we are using useSearchParams.
 export const dynamic = 'force-dynamic';
-
-const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 48 48"
-    width="24px"
-    height="24px"
-    {...props}
-  >
-    <path fill="#4285F4" d="M24 9.5c3.13 0 5.9 1.12 7.96 3.04l-2.83 2.83c-.94-.89-2.2-1.43-3.13-1.43-2.67 0-4.96 1.79-5.78 4.22h-3.4v-2.73C13.23 12.45 18.23 9.5 24 9.5z" />
-    <path fill="#34A853" d="M46.2 25.01c0-1.63-.14-3.2-.4-4.71H24v8.88h12.47c-.54 2.86-2.14 5.28-4.6 6.98v-2.73c2.46-1.14 4.1-3.64 4.1-6.42z" />
-    <path fill="#FBBC05" d="M9.22 28.23c-.32-1.07-.5-2.2-.5-3.35s.18-2.28.5-3.35v-3.23h-4.3c-1.28 2.58-2.02 5.51-2.02 8.58s.74 6 2.02 8.58l4.3-3.23z" />
-    <path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-4.1-3.18c-2.13 1.43-4.88 2.28-8.79 2.28-5.79 0-10.79-3.05-12.82-7.27l-4.3 3.23C7.07 42.85 14.28 48 24 48z" />
-    <path fill="none" d="M0 0h48v48H0z" />
-  </svg>
-);
 
 const ADMIN_EMAIL = 'salmankhaskheli885@gmail.com';
 
@@ -71,51 +58,61 @@ function HomePageContent() {
   const firestore = useFirestore();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { toast } = useToast();
 
-  const seedInitialData = async () => {
-    if (!firestore) return;
-    const batch = writeBatch(firestore);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
-    const adminWallets: Omit<AdminWallet, 'id'>[] = [
-      { walletName: "Easypaisa", name: "you", number: "03087554721", isEnabled: true },
-      { walletName: "JazzCash", name: "salman shop", number: "03433273391", isEnabled: true },
-      { walletName: 'Bank', name: 'Meezan Bank', number: '0308237554721', isBank: true, isEnabled: true }
-    ];
-
-    const withdrawalMethods: Omit<WithdrawalMethod, 'id'>[] = [
-      { name: 'JazzCash', isEnabled: true },
-      { name: 'Easypaisa', isEnabled: true },
-      { name: 'Bank Transfer', isEnabled: true },
-    ];
-
-    const adminWalletsCollection = collection(firestore, 'admin_wallets');
-    adminWallets.forEach(wallet => {
-        const docRef = doc(adminWalletsCollection);
-        batch.set(docRef, {...wallet, id: docRef.id});
+  useEffect(() => {
+    if (!auth) return;
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      'size': 'invisible',
+      'callback': (response: any) => {
+        // reCAPTCHA solved, allow signInWithPhoneNumber.
+      }
     });
+  }, [auth]);
 
-    const withdrawalMethodsCollection = collection(firestore, 'withdrawal_methods');
-     withdrawalMethods.forEach(method => {
-        const docRef = doc(withdrawalMethodsCollection);
-        batch.set(docRef, {...method, id: docRef.id});
-    });
-    
-    // Seed investment plans
-    const investmentPlansCollection = collection(firestore, 'investment_plans');
-    seedPlans.forEach(plan => {
-        const docRef = doc(investmentPlansCollection);
-        batch.set(docRef, {...plan, id: docRef.id, createdAt: serverTimestamp() });
-    });
-
-    // Seed app settings
-    const settingsRef = doc(firestore, 'app_config', 'app_settings');
-    batch.set(settingsRef, {
-        baseInvitationUrl: `${window.location.origin}/`,
-        referralCommissionPercentage: 5
-    }, { merge: true });
-
-    await batch.commit();
+  const handleSendOtp = async () => {
+    if (!auth || !window.recaptchaVerifier) return;
+    if (!/^\+\d{10,15}$/.test(phoneNumber)) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid Phone Number',
+            description: 'Please enter a valid phone number with country code (e.g., +923001234567).',
+        });
+        return;
+    }
+    setIsSendingOtp(true);
+    try {
+        const result = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
+        setConfirmationResult(result);
+        toast({ title: 'OTP Sent', description: 'Please check your phone for the verification code.' });
+    } catch (error) {
+        console.error("Error sending OTP:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to send OTP. Please try again.' });
+    } finally {
+        setIsSendingOtp(false);
+    }
   };
+
+  const handleVerifyOtp = async () => {
+    if (!confirmationResult) return;
+    setIsVerifyingOtp(true);
+    try {
+        const result = await confirmationResult.confirm(otp);
+        await createUserProfile(result.user);
+    } catch (error) {
+        console.error("Error verifying OTP:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Invalid OTP. Please try again.' });
+    } finally {
+        setIsVerifyingOtp(false);
+    }
+  };
+
 
   const createUserProfile = async (firebaseUser: FirebaseUser) => {
     if (!firestore) return;
@@ -125,26 +122,20 @@ function HomePageContent() {
 
     if (!userDoc.exists()) {
         const batch = writeBatch(firestore);
-        const role = firebaseUser.email === ADMIN_EMAIL ? 'admin' : 'user';
+        // For phone auth, email is null. Let's make a default name.
+        const defaultName = "User " + firebaseUser.uid.slice(-4);
 
-        if (role === 'admin') {
-            const adminWalletsSnapshot = await getDocs(collection(firestore, 'admin_wallets'));
-            if (adminWalletsSnapshot.empty) {
-                await seedInitialData(); 
-            }
-        }
-        
         const referrerId = searchParams.get('ref') || null;
 
         // 1. Create the new user's profile
         batch.set(userRef, {
             id: firebaseUser.uid,
-            name: firebaseUser.displayName || 'Anonymous User',
-            email: firebaseUser.email,
-            avatarUrl: firebaseUser.photoURL,
+            name: defaultName,
+            phoneNumber: firebaseUser.phoneNumber,
+            avatarUrl: null,
             investments: [],
             createdAt: serverTimestamp(),
-            role: role,
+            role: 'user', // Default role
             referralId: firebaseUser.uid,
             referrerId: referrerId,
             referralCount: 0,
@@ -164,32 +155,20 @@ function HomePageContent() {
         // 3. If there was a referrer, update their count
         if (referrerId) {
             const referrerRef = doc(firestore, 'users', referrerId);
-            // We need to check if the referrer exists before trying to update them.
             const referrerDoc = await getDoc(referrerRef);
             if (referrerDoc.exists()) {
                 batch.update(referrerRef, { referralCount: increment(1) });
             }
         }
-
-        // 4. If user is an admin, also add them to the roles collection
-        if (role === 'admin') {
-            const adminRoleRef = doc(firestore, 'roles_admin', firebaseUser.uid);
-            batch.set(adminRoleRef, { role: 'admin' });
-        }
         
         await batch.commit();
     } else {
-        // User already exists, check if they are being referred now but weren't before.
         const referrerId = searchParams.get('ref') || null;
         if (referrerId) {
-            // This logic is simplified. A referred user should not be able to be re-referred.
-            // But we will allow a user without a referrer to gain one.
             const existingUserData = userDoc.data() as User;
             if (!existingUserData.referrerId) {
                 const batch = writeBatch(firestore);
-                // 1. Update the current user's referrerId
                 batch.update(userRef, { referrerId: referrerId });
-                // 2. Increment the referrer's count
                 const referrerRef = doc(firestore, 'users', referrerId);
                 const referrerDoc = await getDoc(referrerRef);
                 if (referrerDoc.exists()) {
@@ -201,13 +180,6 @@ function HomePageContent() {
     }
 };
 
-  const handleSignIn = async () => {
-    if (!auth) return;
-    const result = await signInWithGoogle(auth);
-    if (result?.user) {
-      await createUserProfile(result.user);
-    }
-  };
   
   if (isUserLoading) {
     return (
@@ -224,6 +196,7 @@ function HomePageContent() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4 sm:p-8">
       <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:6rem_4rem]"></div>
+      <div id="recaptcha-container"></div>
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
@@ -231,10 +204,42 @@ function HomePageContent() {
           <CardDescription className="pt-2">Your trusted partner in modern investments.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button className="w-full" size="lg" onClick={handleSignIn}>
-              <GoogleIcon className="mr-2" />
-              Sign in with Google
-          </Button>
+          {!confirmationResult ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input 
+                  id="phone" 
+                  type="tel"
+                  placeholder="+923001234567" 
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                />
+              </div>
+              <Button onClick={handleSendOtp} disabled={isSendingOtp} className="w-full">
+                {isSendingOtp ? 'Sending OTP...' : 'Send OTP'}
+              </Button>
+            </div>
+          ) : (
+             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="otp">Verification Code</Label>
+                <Input 
+                  id="otp" 
+                  type="text"
+                  placeholder="Enter 6-digit code" 
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                />
+              </div>
+              <Button onClick={handleVerifyOtp} disabled={isVerifyingOtp} className="w-full">
+                {isVerifyingOtp ? 'Verifying...' : 'Sign In'}
+              </Button>
+              <Button variant="link" onClick={() => setConfirmationResult(null)}>
+                Change phone number
+              </Button>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex justify-between text-sm text-muted-foreground pt-4">
           <div className="flex items-center gap-1">
