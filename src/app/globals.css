@@ -93,7 +93,10 @@ body {
     box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.1), 0 -2px 4px -2px rgb(0 0 0 / 0.1);
   }
   .bg-login-gradient {
-    background-image: linear-gradient(to bottom, #1e3a8a, #3b82f6);
+    background-color: #f0f4f8;
+    background-image:
+      radial-gradient(at 0% 0%, hsla(212, 80%, 85%, 0.3) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, hsla(280, 70%, 90%, 0.3) 0px, transparent 50%);
   }
   .tab-active-border::after {
     content: '';

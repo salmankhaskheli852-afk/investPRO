@@ -149,7 +149,7 @@ function LoginPageContent() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-login-gradient p-4">
       <div className="w-full max-w-sm rounded-xl p-1 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card className="shadow-lg">
           <CardContent className="p-8">
