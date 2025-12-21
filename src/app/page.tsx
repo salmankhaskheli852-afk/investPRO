@@ -65,8 +65,8 @@ function LoginPageContent() {
   const createUserProfile = async (googleUser: FirebaseAuthUser, referrerIdFromInput: string | null) => {
     if (!firestore) return;
 
+    // --- STEP 1: Resolve referrer UID outside the transaction ---
     let finalReferrerUid: string | null = null;
-    
     if (referrerIdFromInput) {
         const numericReferrerId = parseInt(referrerIdFromInput, 10);
         if (!isNaN(numericReferrerId)) {
@@ -74,7 +74,8 @@ function LoginPageContent() {
             const referrerSnapshot = await getDocs(referrerQuery);
             if (!referrerSnapshot.empty) {
                 const referrerDoc = referrerSnapshot.docs[0];
-                if (referrerDoc.id !== googleUser.uid) { // Ensure user isn't referring themselves
+                // Ensure user isn't referring themselves
+                if (referrerDoc.id !== googleUser.uid) { 
                     finalReferrerUid = referrerDoc.id;
                 }
             } else {
@@ -83,6 +84,7 @@ function LoginPageContent() {
         }
     }
 
+    // --- STEP 2: Run the transaction with the resolved referrer UID ---
     try {
       await runTransaction(firestore, async (transaction) => {
         const counterRef = doc(firestore, 'counters', 'user_id_counter');
