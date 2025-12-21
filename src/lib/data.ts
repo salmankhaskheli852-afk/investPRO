@@ -1,3 +1,4 @@
+
 import { Timestamp } from "firebase/firestore";
 
 export type PlanCategory = {
@@ -44,8 +45,7 @@ export type User = {
   id: string;
   numericId: number;
   name?: string;
-  email?: string;
-  phoneNumber?: string | null;
+  email: string;
   avatarUrl?: string;
   investments: UserInvestment[]; // array of user investment objects
   agentId: string | null; // Can be null if no agent is assigned

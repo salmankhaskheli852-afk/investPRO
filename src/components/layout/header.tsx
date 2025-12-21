@@ -161,7 +161,7 @@ export function Header() {
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{userData?.name || 'User'}</p>
-                    <p className="text-xs leading-none text-muted-foreground">{userData?.phoneNumber}</p>
+                    <p className="text-xs leading-none text-muted-foreground">{userData?.email}</p>
                     {userData?.numericId && (
                       <div className="flex items-center pt-1">
                           <p className="text-xs leading-none text-muted-foreground truncate">ID: {userData.numericId}</p>
@@ -201,5 +201,3 @@ export function Header() {
     </header>
   );
 }
-
-    

@@ -11,7 +11,7 @@ import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Smartphone, ShieldCheck, Lock, Heart, User as UserIcon } from 'lucide-react';
+import { Smartphone, ShieldCheck, Lock, Heart, User as UserIcon, Mail } from 'lucide-react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
 export default function Home() {
@@ -24,11 +24,11 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('login');
   
   // Login State
-  const [loginPhoneNumber, setLoginPhoneNumber] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   
   // Register State
-  const [regPhoneNumber, setRegPhoneNumber] = useState('');
+  const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [regInvitationCode, setRegInvitationCode] = useState('');
@@ -50,14 +50,9 @@ export default function Home() {
     setCaptchaCode(code);
   };
   
-  const formatEmailFromPhone = (phone: string) => {
-    const formattedPhone = `+92${phone.replace(/^0+/, '')}`;
-    return `${formattedPhone}@investpro.com`;
-  }
-  
   const handleRegister = async () => {
     if (!auth || !firestore) return;
-    if (!regPhoneNumber || !regPassword || !regConfirmPassword) {
+    if (!regEmail || !regPassword || !regConfirmPassword) {
       return toast({ variant: 'destructive', title: 'Missing fields', description: 'Please fill all required fields.' });
     }
     if (regPassword !== regConfirmPassword) {
@@ -69,20 +64,21 @@ export default function Home() {
     }
 
     setIsProcessing(true);
-    const fakeEmail = formatEmailFromPhone(regPhoneNumber);
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, regPassword);
+      const userCredential = await createUserWithEmailAndPassword(auth, regEmail, regPassword);
       const newUser = userCredential.user;
       
-      await createUserProfile(newUser.uid, `+92${regPhoneNumber.replace(/^0+/, '')}`, regInvitationCode);
+      await createUserProfile(newUser.uid, regEmail, regInvitationCode);
       // Let the useEffect handle redirection
     } catch (error: any) {
       let message = 'An unknown error occurred.';
       if (error.code === 'auth/email-already-in-use') {
-        message = 'This phone number is already registered.';
+        message = 'This email address is already registered.';
       } else if (error.code === 'auth/weak-password') {
         message = 'Password should be at least 6 characters.';
+      } else if (error.code === 'auth/invalid-email') {
+          message = 'Please enter a valid email address.';
       }
       toast({ variant: 'destructive', title: 'Registration Failed', description: message });
     } finally {
@@ -92,23 +88,22 @@ export default function Home() {
 
   const handleLogin = async () => {
     if (!auth) return;
-    if (!loginPhoneNumber || !loginPassword) {
+    if (!loginEmail || !loginPassword) {
       return toast({ variant: 'destructive', title: 'Missing fields' });
     }
     setIsProcessing(true);
-    const fakeEmail = formatEmailFromPhone(loginPhoneNumber);
     try {
-      await signInWithEmailAndPassword(auth, fakeEmail, loginPassword);
+      await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       // Let the useEffect handle redirection
     } catch (error: any) {
-       toast({ variant: 'destructive', title: 'Login Failed', description: 'Incorrect phone number or password.' });
+       toast({ variant: 'destructive', title: 'Login Failed', description: 'Incorrect email or password.' });
     } finally {
       setIsProcessing(false);
     }
   };
 
 
-  const createUserProfile = async (uid: string, phone: string, referrerIdFromInput: string | null) => {
+  const createUserProfile = async (uid: string, email: string, referrerIdFromInput: string | null) => {
      if (!firestore) return;
 
      const counterRef = doc(firestore, 'counters', 'user_id_counter');
@@ -145,8 +140,8 @@ export default function Home() {
             const newUser: Partial<AppUser> = {
                 id: uid,
                 numericId: newNumericId,
+                email: email,
                 name: `User ${String(newNumericId)}`,
-                phoneNumber: phone,
                 avatarUrl: `https://picsum.photos/seed/${newNumericId}/200`,
                 role: 'user',
                 investments: [],
@@ -208,19 +203,15 @@ export default function Home() {
   const renderLoginTab = () => (
     <div className="space-y-4">
         <div className="space-y-2">
-            <Label htmlFor="phone-login">Phone Number</Label>
-            <div className="relative">
-                <Input 
-                    id="phone-login" 
-                    type="tel" 
-                    placeholder="3001234567" 
-                    value={loginPhoneNumber} 
-                    onChange={(e) => setLoginPhoneNumber(e.target.value)}
-                    className="pl-12"
-                    icon={<Smartphone className="h-5 w-5 text-muted-foreground" />}
-                />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">+92</span>
-            </div>
+            <Label htmlFor="email-login">Email</Label>
+            <Input 
+                id="email-login" 
+                type="email" 
+                placeholder="you@example.com" 
+                value={loginEmail} 
+                onChange={(e) => setLoginEmail(e.target.value)}
+                icon={<Mail className="h-5 w-5 text-muted-foreground" />}
+            />
         </div>
         <div className="space-y-2">
             <Label htmlFor="password-login">Password</Label>
@@ -242,19 +233,15 @@ export default function Home() {
  const renderRegisterTab = () => (
     <div className="space-y-4">
         <div className="space-y-2">
-            <Label htmlFor="phone-reg">Phone Number</Label>
-            <div className="relative">
-                <Input 
-                    id="phone-reg" 
-                    type="tel" 
-                    placeholder="3001234567" 
-                    value={regPhoneNumber} 
-                    onChange={(e) => setRegPhoneNumber(e.target.value)} 
-                    className="pl-12"
-                    icon={<Smartphone className="h-5 w-5 text-muted-foreground" />}
-                />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">+92</span>
-            </div>
+            <Label htmlFor="email-reg">Email</Label>
+            <Input 
+                id="email-reg" 
+                type="email" 
+                placeholder="you@example.com" 
+                value={regEmail} 
+                onChange={(e) => setRegEmail(e.target.value)} 
+                icon={<Mail className="h-5 w-5 text-muted-foreground" />}
+            />
         </div>
         <div className="space-y-2">
             <Label htmlFor="password-reg">Create Password</Label>
@@ -364,5 +351,3 @@ export default function Home() {
     </main>
   );
 }
-
-    

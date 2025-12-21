@@ -129,7 +129,7 @@ export default function UserDashboardPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, {userData?.name || userData?.phoneNumber}!</p>
+        <p className="text-muted-foreground">Welcome back, {userData?.name || userData?.email}!</p>
         {userData.numericId && (
             <div className="flex items-center text-sm mt-1">
                 <span className="text-muted-foreground">ID: {userData.numericId}</span>

@@ -160,7 +160,7 @@ export default function InvitationPage() {
                                                 </Avatar>
                                                 <div>
                                                     <div className="font-medium">{member.name}</div>
-                                                    <div className="text-sm text-muted-foreground">{member.phoneNumber}</div>
+                                                    <div className="text-sm text-muted-foreground">{member.email}</div>
                                                 </div>
                                             </div>
                                         </TableCell>
