@@ -1,13 +1,14 @@
+
 'use client';
 
 import React, { Suspense, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
-import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch, increment, query, where, runTransaction } from 'firebase/firestore';
+import { useAuth, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch, increment, query, where, runTransaction, getDocs } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import type { User } from '@/lib/data';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,7 +30,7 @@ function LoggedInRedirect() {
     () => (user && firestore ? doc(firestore, 'users', user.uid) : null),
     [user, firestore]
   );
-  const { data: userData, isLoading: isUserDataLoading } = useDoc<User>(userDocRef);
+  const { data: userData, isLoading: isUserDataLoading } = useMemoFirebase(() => useDoc<User>(userDocRef), [userDocRef]);
 
   React.useEffect(() => {
     if (!isUserLoading && !isUserDataLoading && userData) {
@@ -63,6 +64,7 @@ function AuthForm() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const generateCaptcha = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -199,6 +201,40 @@ function AuthForm() {
         toast({ variant: 'destructive', title: 'Registration Failed', description: error.code === 'auth/email-already-in-use' ? 'This phone number is already registered.' : error.message });
     } finally {
         setIsLoading(false);
+    }
+  };
+
+  const handleAdminLogin = async () => {
+    if (!auth || !firestore) return;
+    setIsLoading(true);
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Check user role from Firestore
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists() && userDoc.data().role === 'admin') {
+        router.push('/admin');
+      } else {
+        await auth.signOut();
+        toast({
+          variant: 'destructive',
+          title: 'Access Denied',
+          description: 'Only administrators can log in here.',
+        });
+      }
+    } catch (error) {
+      console.error("Admin login error:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Admin Login Failed',
+        description: 'Could not log in with Google. Please try again.',
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -339,7 +375,7 @@ function AuthForm() {
         </div>
 
         <Card className="w-full shadow-2xl">
-          <CardContent className="p-6">
+          <CardContent className="p-6 pb-2">
             <div className="flex mb-6 border-b">
               <button
                 onClick={() => { setActiveTab('login'); setPhoneNumber(''); setPassword(''); setConfirmPassword(''); }}
@@ -362,6 +398,17 @@ function AuthForm() {
             </div>
             {renderFormContent()}
           </CardContent>
+          <CardFooter className="flex flex-col gap-4 px-6 pb-6 pt-4">
+             <div className="relative w-full flex items-center">
+                <div className="flex-grow border-t border-gray-300"></div>
+                <span className="flex-shrink mx-4 text-xs text-gray-400">or</span>
+                <div className="flex-grow border-t border-gray-300"></div>
+            </div>
+            <Button variant="outline" className="w-full" onClick={handleAdminLogin} disabled={isLoading}>
+                <svg className="mr-2 h-4 w-4" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 381.5 512 244 512 109.8 512 0 402.2 0 260.8 0 119.3 109.8 11.8 244 11.8c72.1 0 134.3 31.5 178.4 81.4l-74.2 67.5c-24.3-23-58.8-38.2-97.3-38.2-83.8 0-151.4 68.1-151.4 152.4s67.6 152.4 151.4 152.4c97.1 0 134.3-70.8 138.6-106.3H244v-87.9h244c4.6 24.8 7 52.1 7 82.8z"></path></svg>
+                Administrator Login
+            </Button>
+          </CardFooter>
         </Card>
       </div>
     </main>
@@ -389,3 +436,5 @@ export default function Home() {
     </Suspense>
   )
 }
+
+    
