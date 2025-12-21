@@ -5,32 +5,53 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { doc, setDoc, getDoc, serverTimestamp, runTransaction, collection } from 'firebase/firestore';
 import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Smartphone, Lock } from 'lucide-react';
+import { Smartphone, Lock, Heart, ShieldCheck, RefreshCcw } from 'lucide-react';
 
 const DUMMY_DOMAIN = 'investpro.app';
+
+// Simple CAPTCHA component
+const CaptchaDisplay = ({ code }: { code: string }) => (
+    <div className="flex items-center justify-center bg-gray-200 rounded-md p-2">
+        <span className="text-2xl font-bold tracking-[.2em] text-gray-700" style={{ textDecoration: 'line-through', fontStyle: 'italic' }}>
+            {code}
+        </span>
+    </div>
+);
 
 export default function Home() {
   const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
   
-  const referralIdFromUrl = searchParams.get('ref');
-
+  // Common state
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Registration specific state
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [invitationCode, setInvitationCode] = useState('');
+  const [captcha, setCaptcha] = useState('');
+  const [captchaInput, setCaptchaInput] = useState('');
+
+  const generateCaptcha = () => {
+    const randomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+    setCaptcha(randomCode);
+  };
   
+  useEffect(() => {
+    generateCaptcha();
+  }, []);
+
   const formatEmail = (phone: string) => `${phone.replace(/\D/g, '')}@${DUMMY_DOMAIN}`;
 
   const handleLogin = async () => {
@@ -41,7 +62,7 @@ export default function Home() {
       const email = formatEmail(phoneNumber);
       try {
         await signInWithEmailAndPassword(auth, email, password);
-        router.push('/user/me');
+        // On successful login, the useEffect for user state change will handle redirection
       } catch (error: any) {
         console.error("Login error:", error);
         toast({ variant: 'destructive', title: 'Login Failed', description: error.code === 'auth/invalid-credential' ? 'Invalid phone number or password.' : error.message });
@@ -54,6 +75,10 @@ export default function Home() {
     if (!auth || !firestore) return toast({ variant: 'destructive', title: 'System not ready' });
     if (!phoneNumber || !password || !confirmPassword) return toast({ variant: 'destructive', title: 'Missing fields' });
     if (password !== confirmPassword) return toast({ variant: 'destructive', title: 'Passwords do not match' });
+    if (captchaInput.toUpperCase() !== captcha) {
+        generateCaptcha();
+        return toast({ variant: 'destructive', title: 'Verification Failed', description: 'The verification code is incorrect.' });
+    }
 
     setIsProcessing(true);
     const email = formatEmail(phoneNumber);
@@ -61,17 +86,18 @@ export default function Home() {
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const loggedInUser = userCredential.user;
-        await createUserProfile(loggedInUser.uid, phoneNumber);
-        router.push('/user/me');
+        await createUserProfile(loggedInUser.uid, phoneNumber, invitationCode);
+        // On successful registration, the useEffect for user state change will handle redirection
     } catch (error: any) {
         console.error("Registration error:", error);
         toast({ variant: 'destructive', title: 'Registration Failed', description: error.code === 'auth/email-already-in-use' ? 'This phone number is already registered.' : error.message });
+        generateCaptcha();
     } finally {
         setIsProcessing(false);
     }
   };
 
-  const createUserProfile = async (uid: string, phone: string | null) => {
+  const createUserProfile = async (uid: string, phone: string, referrerIdFromInput: string | null) => {
      if (!firestore) return;
 
      const counterRef = doc(firestore, 'counters', 'user_id_counter');
@@ -90,7 +116,7 @@ export default function Home() {
                 id: uid,
                 numericId: newNumericId,
                 name: `User ${String(uid).slice(-4)}`,
-                phoneNumber: phone,
+                phoneNumber: `+92${phone}`,
                 avatarUrl: `https://picsum.photos/seed/${newNumericId}/200`,
                 role: 'user',
                 investments: [],
@@ -101,11 +127,14 @@ export default function Home() {
                 totalDeposit: 0,
             };
             
-            if (referralIdFromUrl) {
-                const referrerRef = doc(firestore, 'users', referralIdFromUrl);
-                const referrerDoc = await getDoc(referrerRef);
+            // Check if referrer exists before setting
+            if (referrerIdFromInput) {
+                const referrerRef = doc(firestore, 'users', referrerIdFromInput);
+                const referrerDoc = await transaction.get(referrerRef);
                 if (referrerDoc.exists()) {
-                    newUser.referrerId = referralIdFromUrl;
+                    newUser.referrerId = referrerIdFromInput;
+                } else {
+                    console.warn(`Referrer with ID ${referrerIdFromInput} not found.`);
                 }
             }
 
@@ -128,11 +157,25 @@ export default function Home() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      const isAdminOrAgent = user.email?.endsWith(`@${DUMMY_DOMAIN}`);
-      const path = isAdminOrAgent ? '/user/me' : '/user/me';
-      router.push(path);
+        // Fetch user role from Firestore to decide redirection
+        const userDocRef = doc(firestore, 'users', user.uid);
+        getDoc(userDocRef).then(docSnap => {
+            if (docSnap.exists()) {
+                const userData = docSnap.data() as AppUser;
+                if (userData.role === 'admin') {
+                    router.push('/admin');
+                } else if (userData.role === 'agent') {
+                    router.push('/agent');
+                } else {
+                    router.push('/user/me');
+                }
+            } else {
+                // Fallback if doc doesn't exist yet, might happen on first login
+                router.push('/user/me');
+            }
+        });
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, firestore]);
   
   if (isUserLoading || user) {
     return (
@@ -146,27 +189,27 @@ export default function Home() {
     <div className="space-y-4">
         <div className="space-y-2">
             <Label htmlFor="login-phone" className="sr-only">Phone Number</Label>
-            <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <Smartphone className="h-5 w-5 text-muted-foreground" />
-                    <span className="pl-2 pr-1 text-sm text-muted-foreground">+92</span>
-                </div>
-                <Input 
-                    id="login-phone" 
-                    type="tel" 
-                    placeholder="3112765988" 
-                    value={phoneNumber} 
-                    onChange={(e) => setPhoneNumber(e.target.value)} 
-                    className="pl-[68px]"
-                />
-            </div>
+            <Input 
+                id="login-phone" 
+                type="tel" 
+                placeholder="Please enter mobile account" 
+                value={phoneNumber} 
+                onChange={(e) => setPhoneNumber(e.target.value)} 
+                icon={
+                    <div className="flex items-center gap-1">
+                        <Smartphone className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">+92</span>
+                    </div>
+                }
+                className="pl-20"
+            />
         </div>
         <div className="space-y-2">
              <Label htmlFor="login-password" className="sr-only">Password</Label>
              <Input 
                 id="login-password"
                 type="password"
-                placeholder="••••••••••"
+                placeholder="Please input password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 icon={<Lock className="h-5 w-5 text-muted-foreground" />}
@@ -182,27 +225,27 @@ export default function Home() {
     <div className="space-y-4">
         <div className="space-y-2">
             <Label htmlFor="register-phone" className="sr-only">Phone Number</Label>
-             <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <Smartphone className="h-5 w-5 text-muted-foreground" />
-                    <span className="pl-2 pr-1 text-sm text-muted-foreground">+92</span>
-                </div>
-                <Input 
-                    id="register-phone" 
-                    type="tel" 
-                    placeholder="3112765988" 
-                    value={phoneNumber} 
-                    onChange={(e) => setPhoneNumber(e.target.value)} 
-                    className="pl-[68px]"
-                />
-            </div>
+             <Input 
+                id="register-phone" 
+                type="tel" 
+                placeholder="Please enter mobile account" 
+                value={phoneNumber} 
+                onChange={(e) => setPhoneNumber(e.target.value)} 
+                 icon={
+                    <div className="flex items-center gap-1">
+                        <Smartphone className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">+92</span>
+                    </div>
+                }
+                className="pl-20"
+            />
         </div>
         <div className="space-y-2">
              <Label htmlFor="register-password" className="sr-only">Password</Label>
              <Input 
                 id="register-password"
                 type="password"
-                placeholder="Enter your password"
+                placeholder="Please input password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 icon={<Lock className="h-5 w-5 text-muted-foreground" />}
@@ -213,14 +256,42 @@ export default function Home() {
              <Input 
                 id="register-confirm-password"
                 type="password"
-                placeholder="Confirm your password"
+                placeholder="Please enter password again"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 icon={<Lock className="h-5 w-5 text-muted-foreground" />}
              />
         </div>
+         <div className="space-y-2">
+             <Label htmlFor="register-invitation-code" className="sr-only">Invitation Code</Label>
+             <Input 
+                id="register-invitation-code"
+                type="text"
+                placeholder="Please enter the invitation code"
+                value={invitationCode}
+                onChange={(e) => setInvitationCode(e.target.value)}
+                icon={<Heart className="h-5 w-5 text-muted-foreground" />}
+             />
+        </div>
+        <div className="space-y-2">
+            <Label htmlFor="register-captcha" className="sr-only">Verification Code</Label>
+            <div className="flex items-center gap-2">
+                 <Input 
+                    id="register-captcha"
+                    type="text"
+                    placeholder="Verification code"
+                    value={captchaInput}
+                    onChange={(e) => setCaptchaInput(e.target.value)}
+                    icon={<ShieldCheck className="h-5 w-5 text-muted-foreground" />}
+                 />
+                 <CaptchaDisplay code={captcha} />
+                 <Button variant="ghost" size="icon" onClick={generateCaptcha}>
+                    <RefreshCcw className="h-5 w-5 text-muted-foreground" />
+                 </Button>
+            </div>
+        </div>
         <Button onClick={handleRegister} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
-            {isProcessing ? 'Registering...' : 'Register'}
+            {isProcessing ? 'Registering...' : 'Sign up'}
         </Button>
     </div>
   );
