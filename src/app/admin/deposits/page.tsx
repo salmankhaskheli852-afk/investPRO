@@ -15,11 +15,32 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { User, Transaction, AppSettings, AdminWallet, Wallet } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment, updateDoc, runTransaction } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment, updateDoc, runTransaction, deleteDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X, Search, Copy } from 'lucide-react';
+import { Check, X, Search, Copy, MoreHorizontal, Eye, Trash2, ShieldX } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import Link from 'next/link';
+
 
 function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; onUpdate: () => void, adminWallets: AdminWallet[] | null }) {
   const firestore = useFirestore();
@@ -159,7 +180,31 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
     } finally {
         setIsProcessing(false);
     }
-};
+  };
+
+  const handleDelete = async () => {
+    if (!firestore || !user) return;
+    setIsProcessing(true);
+    const globalTransactionRef = doc(firestore, 'transactions', tx.id);
+    const userTransactionRef = doc(firestore, 'users', user.id, 'wallets', 'main', 'transactions', tx.id);
+    
+    try {
+        const batch = writeBatch(firestore);
+        batch.delete(globalTransactionRef);
+        batch.delete(userTransactionRef);
+        await batch.commit();
+        toast({ title: 'Request Deleted', description: 'The deposit request has been deleted.' });
+        onUpdate();
+    } catch (e: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error deleting request',
+            description: e.message
+        });
+    } finally {
+        setIsProcessing(false);
+    }
+  };
 
   const details = tx.details || {};
   const depositToWallet = adminWallets?.find(w => w.id === details.adminWalletId);
@@ -183,7 +228,12 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
       </TableCell>
       <TableCell className="font-medium">{tx.amount.toLocaleString()} PKR</TableCell>
       <TableCell>
-        <div className="font-medium">{details.senderName}</div>
+        <div className="font-medium flex items-center gap-1">
+          {details.senderName}
+           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(details.senderName, 'Sender name')}>
+            <Copy className="h-3 w-3" />
+          </Button>
+        </div>
         <div className="flex items-center gap-1">
           <span className="text-sm text-muted-foreground">{details.senderAccount}</span>
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(details.senderAccount, 'Account number')}>
@@ -223,6 +273,69 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
             <X className="mr-2 h-4 w-4" />
             Reject
           </Button>
+           <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" disabled={isProcessing}>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>More Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {userId && (
+                <DropdownMenuItem asChild>
+                  <Link href={`/admin/users/${userId}`}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    View User Details
+                  </Link>
+                </DropdownMenuItem>
+              )}
+               <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
+                    <ShieldX className="mr-2 h-4 w-4" />
+                    Mark as Fake
+                  </div>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Mark as Fake?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will mark the request as 'failed'. This action is the same as Reject and is permanent.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleUpdateStatus('failed')}>
+                      Confirm
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </div>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this request?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone and will permanently delete the request.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDelete}>
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </TableCell>
     </TableRow>
@@ -322,5 +435,3 @@ export default function AdminDepositsPage() {
     </div>
   );
 }
-
-    
