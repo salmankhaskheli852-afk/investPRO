@@ -151,10 +151,12 @@ function LoginPageContent() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-login-gradient p-4">
       <div className="w-full max-w-sm rounded-xl p-1 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-        <Card className="shadow-lg">
-          <CardContent>
-            <div className="flex flex-col justify-center items-center gap-2 py-8">
-              <Image src="/logo.png" alt="investPro Logo" width={128} height={128} />
+        <Card className="shadow-lg overflow-hidden">
+          <CardContent className="p-0">
+            <div className="relative aspect-video w-full">
+              <Image src="/logo.png" alt="investPro Logo" fill className="object-cover" />
+            </div>
+            <div className="flex flex-col justify-center items-center gap-2 pt-4 pb-8">
               <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
               <p className="text-muted-foreground text-sm text-center">Your trusted partner in modern investments.</p>
             </div>
