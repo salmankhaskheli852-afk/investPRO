@@ -148,10 +148,6 @@ export type AppSettings = {
 export const investmentPlans: InvestmentPlan[] = [];
 
 // This is now seed data for Firestore, not used directly in the app.
-export const planCategories: PlanCategory[] = [
-    { id: 'short-term', name: 'Short Term' },
-    { id: 'long-term', name: 'Long Term' },
-    { id: 'vip', name: 'VIP' },
-  ];
+export const planCategories: PlanCategory[] = [];
 
     
