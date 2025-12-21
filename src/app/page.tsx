@@ -11,7 +11,7 @@ import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Smartphone, ShieldCheck } from 'lucide-react';
+import { Smartphone, ShieldCheck, Lock, Heart, User as UserIcon } from 'lucide-react';
 import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
 
 declare global {
@@ -28,34 +28,58 @@ export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [otp, setOtp] = useState('');
+  const [activeTab, setActiveTab] = useState('login');
+  
+  // Login State
+  const [loginPhoneNumber, setLoginPhoneNumber] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
+  // Register State
+  const [regPhoneNumber, setRegPhoneNumber] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [regInvitationCode, setRegInvitationCode] = useState('');
+  const [regVerificationCode, setRegVerificationCode] = useState('');
+
+  const [captchaCode, setCaptchaCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const [invitationCode, setInvitationCode] = useState('');
 
-  // The reCAPTCHA is now initialized on-demand within handleSendOtp
-  // to prevent race conditions. The useEffect is no longer needed for this.
 
+  useEffect(() => {
+    generateCaptcha();
+  }, []);
+  
+  const generateCaptcha = () => {
+    const chars = '0123456789';
+    let code = '';
+    for (let i = 0; i < 4; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    setCaptchaCode(code);
+  };
+  
   const handleSendOtp = async () => {
     if (!auth) return toast({ variant: 'destructive', title: 'Auth not ready' });
-    if (!phoneNumber) return toast({ variant: 'destructive', title: 'Missing phone number' });
+    const numberToUse = activeTab === 'register' ? regPhoneNumber : loginPhoneNumber;
+    if (!numberToUse) return toast({ variant: 'destructive', title: 'Missing phone number' });
 
     setIsProcessing(true);
     try {
-      const formattedPhoneNumber = `+92${phoneNumber.replace(/^0+/, '')}`;
+      const formattedPhoneNumber = `+92${numberToUse.replace(/^0+/, '')}`;
       
       // Initialize reCAPTCHA verifier on demand
-      if (!window.recaptchaVerifier) {
-          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-              'size': 'invisible',
-              'callback': (response: any) => {
-                  // reCAPTCHA solved.
-              }
-          });
+      if (window.recaptchaVerifier) {
+          window.recaptchaVerifier.clear();
       }
       
-      const verifier = window.recaptchaVerifier;
+      const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          'size': 'invisible'
+      });
+      window.recaptchaVerifier = verifier;
+
       // Render the reCAPTCHA widget and wait for it to be ready
       await verifier.render();
 
@@ -67,41 +91,55 @@ export default function Home() {
     } catch (error: any) {
       console.error("OTP send error:", error);
       toast({ variant: 'destructive', title: 'Failed to Send OTP', description: error.message });
-       // Reset reCAPTCHA on error to allow retries.
-       // The verifier might not be attached to window if it fails, so check first.
       if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear(); // Clear the instance
+        window.recaptchaVerifier.clear();
       }
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleVerifyOtp = async () => {
+  const handleVerifyOtpAndRegister = async () => {
     if (!window.confirmationResult) return toast({ variant: 'destructive', title: 'Verification failed', description: 'Please send OTP first.' });
     if (!otp) return toast({ variant: 'destructive', title: 'Missing OTP' });
+    if (regPassword !== regConfirmPassword) return toast({ variant: 'destructive', title: 'Passwords do not match' });
+    if (regVerificationCode !== captchaCode) {
+      generateCaptcha();
+      return toast({ variant: 'destructive', title: 'Invalid verification code' });
+    }
 
     setIsProcessing(true);
     try {
       const userCredential = await window.confirmationResult.confirm(otp);
       const loggedInUser = userCredential.user;
       
-      const userDocRef = doc(firestore, 'users', loggedInUser.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) {
-        await createUserProfile(loggedInUser.uid, loggedInUser.phoneNumber!, invitationCode);
-      }
-      
+      await createUserProfile(loggedInUser.uid, loggedInUser.phoneNumber!, regInvitationCode);
       // On successful verification, the useEffect for user state change will handle redirection.
-    } catch (error: any)
-      {
+    } catch (error: any) {
       console.error("OTP verification error:", error);
-      toast({ variant: 'destructive', title: 'Verification Failed', description: 'The OTP is incorrect or has expired.' });
+      toast({ variant: 'destructive', title: 'Registration Failed', description: 'The OTP is incorrect or has expired.' });
     } finally {
       setIsProcessing(false);
     }
   };
+
+  const handleLoginWithOtp = async () => {
+    if (!window.confirmationResult) return toast({ variant: 'destructive', title: 'Login failed', description: 'Please send OTP first.' });
+    if (!otp) return toast({ variant: 'destructive', title: 'Missing OTP' });
+
+    setIsProcessing(true);
+    try {
+      await window.confirmationResult.confirm(otp);
+      // On successful verification, the useEffect for user state change will handle redirection.
+      // No need to check for profile, as user must exist to log in.
+    } catch (error: any) {
+      console.error("OTP login error:", error);
+      toast({ variant: 'destructive', title: 'Login Failed', description: 'The OTP is incorrect or has expired.' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
 
   const createUserProfile = async (uid: string, phone: string, referrerIdFromInput: string | null) => {
      if (!firestore) return;
@@ -201,65 +239,129 @@ export default function Home() {
     );
   }
 
-  const renderForm = () => (
+  const renderLoginTab = () => (
     <div className="space-y-4">
-        {!otpSent ? (
-            <>
-                <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input 
-                        id="phone" 
-                        type="tel" 
-                        placeholder="3001234567" 
-                        value={phoneNumber} 
-                        onChange={(e) => setPhoneNumber(e.target.value)} 
-                        icon={
-                            <div className="flex items-center gap-1">
-                                <Smartphone className="h-5 w-5 text-muted-foreground" />
-                                <span className="text-sm text-muted-foreground">+92</span>
-                            </div>
-                        }
-                        className="pl-20"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="invitation-code">Invitation Code (Optional)</Label>
-                    <Input 
-                        id="invitation-code" 
-                        type="text" 
-                        placeholder="Enter referrer's code"
-                        value={invitationCode} 
-                        onChange={(e) => setInvitationCode(e.target.value)} 
-                    />
-                </div>
-                <Button onClick={handleSendOtp} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
-                    {isProcessing ? 'Sending...' : 'Send OTP'}
-                </Button>
-            </>
-        ) : (
-             <>
-                <div className="space-y-2">
-                    <Label htmlFor="otp">Verification Code</Label>
-                    <Input 
-                        id="otp"
-                        type="text"
-                        placeholder="Enter the 6-digit code"
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
-                        icon={<ShieldCheck className="h-5 w-5 text-muted-foreground" />}
-                        maxLength={6}
-                    />
-                </div>
-                <Button onClick={handleVerifyOtp} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
-                    {isProcessing ? 'Verifying...' : 'Verify OTP & Continue'}
-                </Button>
-                <Button variant="link" onClick={() => setOtpSent(false)}>
-                    Entered wrong number?
-                </Button>
-            </>
-        )}
+      {!otpSent ? (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="phone-login">Phone Number</Label>
+            <Input 
+                id="phone-login" 
+                type="tel" 
+                placeholder="3001234567" 
+                value={loginPhoneNumber} 
+                onChange={(e) => setLoginPhoneNumber(e.target.value)} 
+                icon={<Smartphone className="h-5 w-5 text-muted-foreground" />}
+                className="pl-20"
+                prefix="+92"
+            />
+          </div>
+          <Button onClick={handleSendOtp} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
+              {isProcessing ? 'Sending...' : 'Send OTP'}
+          </Button>
+        </>
+      ) : (
+        <>
+          <div className="space-y-2">
+              <Label htmlFor="otp-login">Verification Code</Label>
+              <Input 
+                  id="otp-login"
+                  type="text"
+                  placeholder="Enter the 6-digit code"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  icon={<ShieldCheck className="h-5 w-5 text-muted-foreground" />}
+                  maxLength={6}
+              />
+          </div>
+          <Button onClick={handleLoginWithOtp} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
+              {isProcessing ? 'Verifying...' : 'Verify & Login'}
+          </Button>
+          <Button variant="link" onClick={() => { setOtpSent(false); setOtp(''); }}>
+              Entered wrong number?
+          </Button>
+        </>
+      )}
     </div>
   );
+
+ const renderRegisterTab = () => (
+    <div className="space-y-4">
+      {!otpSent ? (
+         <>
+          <div className="space-y-2">
+            <Label htmlFor="phone-reg">Phone Number</Label>
+            <Input 
+                id="phone-reg" 
+                type="tel" 
+                placeholder="3001234567" 
+                value={regPhoneNumber} 
+                onChange={(e) => setRegPhoneNumber(e.target.value)} 
+                icon={<Smartphone className="h-5 w-5 text-muted-foreground" />}
+                className="pl-20"
+                prefix="+92"
+            />
+          </div>
+           <div className="space-y-2">
+            <Label htmlFor="invitation-code">Invitation Code (Optional)</Label>
+            <Input 
+                id="invitation-code" 
+                type="text" 
+                placeholder="Enter referrer's code"
+                value={regInvitationCode} 
+                onChange={(e) => setRegInvitationCode(e.target.value)}
+                icon={<Heart className="h-5 w-5 text-muted-foreground" />}
+            />
+          </div>
+          <div className="flex items-end gap-2">
+              <div className="space-y-2 flex-grow">
+                <Label htmlFor="verification-code">Verification Code</Label>
+                <Input 
+                    id="verification-code" 
+                    type="text"
+                    value={regVerificationCode} 
+                    onChange={(e) => setRegVerificationCode(e.target.value)} 
+                    icon={<ShieldCheck className="h-5 w-5 text-muted-foreground" />}
+                    maxLength={4}
+                />
+              </div>
+              <div 
+                className="h-10 px-4 py-2 border rounded-md bg-muted select-none flex items-center justify-center font-mono text-lg tracking-widest"
+                onClick={generateCaptcha}
+                title="Click to refresh"
+              >
+                  {captchaCode}
+              </div>
+          </div>
+          <Button onClick={handleSendOtp} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
+              {isProcessing ? 'Sending...' : 'Send OTP'}
+          </Button>
+         </>
+      ) : (
+        <>
+            <div className="space-y-2">
+                <Label htmlFor="otp-reg">SMS Verification Code</Label>
+                <Input 
+                    id="otp-reg"
+                    type="text"
+                    placeholder="Enter the 6-digit code"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    icon={<ShieldCheck className="h-5 w-5 text-muted-foreground" />}
+                    maxLength={6}
+                />
+            </div>
+            <Button onClick={handleVerifyOtpAndRegister} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
+                {isProcessing ? 'Verifying...' : 'Verify & Register'}
+            </Button>
+            <Button variant="link" onClick={() => { setOtpSent(false); setOtp(''); }}>
+                Entered wrong number?
+            </Button>
+        </>
+      )}
+    </div>
+ );
+
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
@@ -285,8 +387,23 @@ export default function Home() {
                 <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
             </div>
 
+            <div className="flex mb-4 border-b">
+                <button
+                    onClick={() => setActiveTab('login')}
+                    className={`flex-1 py-2 text-center text-lg font-semibold relative ${activeTab === 'login' ? 'text-primary tab-active-border' : 'text-muted-foreground'}`}
+                >
+                    Log in
+                </button>
+                <button
+                    onClick={() => setActiveTab('register')}
+                    className={`flex-1 py-2 text-center text-lg font-semibold relative ${activeTab === 'register' ? 'text-primary tab-active-border' : 'text-muted-foreground'}`}
+                >
+                    Register
+                </button>
+            </div>
+
             <div className="pt-4">
-                {renderForm()}
+                {activeTab === 'login' ? renderLoginTab() : renderRegisterTab()}
             </div>
           
           </CardContent>
@@ -295,3 +412,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
