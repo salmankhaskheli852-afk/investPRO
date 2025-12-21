@@ -211,22 +211,35 @@ function AuthForm() {
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
-
-      // Check user role from Firestore
+  
       const userDocRef = doc(firestore, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists() && userDoc.data().role === 'admin') {
-        router.push('/admin');
+  
+      if (userDoc.exists()) {
+        const userData = userDoc.data() as User;
+        if (userData.role === 'admin') {
+          router.push('/admin');
+        } else if (userData.role === 'agent') {
+          router.push('/agent');
+        } else {
+          // User exists but is not an admin or agent
+          await auth.signOut();
+          toast({
+            variant: 'destructive',
+            title: 'Access Denied',
+            description: 'You are not an administrator or agent. Please log in with your phone number.',
+          });
+        }
       } else {
+        // New user trying to log in via Google
         await auth.signOut();
         toast({
           variant: 'destructive',
-          title: 'Access Denied',
-          description: 'Only administrators can log in here.',
+          title: 'Registration Required',
+          description: 'This email is not registered. Please log in with your phone number.',
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Admin login error:", error);
       toast({
         variant: 'destructive',
@@ -237,6 +250,7 @@ function AuthForm() {
       setIsLoading(false);
     }
   };
+  
 
   const renderFormContent = () => {
     if (activeTab === 'login') {
