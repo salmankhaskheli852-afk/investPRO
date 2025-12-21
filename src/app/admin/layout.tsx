@@ -33,11 +33,7 @@ export default function AdminLayout({
         <div className="flex min-h-screen flex-col">
           <Header />
           <main className="flex-1 bg-login-gradient p-4 sm:p-6 lg:p-8">
-            <div className="rounded-xl p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500 h-full">
-              <div className="bg-card rounded-lg p-4 sm:p-6 lg:p-8 h-full overflow-y-auto">
-                {children}
-              </div>
-            </div>
+            {children}
           </main>
         </div>
       </SidebarInset>
