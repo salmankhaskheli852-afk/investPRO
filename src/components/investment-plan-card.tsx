@@ -262,7 +262,7 @@ export function InvestmentPlanCard({
 
   return (
     <div className={cn("rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500 transition-all duration-300 hover:shadow-xl", (isOfferExpired || isSoldOut) && 'opacity-60')}>
-      <Card className={cn("w-full overflow-hidden flex flex-col h-full")}>
+      <Card className={cn("w-full overflow-hidden flex flex-col h-full rounded-lg")}>
         <div className="relative aspect-[4/3] w-full">
           {isOfferActive && plan.offerEndTime && <CountdownTimer endTime={plan.offerEndTime} />}
           <Image
