@@ -23,8 +23,10 @@ import Image from 'next/image';
 const ServiceButton = ({ icon, label, href, onClick }: { icon: React.ElementType, label: string, href?: string, onClick?: () => void }) => {
   const Icon = icon;
   const content = (
-      <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-white shadow-md hover:bg-gray-50 transition-colors">
-        <Icon className="h-8 w-8 text-primary" />
+      <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-card shadow-md hover:bg-gray-50 transition-colors">
+        <div className="p-3 bg-green-100 rounded-full">
+            <Icon className="h-8 w-8 text-primary" />
+        </div>
         <span className="text-sm font-medium text-gray-700">{label}</span>
       </div>
   );
@@ -104,8 +106,10 @@ export default function UserHomePage() {
         <div className="grid grid-cols-3 gap-4">
           <ServiceButton icon={Users} label="Refer Friends" href="/user/invitation" />
           <Link href="/user/history">
-            <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-white shadow-md hover:bg-gray-50 transition-colors">
-              <CalendarCheck className="h-8 w-8 text-primary" />
+            <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-card shadow-md hover:bg-gray-50 transition-colors">
+              <div className="p-3 bg-green-100 rounded-full">
+                <CalendarCheck className="h-8 w-8 text-primary" />
+              </div>
               <span className="text-sm font-medium text-gray-700">Daily check-in</span>
             </div>
           </Link>
