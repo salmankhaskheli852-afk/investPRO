@@ -35,12 +35,20 @@ export default function Home() {
   // Setup reCAPTCHA verifier
   useEffect(() => {
     if (!auth) return;
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      'size': 'invisible',
-      'callback': (response: any) => {
-        // reCAPTCHA solved, allow signInWithPhoneNumber.
-      }
-    });
+
+    // Add a small delay to ensure the 'recaptcha-container' div is in the DOM
+    const timer = setTimeout(() => {
+        if (!window.recaptchaVerifier) {
+            window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+              'size': 'invisible',
+              'callback': (response: any) => {
+                // reCAPTCHA solved, allow signInWithPhoneNumber.
+              }
+            });
+        }
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [auth]);
 
   const handleSendCode = async () => {
@@ -76,8 +84,10 @@ export default function Home() {
         const userRef = doc(firestore, 'users', loggedInUser.uid);
         const userDoc = await getDoc(userRef);
 
-        if (isRegistering && !userDoc.exists()) {
-            // Create profile only on registration if it doesn't exist
+        if (isRegistering) {
+            if (userDoc.exists()) {
+                 throw new Error("This phone number is already registered. Please log in.");
+            }
             await createUserProfile(loggedInUser.uid, loggedInUser.phoneNumber);
         } else if (!isRegistering && !userDoc.exists()) {
             // If logging in but profile doesn't exist, create it.
@@ -112,7 +122,7 @@ export default function Home() {
             const newUser: Partial<AppUser> = {
                 id: uid,
                 numericId: newNumericId,
-                name: `User ${String(newNumericId)}`,
+                name: `User ${String(uid).slice(-4)}`,
                 phoneNumber: phone,
                 avatarUrl: `https://picsum.photos/seed/${newNumericId}/200`,
                 role: 'user',
