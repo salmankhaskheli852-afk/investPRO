@@ -15,30 +15,13 @@ service cloud.firestore {
     }
 
     // Helper function to check if the user is an agent by their role document.
+    // IMPORTANT: It now checks for the existence of the user document first to prevent errors on new user registration.
     function isAgent() {
       return request.auth != null &&
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
     }
     
-    // Grant ADMINS total and complete access to ALL documents in the database.
-    match /{document=**} {
-      allow read, write: if isAdmin();
-    }
-
-    // Grant AGENTS broad access to necessary collections.
-    match /{collection}/{docId} {
-      allow read, write, list: if isAgent() && 
-                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests'];
-    }
-     match /users/{userId}/{subCollection}/{docId} {
-        allow read, write, list: if isAgent();
-    }
-     match /users/{userId}/{subCollection}/{docId}/{nestedSubCollection}/{nestedDocId} {
-        allow read, write, list: if isAgent();
-    }
-
-
     // --- Rules for regular authenticated users (non-admin, non-agent) ---
 
     function isUserAuthenticated() {
@@ -59,9 +42,36 @@ service cloud.firestore {
     
     // A user has full access to their own sub-collections (wallets, transactions, etc.).
     match /users/{userId}/{document=**} {
-      allow read, write: if isUserAuthenticated() && request.auth.uid == userId;
+      allow read, write: if isOwner(userId);
+    }
+
+    // Allow creation and writing to the user id counter
+    match /counters/{counterId} {
+        allow read, write: if isUserAuthenticated();
     }
     
+    // --- Admin and Agent Rules (Checked AFTER user rules) ---
+
+    // Grant ADMINS total and complete access to ALL documents in the database.
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // Grant AGENTS broad access to necessary collections.
+    match /{collection}/{docId} {
+      allow read, write, list: if isAgent() && 
+                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests'];
+    }
+     match /users/{userId}/{subCollection}/{docId} {
+        allow read, write, list: if isAgent();
+    }
+     match /users/{userId}/{subCollection}/{docId}/{nestedSubCollection}/{nestedDocId} {
+        allow read, write, list: if isAgent();
+    }
+
+
+    // --- General Public/Authenticated Read Rules ---
+
     // Any user (authenticated or not) can read plans.
     // Authenticated users can update plans (to increment purchase count).
     match /investment_plans/{planId} {
@@ -73,6 +83,7 @@ service cloud.firestore {
     // Any authenticated user can view plan categories.
     match /plan_categories/{categoryId} {
         allow read: if isUserAuthenticated();
+        allow create, update, delete: if isAdmin() || isAgent();
     }
     
     // Any authenticated user can read admin wallet details for depositing.
@@ -103,9 +114,10 @@ service cloud.firestore {
       allow list: if isUserAuthenticated();
     }
     
-    // Allow creation and writing to the user id counter
-    match /counters/{counterId} {
-        allow read, write: if isUserAuthenticated();
+    // Allow creation and writing to the referral requests
+    match /referral_requests/{requestId} {
+        allow create: if isUserAuthenticated();
+        allow read, update: if isUserAuthenticated() && (request.auth.uid == resource.data.requesterId || request.auth.uid == resource.data.targetId);
     }
   }
 }
