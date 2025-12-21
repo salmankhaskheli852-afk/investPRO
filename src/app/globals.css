@@ -92,4 +92,16 @@ body {
   .shadow-up {
     box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.1), 0 -2px 4px -2px rgb(0 0 0 / 0.1);
   }
+  .bg-login-gradient {
+    background-image: linear-gradient(to bottom, #1e3a8a, #3b82f6);
+  }
+  .tab-active-border::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: hsl(var(--primary));
+  }
 }

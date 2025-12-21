@@ -3,26 +3,23 @@
 
 import React, { Suspense, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShieldCheck, TrendingUp, Users } from 'lucide-react';
-import Link from 'next/link';
-import { useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { Card, CardContent } from '@/components/ui/card';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth, useFirestore } from '@/firebase';
-import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch, increment } from 'firebase/firestore';
+import { useAuth, useFirestore, useUser } from '@/firebase';
+import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch, increment, query, where } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
-import type { User, AdminWallet, WithdrawalMethod, InvestmentPlan } from '@/lib/data';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import type { User } from '@/lib/data';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-
+import { Smartphone, Lock } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 // By exporting this, we tell Next.js to always render this page dynamically
 // which is required because we are using useSearchParams.
 export const dynamic = 'force-dynamic';
-
-const ADMIN_EMAIL = 'salmankhaskheli885@gmail.com';
 
 function LoggedInRedirect() {
   const { user, isUserLoading } = useUser();
@@ -51,69 +48,20 @@ function LoggedInRedirect() {
   return null;
 }
 
+const FAKE_EMAIL_DOMAIN = 'yourapp.com';
 
-function HomePageContent() {
-  const { user, isUserLoading } = useUser();
+function AuthForm() {
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
   const auth = useAuth();
   const firestore = useFirestore();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
-
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [otp, setOtp] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-
-  useEffect(() => {
-    if (!auth) return;
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      'size': 'invisible',
-      'callback': (response: any) => {
-        // reCAPTCHA solved, allow signInWithPhoneNumber.
-      }
-    });
-  }, [auth]);
-
-  const handleSendOtp = async () => {
-    if (!auth || !window.recaptchaVerifier) return;
-    if (!/^\+\d{10,15}$/.test(phoneNumber)) {
-        toast({
-            variant: 'destructive',
-            title: 'Invalid Phone Number',
-            description: 'Please enter a valid phone number with country code (e.g., +923001234567).',
-        });
-        return;
-    }
-    setIsSendingOtp(true);
-    try {
-        const result = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
-        setConfirmationResult(result);
-        toast({ title: 'OTP Sent', description: 'Please check your phone for the verification code.' });
-    } catch (error) {
-        console.error("Error sending OTP:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to send OTP. Please try again.' });
-    } finally {
-        setIsSendingOtp(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (!confirmationResult) return;
-    setIsVerifyingOtp(true);
-    try {
-        const result = await confirmationResult.confirm(otp);
-        await createUserProfile(result.user);
-    } catch (error) {
-        console.error("Error verifying OTP:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Invalid OTP. Please try again.' });
-    } finally {
-        setIsVerifyingOtp(false);
-    }
-  };
-
-
+  const searchParams = useSearchParams();
+  
   const createUserProfile = async (firebaseUser: FirebaseUser) => {
     if (!firestore) return;
     
@@ -122,20 +70,17 @@ function HomePageContent() {
 
     if (!userDoc.exists()) {
         const batch = writeBatch(firestore);
-        // For phone auth, email is null. Let's make a default name.
-        const defaultName = "User " + firebaseUser.uid.slice(-4);
-
+        const name = "User " + firebaseUser.uid.slice(-4);
         const referrerId = searchParams.get('ref') || null;
 
-        // 1. Create the new user's profile
         batch.set(userRef, {
             id: firebaseUser.uid,
-            name: defaultName,
-            phoneNumber: firebaseUser.phoneNumber,
+            name: name,
+            phoneNumber: `+92${phoneNumber}`,
             avatarUrl: null,
             investments: [],
             createdAt: serverTimestamp(),
-            role: 'user', // Default role
+            role: 'user',
             referralId: firebaseUser.uid,
             referrerId: referrerId,
             referralCount: 0,
@@ -144,7 +89,6 @@ function HomePageContent() {
             totalDeposit: 0,
         });
 
-        // 2. Create the user's wallet
         const walletRef = doc(collection(firestore, 'users', firebaseUser.uid, 'wallets'), 'main');
         batch.set(walletRef, {
             id: 'main',
@@ -152,7 +96,6 @@ function HomePageContent() {
             balance: 0,
         });
         
-        // 3. If there was a referrer, update their count
         if (referrerId) {
             const referrerRef = doc(firestore, 'users', referrerId);
             const referrerDoc = await getDoc(referrerRef);
@@ -162,25 +105,184 @@ function HomePageContent() {
         }
         
         await batch.commit();
-    } else {
-        const referrerId = searchParams.get('ref') || null;
-        if (referrerId) {
-            const existingUserData = userDoc.data() as User;
-            if (!existingUserData.referrerId) {
-                const batch = writeBatch(firestore);
-                batch.update(userRef, { referrerId: referrerId });
-                const referrerRef = doc(firestore, 'users', referrerId);
-                const referrerDoc = await getDoc(referrerRef);
-                if (referrerDoc.exists()) {
-                    batch.update(referrerRef, { referralCount: increment(1) });
-                }
-                await batch.commit();
-            }
-        }
     }
-};
+  };
 
-  
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth || !phoneNumber || !password) {
+      toast({ variant: 'destructive', title: 'Missing fields' });
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const email = `+92${phoneNumber}@${FAKE_EMAIL_DOMAIN}`;
+      await signInWithEmailAndPassword(auth, email, password);
+      // Let LoggedInRedirect handle navigation
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Login Failed', description: error.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth || !phoneNumber || !password || !confirmPassword) {
+        toast({ variant: 'destructive', title: 'Missing fields' });
+        return;
+    }
+    if (password !== confirmPassword) {
+        toast({ variant: 'destructive', title: 'Passwords do not match' });
+        return;
+    }
+    setIsLoading(true);
+    try {
+        const email = `+92${phoneNumber}@${FAKE_EMAIL_DOMAIN}`;
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await createUserProfile(userCredential.user);
+        // Let LoggedInRedirect handle navigation
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Registration Failed', description: error.message });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const renderFormContent = () => {
+    if (activeTab === 'login') {
+      return (
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div className="space-y-4">
+            <div className="relative">
+              <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <span className="absolute left-10 top-1/2 -translate-y-1/2 text-sm text-foreground">+92</span>
+              <Input
+                id="phone-login"
+                type="tel"
+                placeholder="Please input account number"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                className="pl-20"
+                required
+              />
+            </div>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                id="password-login"
+                type="password"
+                placeholder="Please input a password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pl-10"
+                required
+              />
+            </div>
+          </div>
+          <Button type="submit" disabled={isLoading} className="w-full bg-blue-500 hover:bg-blue-600 text-white text-lg h-12">
+            {isLoading ? 'Logging in...' : 'Log in'}
+          </Button>
+        </form>
+      );
+    }
+    return (
+        <form onSubmit={handleRegister} className="space-y-6">
+            <div className="space-y-4">
+                 <div className="relative">
+                    <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <span className="absolute left-10 top-1/2 -translate-y-1/2 text-sm text-foreground">+92</span>
+                    <Input 
+                        id="phone-register" 
+                        type="tel" 
+                        placeholder="Please input account number" 
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="pl-20"
+                        required
+                    />
+                </div>
+                <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input 
+                        id="password-register" 
+                        type="password"
+                        placeholder="Please set a password" 
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pl-10"
+                        required
+                    />
+                </div>
+                 <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input 
+                        id="confirm-password-register" 
+                        type="password"
+                        placeholder="Please confirm password" 
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="pl-10"
+                        required
+                    />
+                </div>
+            </div>
+            <Button type="submit" disabled={isLoading} className="w-full bg-blue-500 hover:bg-blue-600 text-white text-lg h-12">
+                {isLoading ? 'Registering...' : 'Register'}
+            </Button>
+        </form>
+    );
+  };
+
+  return (
+    <main className="flex min-h-screen flex-col items-center bg-login-gradient p-4 pt-16 sm:pt-24">
+      <div className="absolute top-0 left-0 w-full h-1/2 bg-login-gradient -z-10">
+          <div 
+              className="absolute inset-0 bg-no-repeat bg-cover opacity-10"
+              style={{backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'white\' fill-opacity=\'0.4\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")'}}
+            />
+      </div>
+
+      <div className="w-full max-w-sm">
+        <div className="flex justify-center mb-6">
+            <div className="bg-white rounded-full p-2 shadow-lg">
+                <Image src="https://picsum.photos/seed/bshlogo/80/80" alt="BSH Logo" width={80} height={80} className="rounded-full" data-ai-hint="company logo" />
+            </div>
+        </div>
+
+        <Card className="w-full shadow-2xl">
+          <CardContent className="p-6">
+            <div className="flex mb-6 border-b">
+              <button
+                onClick={() => setActiveTab('login')}
+                className={cn(
+                  "flex-1 py-3 text-lg font-semibold relative",
+                  activeTab === 'login' ? 'text-primary tab-active-border' : 'text-muted-foreground'
+                )}
+              >
+                Log in
+              </button>
+              <button
+                onClick={() => setActiveTab('register')}
+                className={cn(
+                  "flex-1 py-3 text-lg font-semibold relative",
+                  activeTab === 'register' ? 'text-primary tab-active-border' : 'text-muted-foreground'
+                )}
+              >
+                Register
+              </button>
+            </div>
+            {renderFormContent()}
+          </CardContent>
+        </Card>
+      </div>
+    </main>
+  );
+}
+
+export default function Home() {
+  const { user, isUserLoading } = useUser();
+
   if (isUserLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
@@ -188,84 +290,14 @@ function HomePageContent() {
       </div>
     );
   }
-  
+
   if (user) {
-      return <LoggedInRedirect />;
+    return <LoggedInRedirect />;
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4 sm:p-8">
-      <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:6rem_4rem]"></div>
-      <div id="recaptcha-container"></div>
-      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-      <Card className="w-full max-w-md shadow-2xl">
-        <CardHeader className="text-center">
-          <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
-          <CardDescription className="pt-2">Your trusted partner in modern investments.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!confirmationResult ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input 
-                  id="phone" 
-                  type="tel"
-                  placeholder="+923001234567" 
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleSendOtp} disabled={isSendingOtp} className="w-full">
-                {isSendingOtp ? 'Sending OTP...' : 'Send OTP'}
-              </Button>
-            </div>
-          ) : (
-             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="otp">Verification Code</Label>
-                <Input 
-                  id="otp" 
-                  type="text"
-                  placeholder="Enter 6-digit code" 
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleVerifyOtp} disabled={isVerifyingOtp} className="w-full">
-                {isVerifyingOtp ? 'Verifying...' : 'Sign In'}
-              </Button>
-              <Button variant="link" onClick={() => setConfirmationResult(null)}>
-                Change phone number
-              </Button>
-            </div>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-between text-sm text-muted-foreground pt-4">
-          <div className="flex items-center gap-1">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            <span>Secure</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <TrendingUp className="h-4 w-4 text-primary" />
-            <span>Reliable</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Users className="h-4 w-4 text-primary" />
-            <span>Community</span>
-          </div>
-        </CardFooter>
-      </Card>
-      </div>
-    </main>
-  );
-}
-
-
-export default function Home() {
-  return (
     <Suspense fallback={<div>Loading...</div>}>
-      <HomePageContent />
+      <AuthForm />
     </Suspense>
   )
 }
