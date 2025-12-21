@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth, useUser, useFirestore } from '@/firebase';
@@ -28,16 +28,14 @@ export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
 
+  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState('login');
   
   // Login State
   const [loginPhoneNumber, setLoginPhoneNumber] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-
+  
   // Register State
   const [regPhoneNumber, setRegPhoneNumber] = useState('');
-  const [regPassword, setRegPassword] = useState('');
-  const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [regInvitationCode, setRegInvitationCode] = useState('');
   const [regVerificationCode, setRegVerificationCode] = useState('');
 
@@ -63,24 +61,31 @@ export default function Home() {
   
   const handleSendOtp = async () => {
     if (!auth) return toast({ variant: 'destructive', title: 'Auth not ready' });
+    if (!recaptchaContainerRef.current) return toast({ variant: 'destructive', title: 'reCAPTCHA not ready' });
+
     const numberToUse = activeTab === 'register' ? regPhoneNumber : loginPhoneNumber;
     if (!numberToUse) return toast({ variant: 'destructive', title: 'Missing phone number' });
+    
+    if (activeTab === 'register' && regVerificationCode !== captchaCode) {
+      generateCaptcha();
+      return toast({ variant: 'destructive', title: 'Invalid verification code' });
+    }
 
     setIsProcessing(true);
     try {
       const formattedPhoneNumber = `+92${numberToUse.replace(/^0+/, '')}`;
       
-      // Initialize reCAPTCHA verifier on demand
+      // Clear previous verifier if it exists
       if (window.recaptchaVerifier) {
           window.recaptchaVerifier.clear();
       }
       
-      const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
           'size': 'invisible'
       });
       window.recaptchaVerifier = verifier;
 
-      // Render the reCAPTCHA widget and wait for it to be ready
+      // This will wait until the reCAPTCHA is solved.
       await verifier.render();
 
       const confirmationResult = await signInWithPhoneNumber(auth, formattedPhoneNumber, verifier);
@@ -102,12 +107,7 @@ export default function Home() {
   const handleVerifyOtpAndRegister = async () => {
     if (!window.confirmationResult) return toast({ variant: 'destructive', title: 'Verification failed', description: 'Please send OTP first.' });
     if (!otp) return toast({ variant: 'destructive', title: 'Missing OTP' });
-    if (regPassword !== regConfirmPassword) return toast({ variant: 'destructive', title: 'Passwords do not match' });
-    if (regVerificationCode !== captchaCode) {
-      generateCaptcha();
-      return toast({ variant: 'destructive', title: 'Invalid verification code' });
-    }
-
+    
     setIsProcessing(true);
     try {
       const userCredential = await window.confirmationResult.confirm(otp);
@@ -245,16 +245,17 @@ export default function Home() {
         <>
           <div className="space-y-2">
             <Label htmlFor="phone-login">Phone Number</Label>
-            <Input 
-                id="phone-login" 
-                type="tel" 
-                placeholder="3001234567" 
-                value={loginPhoneNumber} 
-                onChange={(e) => setLoginPhoneNumber(e.target.value)} 
-                icon={<Smartphone className="h-5 w-5 text-muted-foreground" />}
-                className="pl-20"
-                prefix="+92"
-            />
+            <div className="relative">
+              <Input 
+                  id="phone-login" 
+                  type="tel" 
+                  placeholder="3001234567" 
+                  value={loginPhoneNumber} 
+                  onChange={(e) => setLoginPhoneNumber(e.target.value)}
+                  className="pl-12"
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">+92</span>
+            </div>
           </div>
           <Button onClick={handleSendOtp} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
               {isProcessing ? 'Sending...' : 'Send OTP'}
@@ -291,16 +292,17 @@ export default function Home() {
          <>
           <div className="space-y-2">
             <Label htmlFor="phone-reg">Phone Number</Label>
-            <Input 
-                id="phone-reg" 
-                type="tel" 
-                placeholder="3001234567" 
-                value={regPhoneNumber} 
-                onChange={(e) => setRegPhoneNumber(e.target.value)} 
-                icon={<Smartphone className="h-5 w-5 text-muted-foreground" />}
-                className="pl-20"
-                prefix="+92"
-            />
+            <div className="relative">
+                <Input 
+                    id="phone-reg" 
+                    type="tel" 
+                    placeholder="3001234567" 
+                    value={regPhoneNumber} 
+                    onChange={(e) => setRegPhoneNumber(e.target.value)} 
+                    className="pl-12"
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">+92</span>
+            </div>
           </div>
            <div className="space-y-2">
             <Label htmlFor="invitation-code">Invitation Code (Optional)</Label>
@@ -365,7 +367,7 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
-      <div id="recaptcha-container"></div>
+      <div ref={recaptchaContainerRef}></div>
       <div className="w-full max-w-sm rounded-xl p-1 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card className="shadow-lg">
           <CardContent className="p-6">
@@ -412,5 +414,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
