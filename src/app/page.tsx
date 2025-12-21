@@ -282,7 +282,7 @@ function AuthForm() {
             const referrerDoc = referrerSnapshot.docs[0];
             transaction.update(referrerDoc.ref, { referralCount: increment(1) });
           } else {
-            console.warn(`Referrer with UID ${referrerId} not found.`);
+            console.warn(`Referrer with UID \${referrerId} not found.`);
           }
         }
       });
@@ -386,6 +386,14 @@ function AuthForm() {
       setIsLoading(false);
     }
   };
+
+  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Allow only numbers and limit to 10 digits
+    if (/^\d{0,10}$/.test(value)) {
+        setPhoneNumber(value);
+    }
+  };
   
 
   const renderFormContent = () => {
@@ -401,7 +409,7 @@ function AuthForm() {
                 type="tel"
                 placeholder="Please enter mobile account"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                onChange={handlePhoneNumberChange}
                 className="pl-20"
                 required
               />
@@ -439,7 +447,7 @@ function AuthForm() {
                         type="tel" 
                         placeholder="Please enter mobile account" 
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        onChange={handlePhoneNumberChange}
                         className="pl-20"
                         required
                     />
@@ -587,5 +595,5 @@ export default function Home() {
     <Suspense fallback={<div>Loading...</div>}>
       <AuthForm />
     </Suspense>
-  )
+  );
 }
