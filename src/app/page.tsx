@@ -1,11 +1,10 @@
-
 'use client';
 
 import React, { Suspense, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useAuth, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
 import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch, increment, query, where } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
