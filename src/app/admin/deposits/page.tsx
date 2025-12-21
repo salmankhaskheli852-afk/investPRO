@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { User, Transaction, AppSettings, AdminWallet, Wallet } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment, updateDoc, runTransaction, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment, updateDoc, runTransaction, deleteDoc, setDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Search, Copy, MoreHorizontal, Eye, Trash2, ShieldX } from 'lucide-react';
@@ -160,7 +160,8 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
         
         // 5. Update transaction status in both locations
         batch.update(globalTransactionRef, { status: newStatus });
-        batch.update(userTransactionRef, { status: newStatus });
+        // Use set with merge to create or update the user transaction doc
+        batch.set(userTransactionRef, { status: newStatus }, { merge: true });
 
         // Commit all changes at once
         await batch.commit();
