@@ -11,7 +11,7 @@ import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Smartphone, Lock, ShieldCheck } from 'lucide-react';
+import { Smartphone, ShieldCheck } from 'lucide-react';
 import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
 
 declare global {
@@ -41,6 +41,7 @@ export default function Home() {
     const timeoutId = setTimeout(() => {
       if (!window.recaptchaVerifier) {
           window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          'sitekey': process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
           'size': 'invisible',
           'callback': (response: any) => {
             // reCAPTCHA solved, allow signInWithPhoneNumber.
@@ -69,6 +70,7 @@ export default function Home() {
       toast({ variant: 'destructive', title: 'Failed to Send OTP', description: error.message });
        // Reset reCAPTCHA on error to allow retries
       if (window.recaptchaVerifier) {
+        // @ts-ignore
         window.recaptchaVerifier.render().then((widgetId) => {
            // @ts-ignore
           grecaptcha.reset(widgetId);
@@ -299,5 +301,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
