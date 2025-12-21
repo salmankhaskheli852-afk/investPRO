@@ -51,7 +51,6 @@ service cloud.firestore {
     // Any authenticated user can view plan categories.
     match /plan_categories/{categoryId} {
         allow read: if isUserAuthenticated();
-        allow create, update, delete: if isAdmin() || isAgent();
     }
     
     // Any authenticated user can read admin wallet details for depositing.
@@ -82,7 +81,7 @@ service cloud.firestore {
       allow list: if isUserAuthenticated();
     }
     
-    // Allow any authenticated user to read/write to the user id counter
+    // Allow creation and writing to the user id counter
     match /counters/{counterId} {
         allow read, write: if isUserAuthenticated();
     }
@@ -97,6 +96,7 @@ service cloud.firestore {
     }
 
     // Grant AGENTS broad access to necessary collections.
+    // This allows them to manage users, plans, and transactions without restriction.
     match /{collection}/{docId} {
       allow read, write, list: if isAgent() && 
                                  collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests'];
