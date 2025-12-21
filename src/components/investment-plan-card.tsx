@@ -218,7 +218,7 @@ export function InvestmentPlanCard({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="rounded-lg border bg-background/50 p-4 space-y-2">
+            <div className="rounded-lg bg-background/50 p-4 space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Plan Cost</span>
                 <span className="font-bold text-lg">{plan.price.toLocaleString()} Rs</span>
@@ -229,7 +229,7 @@ export function InvestmentPlanCard({
               </div>
             </div>
 
-            <div className="rounded-lg border bg-background/50 p-4 space-y-2">
+            <div className="rounded-lg bg-background/50 p-4 space-y-2">
               <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground flex items-center gap-2"><Wallet className="w-4 h-4" /> Wallet Balance</span>
                   <span>{userWalletBalance?.toLocaleString() || 0} Rs</span>
