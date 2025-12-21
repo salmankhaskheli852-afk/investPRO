@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -102,6 +103,7 @@ export default function Home() {
 
      const counterRef = doc(firestore, 'counters', 'user_id_counter');
      const userRef = doc(firestore, 'users', uid);
+     const walletRef = doc(firestore, 'users', uid, 'wallets', 'main');
 
      try {
         await runTransaction(firestore, async (transaction) => {
@@ -127,7 +129,6 @@ export default function Home() {
                 totalDeposit: 0,
             };
             
-            // Check if referrer exists before setting
             if (referrerIdFromInput) {
                 const referrerRef = doc(firestore, 'users', referrerIdFromInput);
                 const referrerDoc = await transaction.get(referrerRef);
@@ -140,7 +141,6 @@ export default function Home() {
 
             transaction.set(userRef, newUser);
 
-            const walletRef = doc(firestore, 'users', uid, 'wallets', 'main');
             const newWallet: Wallet = {
                 id: 'main',
                 userId: uid,
@@ -157,7 +157,6 @@ export default function Home() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-        // Fetch user role from Firestore to decide redirection
         const userDocRef = doc(firestore, 'users', user.uid);
         getDoc(userDocRef).then(docSnap => {
             if (docSnap.exists()) {
@@ -170,7 +169,6 @@ export default function Home() {
                     router.push('/user/me');
                 }
             } else {
-                // Fallback if doc doesn't exist yet, might happen on first login
                 router.push('/user/me');
             }
         });

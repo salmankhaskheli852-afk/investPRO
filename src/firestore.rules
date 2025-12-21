@@ -13,11 +13,31 @@ service cloud.firestore {
                 exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
              );
     }
+
+    // Helper function to check if the user is an agent by their role document.
+    function isAgent() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
+    }
     
     // Grant ADMINS total and complete access to ALL documents in the database.
     match /{document=**} {
       allow read, write: if isAdmin();
     }
+
+    // Grant AGENTS broad access to necessary collections.
+    match /{collection}/{docId} {
+      allow read, write, list: if isAgent() && 
+                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests'];
+    }
+     match /users/{userId}/{subCollection}/{docId} {
+        allow read, write, list: if isAgent();
+    }
+     match /users/{userId}/{subCollection}/{docId}/{nestedSubCollection}/{nestedDocId} {
+        allow read, write, list: if isAgent();
+    }
+
 
     // --- Rules for regular authenticated users (non-admin, non-agent) ---
 
@@ -29,15 +49,17 @@ service cloud.firestore {
       return isUserAuthenticated() && request.auth.uid == userId;
     }
 
-    // A user can list/get other user profiles but only create/update their own.
+    // A user can list/get other user profiles, and any authenticated user can create a profile.
+    // Only the owner can update their own profile.
     match /users/{userId} {
       allow get, list: if isUserAuthenticated();
-      allow create, update: if isOwner(userId);
+      allow create: if isUserAuthenticated();
+      allow update: if isOwner(userId);
     }
     
     // A user has full access to their own sub-collections (wallets, transactions, etc.).
     match /users/{userId}/{document=**} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isUserAuthenticated() && request.auth.uid == userId;
     }
     
     // Any user (authenticated or not) can read plans.
@@ -84,28 +106,6 @@ service cloud.firestore {
     // Allow creation and writing to the user id counter
     match /counters/{counterId} {
         allow read, write: if isUserAuthenticated();
-    }
-
-    // --- Rules for AGENTS ---
-    
-    // Helper function to check if the user is an agent by their role document.
-    function isAgent() {
-      return request.auth != null &&
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
-    }
-
-    // Grant AGENTS broad access to necessary collections.
-    // This allows them to manage users, plans, and transactions without restriction.
-    match /{collection}/{docId} {
-      allow read, write, list: if isAgent() && 
-                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests'];
-    }
-     match /users/{userId}/{subCollection}/{docId} {
-        allow read, write, list: if isAgent();
-    }
-     match /users/{userId}/{subCollection}/{docId}/{nestedSubCollection}/{nestedDocId} {
-        allow read, write, list: if isAgent();
     }
   }
 }
