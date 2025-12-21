@@ -222,13 +222,6 @@ function AuthForm() {
     }
   }, [searchParams]);
   
-  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    // Allow only numbers and limit to 10 digits
-    if (/^\d*$/.test(value) && value.length <= 10) {
-        setPhoneNumber(value);
-    }
-  };
 
   const createUserProfile = async (firebaseUser: FirebaseUser) => {
     if (!firestore) return;
@@ -408,7 +401,7 @@ function AuthForm() {
                 type="tel"
                 placeholder="Please enter mobile account"
                 value={phoneNumber}
-                onChange={handlePhoneNumberChange}
+                onChange={(e) => setPhoneNumber(e.target.value)}
                 className="pl-20"
                 required
               />
@@ -446,7 +439,7 @@ function AuthForm() {
                         type="tel" 
                         placeholder="Please enter mobile account" 
                         value={phoneNumber}
-                        onChange={handlePhoneNumberChange}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
                         className="pl-20"
                         required
                     />
