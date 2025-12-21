@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -53,7 +54,7 @@ export default function UserHomePage() {
   const services = [
     { icon: Share2, label: 'Refer Friends', href: '/user/invitation', className: 'bg-gradient-to-br from-blue-300 to-indigo-400' },
     { icon: History, label: 'History', href: '/user/history', className: 'bg-gradient-to-br from-purple-300 to-violet-400' },
-    { icon: Award, label: 'VIP Agent', href: '#', className: 'bg-gradient-to-br from-amber-300 to-orange-400' },
+    { icon: Award, label: 'VIP Agent', href: '/user/vip-agent', className: 'bg-gradient-to-br from-amber-300 to-orange-400' },
   ];
 
   return (
