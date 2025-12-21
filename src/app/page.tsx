@@ -5,7 +5,7 @@ import React, { Suspense, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useAuth, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
 import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch, increment, query, where, runTransaction, getDocs } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
@@ -436,5 +436,3 @@ export default function Home() {
     </Suspense>
   )
 }
-
-    
