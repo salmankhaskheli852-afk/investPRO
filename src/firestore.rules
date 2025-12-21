@@ -29,15 +29,13 @@ service cloud.firestore {
       return isUserAuthenticated() && request.auth.uid == userId;
     }
 
-    // A user can list/get other user profiles (for referral names) but only update their own.
+    // A user can list/get other user profiles but only create/update their own.
     match /users/{userId} {
       allow get, list: if isUserAuthenticated();
-      allow create: if isUserAuthenticated();
-      allow update: if isOwner(userId);
+      allow create, update: if isOwner(userId);
     }
     
     // A user has full access to their own sub-collections (wallets, transactions, etc.).
-    // This recursive wildcard match is crucial for nested data like transactions.
     match /users/{userId}/{document=**} {
       allow read, write: if isOwner(userId);
     }
@@ -83,6 +81,10 @@ service cloud.firestore {
       allow list: if isUserAuthenticated();
     }
     
+    // Allow creation and writing to the user id counter
+    match /counters/{counterId} {
+        allow read, write: if isUserAuthenticated();
+    }
 
     // --- Rules for AGENTS ---
     
@@ -97,7 +99,7 @@ service cloud.firestore {
     // This allows them to manage users, plans, and transactions without restriction.
     match /{collection}/{docId} {
       allow read, write, list: if isAgent() && 
-                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests'];
+                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests', 'counters'];
     }
      match /users/{userId}/{subCollection}/{docId} {
         allow read, write, list: if isAgent();
