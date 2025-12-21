@@ -16,9 +16,8 @@ import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } fro
 
 declare global {
   interface Window {
-    recaptchaVerifier: RecaptchaVerifier;
+    recaptchaVerifier?: RecaptchaVerifier;
     confirmationResult?: ConfirmationResult;
-    grecaptcha: any;
   }
 }
 
@@ -35,25 +34,8 @@ export default function Home() {
   const [otpSent, setOtpSent] = useState(false);
   const [invitationCode, setInvitationCode] = useState('');
 
-  // Setup reCAPTCHA verifier
-  useEffect(() => {
-    if (!auth || !process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) return;
-    // Using setTimeout to ensure the container is in the DOM
-    const timeoutId = setTimeout(() => {
-      if (!window.recaptchaVerifier && document.getElementById('recaptcha-container')) {
-          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          'sitekey': process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!,
-          'size': 'invisible',
-          'callback': (response: any) => {
-            // reCAPTCHA solved, allow signInWithPhoneNumber.
-          }
-        });
-      }
-    }, 100);
-
-    return () => clearTimeout(timeoutId);
-
-  }, [auth]);
+  // The reCAPTCHA is now initialized on-demand within handleSendOtp
+  // to prevent race conditions. The useEffect is no longer needed for this.
 
   const handleSendOtp = async () => {
     if (!auth) return toast({ variant: 'destructive', title: 'Auth not ready' });
@@ -62,16 +44,33 @@ export default function Home() {
     setIsProcessing(true);
     try {
       const formattedPhoneNumber = `+92${phoneNumber.replace(/^0+/, '')}`;
-      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhoneNumber, window.recaptchaVerifier);
+      
+      // Initialize reCAPTCHA verifier on demand
+      if (!window.recaptchaVerifier) {
+          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+              'size': 'invisible',
+              'callback': (response: any) => {
+                  // reCAPTCHA solved.
+              }
+          });
+      }
+      
+      const verifier = window.recaptchaVerifier;
+      // Render the reCAPTCHA widget and wait for it to be ready
+      await verifier.render();
+
+      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhoneNumber, verifier);
       window.confirmationResult = confirmationResult;
       setOtpSent(true);
       toast({ title: 'OTP Sent', description: 'Please check your phone for the verification code.' });
+
     } catch (error: any) {
       console.error("OTP send error:", error);
       toast({ variant: 'destructive', title: 'Failed to Send OTP', description: error.message });
-       // Reset reCAPTCHA on error to allow retries
+       // Reset reCAPTCHA on error to allow retries.
+       // The verifier might not be attached to window if it fails, so check first.
       if (window.recaptchaVerifier) {
-        window.grecaptcha.reset(window.recaptchaVerifier.widgetId);
+        window.recaptchaVerifier.clear(); // Clear the instance
       }
     } finally {
       setIsProcessing(false);
@@ -95,7 +94,8 @@ export default function Home() {
       }
       
       // On successful verification, the useEffect for user state change will handle redirection.
-    } catch (error: any) {
+    } catch (error: any)
+      {
       console.error("OTP verification error:", error);
       toast({ variant: 'destructive', title: 'Verification Failed', description: 'The OTP is incorrect or has expired.' });
     } finally {
@@ -187,9 +187,6 @@ export default function Home() {
                     router.push('/user/me');
                 }
             } else {
-                // If user is authenticated but has no profile, might be mid-registration
-                // or an error occurred. Let's keep them on the login page for now.
-                // Or try to create profile again if needed.
                 console.log("User authenticated but no profile found, might be a new registration.");
             }
         });
