@@ -60,7 +60,6 @@ export function Header() {
   };
   
   const handleShare = async () => {
-    // Ensure this code only runs on the client
     if (typeof window === 'undefined' || typeof navigator === 'undefined') {
       return;
     }
@@ -68,11 +67,11 @@ export function Header() {
     let shareUrl = window.location.origin; // Default to base URL
     
     // If a logged-in user is sharing, create their personal referral link
-    if (userData?.numericId && appSettings?.baseInvitationUrl) {
+    if (userData?.id && appSettings?.baseInvitationUrl) {
         const baseUrl = appSettings.baseInvitationUrl.endsWith('/') 
             ? appSettings.baseInvitationUrl 
             : `${appSettings.baseInvitationUrl}/`;
-        shareUrl = `${baseUrl}?ref=${userData.numericId}`;
+        shareUrl = `${baseUrl}?ref=${userData.id}`;
     }
 
     const shareData = {
@@ -164,10 +163,10 @@ export function Header() {
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{userData?.name || 'User'}</p>
                     <p className="text-xs leading-none text-muted-foreground">{userData?.email}</p>
-                    {userData?.numericId && (
+                    {userData?.id && (
                       <div className="flex items-center pt-1">
-                          <p className="text-xs leading-none text-muted-foreground truncate">ID: {userData.numericId}</p>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => handleCopy(String(userData.numericId), 'User ID')}>
+                          <p className="text-xs leading-none text-muted-foreground truncate">ID: {userData.id}</p>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => handleCopy(String(userData.id), 'User ID')}>
                               <Copy className="h-3 w-3" />
                           </Button>
                       </div>

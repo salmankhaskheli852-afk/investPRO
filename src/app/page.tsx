@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { doc, setDoc, getDoc, serverTimestamp, runTransaction, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleAuthProvider, signInWithPopup, User as FirebaseAuthUser } from 'firebase/auth';
@@ -34,17 +34,17 @@ function LoginPageContent() {
 
   const handleGoogleSignIn = async () => {
     if (!auth || !firestore) return;
-
+  
     setIsProcessing(true);
     const provider = new GoogleAuthProvider();
-
+  
     try {
       const result = await signInWithPopup(auth, provider);
       const googleUser = result.user;
       
       const userDocRef = doc(firestore, 'users', googleUser.uid);
       const docSnap = await getDoc(userDocRef);
-
+  
       if (!docSnap.exists()) {
         // New user, create a profile for them
         await createUserProfile(googleUser, invitationCode);
@@ -64,67 +64,53 @@ function LoginPageContent() {
 
   const createUserProfile = async (googleUser: FirebaseAuthUser, referrerIdFromInput: string | null) => {
     if (!firestore) return;
-
-    // --- STEP 1: Resolve referrer UID outside the transaction ---
-    let finalReferrerUid: string | null = null;
-    if (referrerIdFromInput) {
-        const numericReferrerId = parseInt(referrerIdFromInput, 10);
-        if (!isNaN(numericReferrerId)) {
-            const referrerQuery = query(collection(firestore, 'users'), where('numericId', '==', numericReferrerId));
-            const referrerSnapshot = await getDocs(referrerQuery);
-            if (!referrerSnapshot.empty) {
-                const referrerDoc = referrerSnapshot.docs[0];
-                // Ensure user isn't referring themselves
-                if (referrerDoc.id !== googleUser.uid) { 
-                    finalReferrerUid = referrerDoc.id;
-                }
-            } else {
-                 toast({ variant: 'destructive', title: 'Invalid Referrer', description: `Referrer with ID ${numericReferrerId} not found.` });
-            }
-        }
-    }
-
-    // --- STEP 2: Run the transaction with the resolved referrer UID ---
+  
     try {
-      await runTransaction(firestore, async (transaction) => {
-        const counterRef = doc(firestore, 'counters', 'user_id_counter');
-        const userRef = doc(firestore, 'users', googleUser.uid);
-        const walletRef = doc(firestore, 'users', googleUser.uid, 'wallets', 'main');
-
-        const counterDoc = await transaction.get(counterRef);
-        let newNumericId = 1001;
-        if (counterDoc.exists()) {
-          newNumericId = (counterDoc.data().currentId || 1000) + 1;
+      let finalReferrerUid: string | null = null;
+      if (referrerIdFromInput) {
+        // Since we removed numericId, we assume the ref code is the user's UID
+        const referrerQuery = query(collection(firestore, 'users'), where('id', '==', referrerIdFromInput));
+        const referrerSnapshot = await getDocs(referrerQuery);
+        if (!referrerSnapshot.empty) {
+          const referrerDoc = referrerSnapshot.docs[0];
+          if (referrerDoc.id !== googleUser.uid) { 
+            finalReferrerUid = referrerDoc.id;
+          }
+        } else {
+          toast({ variant: 'destructive', title: 'Invalid Referrer', description: `Referrer with ID ${referrerIdFromInput} not found.` });
         }
-        transaction.set(counterRef, { currentId: newNumericId }, { merge: true });
-
-        const newUser: AppUser = {
-          id: googleUser.uid,
-          numericId: newNumericId,
-          email: googleUser.email!,
-          name: googleUser.displayName || `User ${newNumericId}`,
-          avatarUrl: googleUser.photoURL || `https://picsum.photos/seed/${newNumericId}/200`,
-          role: 'user',
-          investments: [],
-          agentId: null,
-          createdAt: serverTimestamp() as any,
-          isVerified: false,
-          totalDeposit: 0,
-          referralId: String(newNumericId), // User's own referral ID
-          referrerId: finalReferrerUid, // ID of who referred them
-        };
-        
-        transaction.set(userRef, newUser);
-
-        const newWallet: Wallet = {
-          id: 'main',
-          userId: googleUser.uid,
-          balance: 0,
-        };
-        transaction.set(walletRef, newWallet);
-      });
+      }
+  
+      const userRef = doc(firestore, 'users', googleUser.uid);
+      const walletRef = doc(firestore, 'users', googleUser.uid, 'wallets', 'main');
+  
+      const newUser: AppUser = {
+        id: googleUser.uid,
+        email: googleUser.email!,
+        name: googleUser.displayName || `User ${googleUser.uid.substring(0, 5)}`,
+        avatarUrl: googleUser.photoURL || `https://picsum.photos/seed/${googleUser.uid}/200`,
+        role: 'user',
+        investments: [],
+        agentId: null,
+        createdAt: serverTimestamp() as any,
+        isVerified: false,
+        totalDeposit: 0,
+        referralId: googleUser.uid, // User's own referral ID is their UID
+        referrerId: finalReferrerUid,
+      };
+      
+      const newWallet: Wallet = {
+        id: 'main',
+        userId: googleUser.uid,
+        balance: 0,
+      };
+  
+      // Create user and wallet documents
+      await setDoc(userRef, newUser);
+      await setDoc(walletRef, newWallet);
+  
     } catch (e: any) {
-      console.error("Transaction failed: ", e);
+      console.error("Profile creation failed: ", e);
       toast({ variant: 'destructive', title: 'Profile Creation Failed', description: e.message });
       throw new Error("Could not create user profile.");
     }

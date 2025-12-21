@@ -130,10 +130,10 @@ export default function UserDashboardPage() {
       <div>
         <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
         <p className="text-muted-foreground">Welcome back, {userData?.name || userData?.email}!</p>
-        {userData.numericId && (
+        {userData.id && (
             <div className="flex items-center text-sm mt-1">
-                <span className="text-muted-foreground">ID: {userData.numericId}</span>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopy(String(userData.numericId), 'User ID')}>
+                <span className="text-muted-foreground">ID: {userData.id}</span>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopy(String(userData.id), 'User ID')}>
                     <Copy className="h-4 w-4 text-muted-foreground" />
                 </Button>
             </div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -50,14 +51,14 @@ export default function InvitationPage() {
   const { data: transactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(transactionsQuery);
 
   const referralLink = React.useMemo(() => {
-    if (!appSettings?.baseInvitationUrl || !currentUserData?.numericId) return '';
+    if (!appSettings?.baseInvitationUrl || !currentUserData?.id) return '';
     
     // Ensure the base URL ends with a slash if it doesn't already
     const baseUrl = appSettings.baseInvitationUrl.endsWith('/') 
         ? appSettings.baseInvitationUrl 
         : `${appSettings.baseInvitationUrl}/`;
         
-    return `${baseUrl}?ref=${currentUserData.numericId}`;
+    return `${baseUrl}?ref=${currentUserData.id}`;
   }, [appSettings, currentUserData]);
 
   const handleCopyLink = () => {
