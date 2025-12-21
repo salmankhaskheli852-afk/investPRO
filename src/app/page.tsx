@@ -48,8 +48,10 @@ function LoginPageContent() {
       if (!docSnap.exists()) {
         // New user, create a profile for them
         await createUserProfile(googleUser, invitationCode);
+        // Explicitly redirect new users to their dashboard immediately after profile creation
+        router.push('/user/me');
       }
-      // For both new and existing users, the useEffect will handle redirection
+      // For existing users, the useEffect hook below will handle redirection.
     } catch (error: any) {
       console.error("Google Sign-In Error:", error);
       toast({
