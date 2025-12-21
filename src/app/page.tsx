@@ -154,7 +154,7 @@ function LoginPageContent() {
         <Card className="shadow-lg">
           <CardContent className="p-8">
             <div className="flex flex-col justify-center items-center gap-2 mb-8">
-              <Image src="/logo.png" alt="investPro Logo" width={40} height={40} />
+              <Image src="/logo.png" alt="investPro Logo" width={64} height={64} />
               <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
               <p className="text-muted-foreground text-sm text-center">Your trusted partner in modern investments.</p>
             </div>
