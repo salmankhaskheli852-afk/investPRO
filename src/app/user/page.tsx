@@ -11,7 +11,7 @@ import { doc } from 'firebase/firestore';
 import { 
   Bell, 
   ArrowDownToLine, 
-  ArrowUpFromLine, 
+  Landmark,
   Users, 
   History, 
   Crown,
@@ -100,7 +100,7 @@ export default function UserHomePage() {
                 <div className="flex items-center justify-between">
                     <span className="font-bold text-green-800">WITHDRAW</span>
                     <div className="p-2 bg-white/50 rounded-full">
-                        <ArrowUpFromLine className="h-6 w-6 text-green-600" />
+                        <Landmark className="h-6 w-6 text-green-600" />
                     </div>
                 </div>
             </Link>

@@ -6,7 +6,7 @@ import { Button } from './ui/button';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { AppSettings } from '@/lib/data';
 import { doc } from 'firebase/firestore';
-import { MessageSquare, Users } from 'lucide-react';
+import { MessageSquare, Users, Download } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -44,6 +44,21 @@ export function WhatsAppWidget() {
   return (
     <TooltipProvider>
       <div className="fixed bottom-20 right-4 z-50 flex flex-col items-center gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon"
+              className="rounded-full h-10 w-10 shadow-lg bg-blue-500 hover:bg-blue-600 text-white"
+              aria-label="Download App"
+            >
+              <Download className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p>Download App</p>
+          </TooltipContent>
+        </Tooltip>
+
         {appSettings?.whatsappCommunityLink && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -53,7 +68,7 @@ export function WhatsAppWidget() {
                 onClick={handleCommunityClick}
                 aria-label="Join our Community"
               >
-                <Users className="h-5 w-5" />
+                <MessageSquare className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left">
