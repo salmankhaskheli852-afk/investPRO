@@ -45,7 +45,8 @@ export type User = {
   id: string;
   numericId: number;
   name?: string;
-  email: string;
+  email: string; // This will store the generated email like +92...@yourapp.com
+  phoneNumber: string; // This will store the actual phone number
   avatarUrl?: string;
   investments: UserInvestment[]; // array of user investment objects
   agentId: string | null; // Can be null if no agent is assigned

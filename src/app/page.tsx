@@ -4,9 +4,9 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useAuth, useUser, useFirestore } from '@/firebase';
-import { useRouter } from 'next/navigation';
-import { doc, setDoc, getDoc, serverTimestamp, runTransaction, collection, query, where, getDocs } from 'firebase/firestore';
+import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { doc, setDoc, getDoc, serverTimestamp, runTransaction, collection, query, where, getDocs, DocumentSnapshot, Unsubscribe, WriteBatch } from 'firebase/firestore';
 import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
@@ -14,33 +14,57 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
+const FAKE_EMAIL_DOMAIN = 'yourapp.com';
+
 function LoginPageContent() {
   const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
 
   const [isProcessing, setIsProcessing] = useState(false);
   
   // Login state
-  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPhoneNumber, setLoginPhoneNumber] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   
   // Register state
-  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPhoneNumber, setRegisterPhoneNumber] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
   const [invitationCode, setInvitationCode] = useState('');
-  
+  const [isInvitationCodeEditable, setIsInvitationCodeEditable] = useState(true);
+
+  useEffect(() => {
+    const refCode = searchParams.get('ref');
+    if (refCode) {
+      setInvitationCode(refCode);
+      setIsInvitationCodeEditable(false);
+    }
+  }, [searchParams]);
+
+  const formatEmailFromPhoneNumber = (phone: string) => {
+    let sanitizedPhone = phone.replace(/\s+/g, ''); // remove spaces
+    if (sanitizedPhone.startsWith('0')) {
+        sanitizedPhone = '+92' + sanitizedPhone.substring(1);
+    }
+    if (!sanitizedPhone.startsWith('+')) {
+        sanitizedPhone = '+' + sanitizedPhone;
+    }
+    return `${sanitizedPhone}@${FAKE_EMAIL_DOMAIN}`;
+  };
+
   const handleLogin = async () => {
-    if (!auth || !loginEmail || !loginPassword) {
-      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please enter your email and password.' });
+    if (!auth || !loginPhoneNumber || !loginPassword) {
+      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please enter your phone number and password.' });
       return;
     }
     setIsProcessing(true);
+    const email = formatEmailFromPhoneNumber(loginPhoneNumber);
     try {
-      await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+      await signInWithEmailAndPassword(auth, email, loginPassword);
       // onAuthStateChanged will handle redirection
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Login Failed', description: error.message });
@@ -51,7 +75,7 @@ function LoginPageContent() {
 
   const handleRegister = async () => {
     if (!auth || !firestore) return;
-    if (!registerEmail || !registerPassword || !registerConfirmPassword) {
+    if (!registerPhoneNumber || !registerPassword || !registerConfirmPassword) {
       toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please fill all required fields.' });
       return;
     }
@@ -60,12 +84,13 @@ function LoginPageContent() {
       return;
     }
     setIsProcessing(true);
+    const email = formatEmailFromPhoneNumber(registerPhoneNumber);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, registerEmail, registerPassword);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, registerPassword);
       const newUser = userCredential.user;
       
       if (newUser) {
-        await createUserProfile(newUser.uid, newUser.email!, invitationCode);
+        await createUserProfile(newUser.uid, email, registerPhoneNumber, invitationCode);
       }
       // onAuthStateChanged will handle redirection
     } catch (error: any) {
@@ -75,7 +100,7 @@ function LoginPageContent() {
     }
   };
 
-  const createUserProfile = async (uid: string, email: string, referrerIdFromInput: string | null) => {
+  const createUserProfile = async (uid: string, email: string, phoneNumber: string, referrerIdFromInput: string | null) => {
     if (!firestore) return;
     
     let finalReferrerUid: string | null = null;
@@ -111,6 +136,7 @@ function LoginPageContent() {
           id: uid,
           numericId: newNumericId,
           email: email,
+          phoneNumber: phoneNumber,
           name: `User ${String(newNumericId)}`,
           avatarUrl: `https://picsum.photos/seed/${newNumericId}/200`,
           role: 'user',
@@ -155,8 +181,6 @@ function LoginPageContent() {
             router.push('/user/me');
           }
         } else {
-           // This can happen if profile creation was interrupted. 
-           // We'll let them stay on the login page to try again or contact support.
            console.log("User is authenticated but profile document not found.");
         }
       });
@@ -203,8 +227,8 @@ function LoginPageContent() {
               <TabsContent value="login">
                 <div className="space-y-4 pt-4">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
-                    <Input id="login-email" type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="your@email.com" disabled={isProcessing} />
+                    <Label htmlFor="login-phone">Phone Number</Label>
+                    <Input id="login-phone" type="tel" value={loginPhoneNumber} onChange={e => setLoginPhoneNumber(e.target.value)} placeholder="+92" disabled={isProcessing} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="login-password">Password</Label>
@@ -219,8 +243,8 @@ function LoginPageContent() {
               <TabsContent value="register">
                 <div className="space-y-4 pt-4">
                   <div className="space-y-2">
-                    <Label htmlFor="register-email">Email</Label>
-                    <Input id="register-email" type="email" value={registerEmail} onChange={e => setRegisterEmail(e.target.value)} placeholder="your@email.com" disabled={isProcessing} />
+                    <Label htmlFor="register-phone">Phone Number</Label>
+                    <Input id="register-phone" type="tel" value={registerPhoneNumber} onChange={e => setRegisterPhoneNumber(e.target.value)} placeholder="+92" disabled={isProcessing} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="register-password">Password</Label>
@@ -232,7 +256,7 @@ function LoginPageContent() {
                   </div>
                    <div className="space-y-2">
                     <Label htmlFor="invitation-code">Invitation Code (Optional)</Label>
-                    <Input id="invitation-code" value={invitationCode} onChange={e => setInvitationCode(e.target.value)} placeholder="Code from your inviter" disabled={isProcessing} />
+                    <Input id="invitation-code" value={invitationCode} onChange={e => setInvitationCode(e.target.value)} placeholder="Code from your inviter" disabled={isProcessing || !isInvitationCodeEditable} />
                   </div>
                   <Button onClick={handleRegister} className="w-full" disabled={isProcessing}>
                     {isProcessing ? 'Registering...' : 'Register'}
