@@ -30,7 +30,7 @@ function LoggedInRedirect() {
     () => (user && firestore ? doc(firestore, 'users', user.uid) : null),
     [user, firestore]
   );
-  const { data: userData, isLoading: isUserDataLoading } = useMemoFirebase(() => useDoc<User>(userDocRef), [userDocRef]);
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<User>(userDocRef);
 
   React.useEffect(() => {
     if (!isUserLoading && !isUserDataLoading && userData) {
