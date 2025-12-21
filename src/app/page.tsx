@@ -72,15 +72,16 @@ export default function Home() {
     }
 
     setIsProcessing(true);
+    let verifier;
     try {
       const formattedPhoneNumber = `+92${numberToUse.replace(/^0+/, '')}`;
       
-      // Clear previous verifier if it exists
+      // Clear previous verifier if it exists to prevent "already rendered" error
       if (window.recaptchaVerifier) {
           window.recaptchaVerifier.clear();
       }
       
-      const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
+      verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
           'size': 'invisible'
       });
       window.recaptchaVerifier = verifier;
@@ -96,8 +97,8 @@ export default function Home() {
     } catch (error: any) {
       console.error("OTP send error:", error);
       toast({ variant: 'destructive', title: 'Failed to Send OTP', description: error.message });
-      if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
+      if (verifier) {
+        verifier.clear();
       }
     } finally {
       setIsProcessing(false);
