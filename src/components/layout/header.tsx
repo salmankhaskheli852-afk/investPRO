@@ -59,20 +59,20 @@ export function Header() {
   };
   
   const handleShare = async () => {
-    const shareLink = appSettings?.shareableLink;
-    if (!shareLink) {
-        toast({
-            variant: 'destructive',
-            title: 'Share link not set',
-            description: 'The administrator has not configured a share link yet.',
-        });
-        return;
-    }
+    let shareUrl = window.location.origin; // Default to base URL
     
+    // If a logged-in user is sharing, create their personal referral link
+    if (userData?.numericId && appSettings?.baseInvitationUrl) {
+        const baseUrl = appSettings.baseInvitationUrl.endsWith('/') 
+            ? appSettings.baseInvitationUrl 
+            : `${appSettings.baseInvitationUrl}/`;
+        shareUrl = `${baseUrl}?ref=${userData.numericId}`;
+    }
+
     const shareData = {
         title: 'investPro',
         text: 'Check out this amazing investment platform!',
-        url: shareLink,
+        url: shareUrl,
     };
 
     try {
@@ -80,23 +80,21 @@ export function Header() {
             await navigator.share(shareData);
         } else {
             // Fallback for browsers that don't support the Web Share API
-            navigator.clipboard.writeText(shareLink);
+            navigator.clipboard.writeText(shareUrl);
             toast({
                 title: 'Link Copied!',
                 description: 'The share link has been copied to your clipboard.',
             });
         }
     } catch (err: any) {
-        // If the user cancels the share dialog, it throws a "NotAllowedError".
-        // We catch it and fall back to copying the link to the clipboard.
-        if (err.name === 'NotAllowedError') {
-             navigator.clipboard.writeText(shareLink);
-             toast({
-                title: 'Link Copied!',
-                description: 'The share link has been copied to your clipboard.',
-            });
-        } else {
-            console.error('Error sharing:', err);
+        if (err.name !== 'AbortError') {
+          console.error('Error sharing:', err);
+          // Fallback to clipboard if sharing fails for other reasons
+          navigator.clipboard.writeText(shareUrl);
+          toast({
+              title: 'Link Copied!',
+              description: 'Sharing was cancelled, so the link was copied to your clipboard instead.',
+          });
         }
     }
 };
@@ -134,12 +132,10 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
-        {appSettings?.shareableLink && (
-            <Button variant="ghost" size="icon" onClick={handleShare} className="text-white hover:bg-white/20">
-                <Share2 className="h-5 w-5" />
-                <span className="sr-only">Share</span>
-            </Button>
-        )}
+        <Button variant="ghost" size="icon" onClick={handleShare} className="text-white hover:bg-white/20">
+            <Share2 className="h-5 w-5" />
+            <span className="sr-only">Share</span>
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full">
