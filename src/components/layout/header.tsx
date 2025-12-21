@@ -22,6 +22,7 @@ import { doc } from 'firebase/firestore';
 import type { AppSettings, User } from '@/lib/data';
 import { Skeleton } from '../ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import Image from 'next/image';
 
 
 export function Header() {
@@ -112,20 +113,7 @@ export function Header() {
       <div className="flex items-center gap-2">
         {showSidebarTrigger && <SidebarTrigger className="md:hidden text-white hover:bg-white/20" />}
         <Link href="/" className="flex items-center gap-2">
-           <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-6 w-6 text-white"
-          >
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
+           <Image src="/logo.png" alt="investPro Logo" width={24} height={24} />
           <span className="font-headline text-lg font-semibold text-white">investPro</span>
         </Link>
          {!isLoadingSettings && appSettings?.isVerificationBadgeEnabled && appSettings?.verificationBadgeText && (

@@ -154,20 +154,7 @@ function LoginPageContent() {
         <Card className="shadow-lg">
           <CardContent className="p-8">
             <div className="flex flex-col justify-center items-center gap-2 mb-8">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-10 w-10 text-primary"
-              >
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
+              <Image src="/logo.png" alt="investPro Logo" width={40} height={40} />
               <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
               <p className="text-muted-foreground text-sm text-center">Your trusted partner in modern investments.</p>
             </div>

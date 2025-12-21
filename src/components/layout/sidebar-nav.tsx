@@ -18,6 +18,7 @@ import { LogOut } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export type NavItem = {
   href: string;
@@ -44,20 +45,7 @@ export function SidebarNav({ navItems }: SidebarNavProps) {
     <>
       <SidebarHeader>
         <Link href="/" className="flex items-center gap-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-8 w-8 text-primary"
-          >
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
+          <Image src="/logo.png" alt="investPro Logo" width={32} height={32} />
           <span className="font-headline text-2xl font-semibold text-primary group-data-[collapsible=icon]:hidden">
             investPro
           </span>
