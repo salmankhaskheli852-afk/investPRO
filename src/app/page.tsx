@@ -18,6 +18,7 @@ declare global {
   interface Window {
     recaptchaVerifier: RecaptchaVerifier;
     confirmationResult?: ConfirmationResult;
+    grecaptcha: any;
   }
 }
 
@@ -36,12 +37,12 @@ export default function Home() {
 
   // Setup reCAPTCHA verifier
   useEffect(() => {
-    if (!auth) return;
+    if (!auth || !process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) return;
     // Using setTimeout to ensure the container is in the DOM
     const timeoutId = setTimeout(() => {
-      if (!window.recaptchaVerifier) {
+      if (!window.recaptchaVerifier && document.getElementById('recaptcha-container')) {
           window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          'sitekey': process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
+          'sitekey': process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!,
           'size': 'invisible',
           'callback': (response: any) => {
             // reCAPTCHA solved, allow signInWithPhoneNumber.
@@ -70,11 +71,7 @@ export default function Home() {
       toast({ variant: 'destructive', title: 'Failed to Send OTP', description: error.message });
        // Reset reCAPTCHA on error to allow retries
       if (window.recaptchaVerifier) {
-        // @ts-ignore
-        window.recaptchaVerifier.render().then((widgetId) => {
-           // @ts-ignore
-          grecaptcha.reset(widgetId);
-        });
+        window.grecaptcha.reset(window.recaptchaVerifier.widgetId);
       }
     } finally {
       setIsProcessing(false);
