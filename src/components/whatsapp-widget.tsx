@@ -112,7 +112,7 @@ export function WhatsAppWidget() {
                 onClick={handleCommunityClick}
                 aria-label="Join our Community"
               >
-                <MessageSquare className="h-5 w-5" />
+                <Users className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left">
@@ -142,3 +142,5 @@ export function WhatsAppWidget() {
     </TooltipProvider>
   );
 }
+
+    
