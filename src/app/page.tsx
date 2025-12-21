@@ -112,6 +112,14 @@ function ForgotPasswordDialog() {
         }
     };
 
+    const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        // Allow only numbers and limit to 10 digits
+        if (/^\d*$/.test(value) && value.length <= 10) {
+            setPhoneNumber(value);
+        }
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
@@ -131,9 +139,9 @@ function ForgotPasswordDialog() {
                       <Input
                         id="phone-forgot"
                         type="tel"
-                        placeholder="Your registered mobile number"
+                        placeholder="3001234567"
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        onChange={handlePhoneNumberChange}
                         className="pl-20"
                         required
                       />
@@ -214,6 +222,14 @@ function AuthForm() {
     }
   }, [searchParams]);
   
+  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Allow only numbers and limit to 10 digits
+    if (/^\d*$/.test(value) && value.length <= 10) {
+        setPhoneNumber(value);
+    }
+  };
+
   const createUserProfile = async (firebaseUser: FirebaseUser) => {
     if (!firestore) return;
   
@@ -393,7 +409,7 @@ function AuthForm() {
                 type="tel"
                 placeholder="Please enter mobile account"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                onChange={handlePhoneNumberChange}
                 className="pl-20"
                 required
               />
@@ -431,7 +447,7 @@ function AuthForm() {
                         type="tel" 
                         placeholder="Please enter mobile account" 
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        onChange={handlePhoneNumberChange}
                         className="pl-20"
                         required
                     />
