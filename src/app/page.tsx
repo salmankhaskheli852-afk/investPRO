@@ -1,18 +1,20 @@
 
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ShieldCheck, TrendingUp, Users, User } from 'lucide-react';
-import { doc, setDoc, getDoc, serverTimestamp, getDocs, collection, query, where, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, runTransaction, collection, DocumentReference } from 'firebase/firestore';
 import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-const provider = new GoogleAuthProvider();
+const googleProvider = new GoogleAuthProvider();
 
 export default function Home() {
   const auth = useAuth();
@@ -24,71 +26,128 @@ export default function Home() {
   
   const referralIdFromUrl = searchParams.get('ref');
 
-  const handleSignIn = async () => {
-    if (!auth || !firestore) {
-      console.error("Firebase Auth or Firestore not initialized");
-      toast({
-        variant: 'destructive',
-        title: 'Initialization Error',
-        description: 'Firebase is not ready. Please try again in a moment.'
-      });
-      return;
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Setup reCAPTCHA verifier
+  useEffect(() => {
+    if (!auth) return;
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      'size': 'invisible',
+      'callback': (response: any) => {
+        // reCAPTCHA solved, allow signInWithPhoneNumber.
+      }
+    });
+  }, [auth]);
+
+  const handleSendCode = async () => {
+    if (!auth) return toast({ variant: 'destructive', title: 'Auth not ready' });
+    if (!phoneNumber.match(/^\+92[0-9]{10}$/)) {
+        return toast({ variant: 'destructive', title: 'Invalid Phone Number', description: 'Please use the format +923xxxxxxxxx' });
     }
 
+    setIsProcessing(true);
     try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      
-      const userRef = doc(firestore, 'users', user.uid);
-      const userDoc = await getDoc(userRef);
-
-      if (!userDoc.exists()) {
-        const batch = writeBatch(firestore);
-
-        const newUser: Partial<AppUser> = {
-            id: user.uid,
-            name: user.displayName || 'New User',
-            email: user.email || '',
-            avatarUrl: user.photoURL || '',
-            role: 'user',
-            investments: [],
-            agentId: null,
-            referralId: user.uid,
-            createdAt: serverTimestamp() as any,
-        };
-
-        if (referralIdFromUrl) {
-            const referrerRef = doc(firestore, 'users', referralIdFromUrl);
-            const referrerDoc = await getDoc(referrerRef);
-            if (referrerDoc.exists()) {
-                newUser.referrerId = referralIdFromUrl;
-            }
-        }
-        
-        batch.set(userRef, newUser, { merge: true });
-
-        const walletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
-        const newWallet: Wallet = {
-            id: 'main',
-            userId: user.uid,
-            balance: 0,
-        };
-        batch.set(walletRef, newWallet);
-
-        await batch.commit();
-      }
-
-      router.push('/user/me');
-
+      const appVerifier = window.recaptchaVerifier;
+      const result = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
+      setConfirmationResult(result);
+      setIsCodeSent(true);
+      toast({ title: 'Code Sent', description: 'A verification code has been sent to your phone.' });
     } catch (error: any) {
-      console.error("Authentication error:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Sign-in Failed',
-        description: error.message || 'An unexpected error occurred during sign-in.'
-      });
+      console.error("Phone auth error:", error);
+      toast({ variant: 'destructive', title: 'Failed to send code', description: error.message });
+    } finally {
+        setIsProcessing(false);
     }
   };
+
+  const handleVerifyCode = async (isRegistering: boolean) => {
+    if (!confirmationResult) return toast({ variant: 'destructive', title: 'Verification failed', description: 'Please request a new code.' });
+    if (verificationCode.length !== 6) return toast({ variant: 'destructive', title: 'Invalid Code', description: 'Code must be 6 digits.' });
+
+    setIsProcessing(true);
+    try {
+        const result = await confirmationResult.confirm(verificationCode);
+        const loggedInUser = result.user;
+
+        const userRef = doc(firestore, 'users', loggedInUser.uid);
+        const userDoc = await getDoc(userRef);
+
+        if (isRegistering && !userDoc.exists()) {
+            // Create profile only on registration if it doesn't exist
+            await createUserProfile(loggedInUser.uid, loggedInUser.phoneNumber);
+        } else if (!isRegistering && !userDoc.exists()) {
+            // If logging in but profile doesn't exist, create it.
+            await createUserProfile(loggedInUser.uid, loggedInUser.phoneNumber);
+        }
+
+        router.push('/user/me');
+
+    } catch (error: any) {
+        console.error("Code verification error:", error);
+        toast({ variant: 'destructive', title: 'Verification Failed', description: error.message });
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
+  const createUserProfile = async (uid: string, phone: string | null) => {
+     if (!firestore) return;
+
+     const counterRef = doc(firestore, 'counters', 'user_id_counter');
+     const userRef = doc(firestore, 'users', uid);
+
+     try {
+        await runTransaction(firestore, async (transaction) => {
+            const counterDoc = await transaction.get(counterRef);
+            let newNumericId = 1001; // Default starting ID
+            if (counterDoc.exists()) {
+                newNumericId = (counterDoc.data().currentId || 1000) + 1;
+            }
+            transaction.set(counterRef, { currentId: newNumericId }, { merge: true });
+
+            const newUser: Partial<AppUser> = {
+                id: uid,
+                numericId: newNumericId,
+                name: `User ${String(newNumericId)}`,
+                phoneNumber: phone,
+                avatarUrl: `https://picsum.photos/seed/${newNumericId}/200`,
+                role: 'user',
+                investments: [],
+                agentId: null,
+                referralId: uid,
+                createdAt: serverTimestamp() as any,
+                isVerified: false,
+                totalDeposit: 0,
+            };
+            
+            if (referralIdFromUrl) {
+                const referrerRef = doc(firestore, 'users', referralIdFromUrl);
+                const referrerDoc = await getDoc(referrerRef);
+                if (referrerDoc.exists()) {
+                    newUser.referrerId = referralIdFromUrl;
+                }
+            }
+
+            transaction.set(userRef, newUser);
+
+            const walletRef = doc(firestore, 'users', uid, 'wallets', 'main');
+            const newWallet: Wallet = {
+                id: 'main',
+                userId: uid,
+                balance: 0,
+            };
+            transaction.set(walletRef, newWallet);
+        });
+     } catch (e: any) {
+        console.error("Transaction failed: ", e);
+        throw new Error("Could not create user profile.");
+     }
+  };
+
 
   useEffect(() => {
     if (!isUserLoading && user) {
@@ -104,12 +163,54 @@ export default function Home() {
     );
   }
 
+  const renderPhoneAuthForm = (isRegistering: boolean) => (
+    <div className="space-y-4">
+        {!isCodeSent ? (
+            <>
+                <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input 
+                        id="phone" 
+                        type="tel" 
+                        placeholder="+923001234567" 
+                        value={phoneNumber} 
+                        onChange={(e) => setPhoneNumber(e.target.value)} 
+                    />
+                </div>
+                <Button onClick={handleSendCode} className="w-full" disabled={isProcessing}>
+                    {isProcessing ? 'Sending...' : 'Send Code'}
+                </Button>
+            </>
+        ) : (
+            <>
+                <div className="space-y-2">
+                    <Label htmlFor="code">Verification Code</Label>
+                    <Input 
+                        id="code" 
+                        type="text" 
+                        placeholder="Enter 6-digit code" 
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value)}
+                    />
+                </div>
+                <Button onClick={() => handleVerifyCode(isRegistering)} className="w-full" disabled={isProcessing}>
+                    {isProcessing ? 'Verifying...' : (isRegistering ? 'Register' : 'Login')}
+                </Button>
+                 <Button variant="link" onClick={() => setIsCodeSent(false)} className="w-full">
+                    Change number or resend code
+                </Button>
+            </>
+        )}
+        <div id="recaptcha-container"></div>
+    </div>
+  );
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
       <div className="w-full max-w-sm rounded-xl p-1 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card className="shadow-lg">
-          <CardContent className="p-8 text-center space-y-6">
-            <div className="flex justify-center items-center gap-2">
+          <CardContent className="p-6">
+            <div className="flex justify-center items-center gap-2 mb-6">
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -127,32 +228,27 @@ export default function Home() {
                 <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
             </div>
 
-            <p className="text-muted-foreground">Your trusted partner in modern investments.</p>
-
-            <Button size="lg" className="w-full" onClick={handleSignIn}>
-              <svg className="mr-2 h-4 w-4" viewBox="0 0 48 48">
-                <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.565-3.108-11.283-7.481l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.902,35.636,44,29.592,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path>
-              </svg>
-              Sign in with Google
-            </Button>
-            
-            <div className="flex justify-around items-center pt-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <ShieldCheck className="h-4 w-4" />
-                    <span>Secure</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <TrendingUp className="h-4 w-4" />
-                    <span>Reliable</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="h-4 w-4" />
-                    <span>Community</span>
-                </div>
-            </div>
+            <Tabs defaultValue="login" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Login</TabsTrigger>
+                <TabsTrigger value="register">Register</TabsTrigger>
+              </TabsList>
+              <TabsContent value="login" className="pt-4">
+                {renderPhoneAuthForm(false)}
+              </TabsContent>
+              <TabsContent value="register" className="pt-4">
+                {renderPhoneAuthForm(true)}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
     </main>
   );
+}
+
+declare global {
+  interface Window {
+    recaptchaVerifier: RecaptchaVerifier;
+  }
 }
