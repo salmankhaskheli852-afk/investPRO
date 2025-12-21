@@ -69,7 +69,8 @@ function LoginPageContent() {
     if (!firestore) return;
 
     let finalReferrerUid: string | null = null;
-
+    
+    // Check for referrer outside the transaction
     if (referrerIdFromInput) {
         const numericReferrerId = parseInt(referrerIdFromInput, 10);
         if (!isNaN(numericReferrerId)) {
@@ -77,19 +78,19 @@ function LoginPageContent() {
             const referrerSnapshot = await getDocs(referrerQuery);
             if (!referrerSnapshot.empty) {
                 const referrerDoc = referrerSnapshot.docs[0];
-                if (referrerDoc.id !== uid) {
+                if (referrerDoc.id !== uid) { // Can't refer yourself
                     finalReferrerUid = referrerDoc.id;
                 }
             }
         }
     }
 
-    const counterRef = doc(firestore, 'counters', 'user_id_counter');
-    const userRef = doc(firestore, 'users', uid);
-    const walletRef = doc(firestore, 'users', uid, 'wallets', 'main');
-
     try {
       await runTransaction(firestore, async (transaction) => {
+        const counterRef = doc(firestore, 'counters', 'user_id_counter');
+        const userRef = doc(firestore, 'users', uid);
+        const walletRef = doc(firestore, 'users', uid, 'wallets', 'main');
+
         const counterDoc = await transaction.get(counterRef);
         let newNumericId = 1001;
         if (counterDoc.exists()) {
@@ -217,4 +218,3 @@ export default function Home() {
     </Suspense>
   );
 }
-
