@@ -4,27 +4,22 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { doc, setDoc, getDoc, serverTimestamp, runTransaction, collection } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, runTransaction, collection, query, where, getDocs } from 'firebase/firestore';
 import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Smartphone, Lock, Heart, ShieldCheck, RefreshCcw } from 'lucide-react';
+import { Smartphone, Lock, ShieldCheck } from 'lucide-react';
+import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
 
-const DUMMY_DOMAIN = 'investpro.app';
-
-// Simple CAPTCHA component
-const CaptchaDisplay = ({ code }: { code: string }) => (
-    <div className="flex items-center justify-center bg-gray-200 rounded-md p-2">
-        <span className="text-2xl font-bold tracking-[.2em] text-gray-700" style={{ textDecoration: 'line-through', fontStyle: 'italic' }}>
-            {code}
-        </span>
-    </div>
-);
+declare global {
+  interface Window {
+    recaptchaVerifier: RecaptchaVerifier;
+    confirmationResult?: ConfirmationResult;
+  }
+}
 
 export default function Home() {
   const auth = useAuth();
@@ -32,69 +27,80 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
-  
-  // Common state
+
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // Registration specific state
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
   const [invitationCode, setInvitationCode] = useState('');
-  const [captcha, setCaptcha] = useState('');
-  const [captchaInput, setCaptchaInput] = useState('');
 
-  const generateCaptcha = () => {
-    const randomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
-    setCaptcha(randomCode);
-  };
-  
+  // Setup reCAPTCHA verifier
   useEffect(() => {
-    generateCaptcha();
-  }, []);
-
-  const formatEmail = (phone: string) => `${phone.replace(/\D/g, '')}@${DUMMY_DOMAIN}`;
-
-  const handleLogin = async () => {
-      if (!auth) return toast({ variant: 'destructive', title: 'Auth not ready' });
-      if (!phoneNumber || !password) return toast({ variant: 'destructive', title: 'Missing fields', description: 'Please enter phone and password.' });
-      
-      setIsProcessing(true);
-      const email = formatEmail(phoneNumber);
-      try {
-        await signInWithEmailAndPassword(auth, email, password);
-        // On successful login, the useEffect for user state change will handle redirection
-      } catch (error: any) {
-        console.error("Login error:", error);
-        toast({ variant: 'destructive', title: 'Login Failed', description: error.code === 'auth/invalid-credential' ? 'Invalid phone number or password.' : error.message });
-      } finally {
-        setIsProcessing(false);
+    if (!auth) return;
+    // Using setTimeout to ensure the container is in the DOM
+    const timeoutId = setTimeout(() => {
+      if (!window.recaptchaVerifier) {
+          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          'size': 'invisible',
+          'callback': (response: any) => {
+            // reCAPTCHA solved, allow signInWithPhoneNumber.
+          }
+        });
       }
-  };
-  
-  const handleRegister = async () => {
-    if (!auth || !firestore) return toast({ variant: 'destructive', title: 'System not ready' });
-    if (!phoneNumber || !password || !confirmPassword) return toast({ variant: 'destructive', title: 'Missing fields' });
-    if (password !== confirmPassword) return toast({ variant: 'destructive', title: 'Passwords do not match' });
-    if (captchaInput.toUpperCase() !== captcha) {
-        generateCaptcha();
-        return toast({ variant: 'destructive', title: 'Verification Failed', description: 'The verification code is incorrect.' });
-    }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+
+  }, [auth]);
+
+  const handleSendOtp = async () => {
+    if (!auth) return toast({ variant: 'destructive', title: 'Auth not ready' });
+    if (!phoneNumber) return toast({ variant: 'destructive', title: 'Missing phone number' });
 
     setIsProcessing(true);
-    const email = formatEmail(phoneNumber);
-
     try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const loggedInUser = userCredential.user;
-        await createUserProfile(loggedInUser.uid, phoneNumber, invitationCode);
-        // On successful registration, the useEffect for user state change will handle redirection
+      const formattedPhoneNumber = `+92${phoneNumber.replace(/^0+/, '')}`;
+      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhoneNumber, window.recaptchaVerifier);
+      window.confirmationResult = confirmationResult;
+      setOtpSent(true);
+      toast({ title: 'OTP Sent', description: 'Please check your phone for the verification code.' });
     } catch (error: any) {
-        console.error("Registration error:", error);
-        toast({ variant: 'destructive', title: 'Registration Failed', description: error.code === 'auth/email-already-in-use' ? 'This phone number is already registered.' : error.message });
-        generateCaptcha();
+      console.error("OTP send error:", error);
+      toast({ variant: 'destructive', title: 'Failed to Send OTP', description: error.message });
+       // Reset reCAPTCHA
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.render().then((widgetId) => {
+           // @ts-ignore
+          grecaptcha.reset(widgetId);
+        });
+      }
     } finally {
-        setIsProcessing(false);
+      setIsProcessing(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!window.confirmationResult) return toast({ variant: 'destructive', title: 'Verification failed', description: 'Please send OTP first.' });
+    if (!otp) return toast({ variant: 'destructive', title: 'Missing OTP' });
+
+    setIsProcessing(true);
+    try {
+      const userCredential = await window.confirmationResult.confirm(otp);
+      const loggedInUser = userCredential.user;
+      
+      const userDocRef = doc(firestore, 'users', loggedInUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        await createUserProfile(loggedInUser.uid, loggedInUser.phoneNumber!, invitationCode);
+      }
+      
+      // On successful verification, the useEffect for user state change will handle redirection.
+    } catch (error: any) {
+      console.error("OTP verification error:", error);
+      toast({ variant: 'destructive', title: 'Verification Failed', description: 'The OTP is incorrect or has expired.' });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -107,6 +113,25 @@ export default function Home() {
 
      try {
         await runTransaction(firestore, async (transaction) => {
+            let referrerValid = false;
+            let referrerDoc;
+            if (referrerIdFromInput) {
+                // Check if referrer is a numeric ID or a UID
+                let referrerQuery;
+                const numericReferrerId = parseInt(referrerIdFromInput, 10);
+                if (!isNaN(numericReferrerId)) {
+                    referrerQuery = query(collection(firestore, 'users'), where('numericId', '==', numericReferrerId));
+                } else {
+                    referrerQuery = query(collection(firestore, 'users'), where('id', '==', referrerIdFromInput));
+                }
+                const referrerSnapshot = await getDocs(referrerQuery);
+                if (!referrerSnapshot.empty) {
+                    referrerValid = true;
+                    referrerDoc = referrerSnapshot.docs[0];
+                }
+            }
+
+
             const counterDoc = await transaction.get(counterRef);
             let newNumericId = 1001; // Default starting ID
             if (counterDoc.exists()) {
@@ -117,26 +142,20 @@ export default function Home() {
             const newUser: Partial<AppUser> = {
                 id: uid,
                 numericId: newNumericId,
-                name: `User ${String(uid).slice(-4)}`,
-                phoneNumber: `+92${phone}`,
+                name: `User ${String(newNumericId)}`,
+                phoneNumber: phone,
                 avatarUrl: `https://picsum.photos/seed/${newNumericId}/200`,
                 role: 'user',
                 investments: [],
                 agentId: null,
-                referralId: uid,
+                referralId: uid, // User's own referral ID
                 createdAt: serverTimestamp() as any,
                 isVerified: false,
                 totalDeposit: 0,
             };
             
-            if (referrerIdFromInput) {
-                const referrerRef = doc(firestore, 'users', referrerIdFromInput);
-                const referrerDoc = await transaction.get(referrerRef);
-                if (referrerDoc.exists()) {
-                    newUser.referrerId = referrerIdFromInput;
-                } else {
-                    console.warn(`Referrer with ID ${referrerIdFromInput} not found.`);
-                }
+            if (referrerValid && referrerDoc) {
+                newUser.referrerId = referrerDoc.id;
             }
 
             transaction.set(userRef, newUser);
@@ -169,7 +188,10 @@ export default function Home() {
                     router.push('/user/me');
                 }
             } else {
-                router.push('/user/me');
+                // If user is authenticated but has no profile, might be mid-registration
+                // or an error occurred. Let's keep them on the login page for now.
+                // Or try to create profile again if needed.
+                console.log("User authenticated but no profile found, might be a new registration.");
             }
         });
     }
@@ -183,119 +205,69 @@ export default function Home() {
     );
   }
 
-  const renderLoginForm = () => (
+  const renderForm = () => (
     <div className="space-y-4">
-        <div className="space-y-2">
-            <Label htmlFor="login-phone" className="sr-only">Phone Number</Label>
-            <Input 
-                id="login-phone" 
-                type="tel" 
-                placeholder="Please enter mobile account" 
-                value={phoneNumber} 
-                onChange={(e) => setPhoneNumber(e.target.value)} 
-                icon={
-                    <div className="flex items-center gap-1">
-                        <Smartphone className="h-5 w-5 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">+92</span>
-                    </div>
-                }
-                className="pl-20"
-            />
-        </div>
-        <div className="space-y-2">
-             <Label htmlFor="login-password" className="sr-only">Password</Label>
-             <Input 
-                id="login-password"
-                type="password"
-                placeholder="Please input password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                icon={<Lock className="h-5 w-5 text-muted-foreground" />}
-             />
-        </div>
-        <Button onClick={handleLogin} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
-            {isProcessing ? 'Logging in...' : 'Log in'}
-        </Button>
-    </div>
-  );
-
-  const renderRegisterForm = () => (
-    <div className="space-y-4">
-        <div className="space-y-2">
-            <Label htmlFor="register-phone" className="sr-only">Phone Number</Label>
-             <Input 
-                id="register-phone" 
-                type="tel" 
-                placeholder="Please enter mobile account" 
-                value={phoneNumber} 
-                onChange={(e) => setPhoneNumber(e.target.value)} 
-                 icon={
-                    <div className="flex items-center gap-1">
-                        <Smartphone className="h-5 w-5 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">+92</span>
-                    </div>
-                }
-                className="pl-20"
-            />
-        </div>
-        <div className="space-y-2">
-             <Label htmlFor="register-password" className="sr-only">Password</Label>
-             <Input 
-                id="register-password"
-                type="password"
-                placeholder="Please input password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                icon={<Lock className="h-5 w-5 text-muted-foreground" />}
-             />
-        </div>
-        <div className="space-y-2">
-             <Label htmlFor="register-confirm-password" className="sr-only">Confirm Password</Label>
-             <Input 
-                id="register-confirm-password"
-                type="password"
-                placeholder="Please enter password again"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                icon={<Lock className="h-5 w-5 text-muted-foreground" />}
-             />
-        </div>
-         <div className="space-y-2">
-             <Label htmlFor="register-invitation-code" className="sr-only">Invitation Code</Label>
-             <Input 
-                id="register-invitation-code"
-                type="text"
-                placeholder="Please enter the invitation code"
-                value={invitationCode}
-                onChange={(e) => setInvitationCode(e.target.value)}
-                icon={<Heart className="h-5 w-5 text-muted-foreground" />}
-             />
-        </div>
-        <div className="space-y-2">
-            <Label htmlFor="register-captcha" className="sr-only">Verification Code</Label>
-            <div className="flex items-center gap-2">
-                 <Input 
-                    id="register-captcha"
-                    type="text"
-                    placeholder="Verification code"
-                    value={captchaInput}
-                    onChange={(e) => setCaptchaInput(e.target.value)}
-                    icon={<ShieldCheck className="h-5 w-5 text-muted-foreground" />}
-                 />
-                 <CaptchaDisplay code={captcha} />
-                 <Button variant="ghost" size="icon" onClick={generateCaptcha}>
-                    <RefreshCcw className="h-5 w-5 text-muted-foreground" />
-                 </Button>
-            </div>
-        </div>
-        <Button onClick={handleRegister} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
-            {isProcessing ? 'Registering...' : 'Sign up'}
-        </Button>
+        {!otpSent ? (
+            <>
+                <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input 
+                        id="phone" 
+                        type="tel" 
+                        placeholder="3001234567" 
+                        value={phoneNumber} 
+                        onChange={(e) => setPhoneNumber(e.target.value)} 
+                        icon={
+                            <div className="flex items-center gap-1">
+                                <Smartphone className="h-5 w-5 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground">+92</span>
+                            </div>
+                        }
+                        className="pl-20"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="invitation-code">Invitation Code (Optional)</Label>
+                    <Input 
+                        id="invitation-code" 
+                        type="text" 
+                        placeholder="Enter referrer's code"
+                        value={invitationCode} 
+                        onChange={(e) => setInvitationCode(e.target.value)} 
+                    />
+                </div>
+                <Button onClick={handleSendOtp} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
+                    {isProcessing ? 'Sending...' : 'Send OTP'}
+                </Button>
+            </>
+        ) : (
+             <>
+                <div className="space-y-2">
+                    <Label htmlFor="otp">Verification Code</Label>
+                    <Input 
+                        id="otp"
+                        type="text"
+                        placeholder="Enter the 6-digit code"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        icon={<ShieldCheck className="h-5 w-5 text-muted-foreground" />}
+                        maxLength={6}
+                    />
+                </div>
+                <Button onClick={handleVerifyOtp} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
+                    {isProcessing ? 'Verifying...' : 'Verify OTP & Continue'}
+                </Button>
+                <Button variant="link" onClick={() => setOtpSent(false)}>
+                    Entered wrong number?
+                </Button>
+            </>
+        )}
     </div>
   );
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
+      <div id="recaptcha-container"></div>
       <div className="w-full max-w-sm rounded-xl p-1 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card className="shadow-lg">
           <CardContent className="p-6">
@@ -317,25 +289,15 @@ export default function Home() {
                 <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
             </div>
 
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-transparent p-0 mb-4">
-                <TabsTrigger value="login" className="text-lg text-muted-foreground data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent relative data-[state=active]:font-bold after:content-[''] after:absolute after:bottom-[-2px] after:left-0 after:right-0 after:h-0.5 after:bg-primary after:scale-x-0 data-[state=active]:after:scale-x-100 after:transition-transform">
-                    Log in
-                </TabsTrigger>
-                <TabsTrigger value="register" className="text-lg text-muted-foreground data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent relative data-[state=active]:font-bold after:content-[''] after:absolute after:bottom-[-2px] after:left-0 after:right-0 after:h-0.5 after:bg-primary after:scale-x-0 data-[state=active]:after:scale-x-100 after:transition-transform">
-                    Register
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="login" className="pt-4">
-                {renderLoginForm()}
-              </TabsContent>
-              <TabsContent value="register" className="pt-4">
-                {renderRegisterForm()}
-              </TabsContent>
-            </Tabs>
+            <div className="pt-4">
+                {renderForm()}
+            </div>
+          
           </CardContent>
         </Card>
       </div>
     </main>
   );
 }
+
+    

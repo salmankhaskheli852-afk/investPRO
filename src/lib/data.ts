@@ -44,8 +44,7 @@ export type User = {
   id: string;
   numericId: number;
   name?: string;
-  email?: string; // This will store the dummy email
-  password?: string; // This is for the type, but will not be stored in Firestore
+  email?: string;
   phoneNumber?: string | null;
   avatarUrl?: string;
   investments: UserInvestment[]; // array of user investment objects
@@ -68,7 +67,7 @@ export type PasswordResetRequest = {
     userId: string;
     userName: string;
     userPhoneNumber: string;
-    newPassword: string; // Storing plain text for admin view is NOT recommended
+    newPassword: string; 
     status: 'pending' | 'approved' | 'rejected';
     createdAt: any; // serverTimestamp
 };
@@ -153,3 +152,5 @@ export const planCategories: PlanCategory[] = [
     { id: 'long-term', name: 'Long Term' },
     { id: 'vip', name: 'VIP' },
   ];
+
+    
