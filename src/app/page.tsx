@@ -257,7 +257,7 @@ function AuthForm() {
         const name = "User " + firebaseUser.uid.slice(-4);
         const referrerId = invitationCode || null;
   
-        const newUserProfile: Omit<User, 'createdAt' | 'investments'> & { createdAt: any } = {
+        const newUserProfile: Omit<User, 'createdAt' | 'investments' | 'agentId' | 'assignedWallets' | 'permissions' > & { createdAt: any } = {
           id: firebaseUser.uid,
           numericId: nextNumericId,
           name: name,
@@ -282,15 +282,14 @@ function AuthForm() {
         });
   
         if (referrerId) {
-          // In a real app, you'd look up the referrer by their user-facing ID, not UID.
-          // Assuming invitationCode is the numericId of the referrer
-          const referrerUserQuery = query(collection(firestore, 'users'), where('numericId', '==', parseInt(referrerId, 10)));
+          // Assuming referrerId is the UID of the referrer. In a real app, you might use a different lookup.
+          const referrerUserQuery = query(collection(firestore, 'users'), where('id', '==', referrerId));
           const referrerSnapshot = await getDocs(referrerUserQuery);
           if (!referrerSnapshot.empty) {
             const referrerDoc = referrerSnapshot.docs[0];
             transaction.update(referrerDoc.ref, { referralCount: increment(1) });
           } else {
-            console.warn(`Referrer with numericId ${referrerId} not found.`);
+            console.warn(`Referrer with UID ${referrerId} not found.`);
           }
         }
       });
