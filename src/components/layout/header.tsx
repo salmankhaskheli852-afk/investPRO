@@ -108,7 +108,7 @@ export function Header() {
   const showSidebarTrigger = pathname.startsWith('/admin') || pathname.startsWith('/agent');
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-white/20 bg-transparent px-4 sm:px-6">
+    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-white/20 bg-login-gradient px-4 sm:px-6">
       <div className="flex items-center gap-2">
         {showSidebarTrigger && <SidebarTrigger className="md:hidden text-white hover:bg-white/20" />}
         <Link href="/" className="flex items-center gap-2">
