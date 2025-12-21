@@ -7,12 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import type { User, Transaction, AppSettings, ReferralRequest } from '@/lib/data';
-import { doc, collection, query, where, orderBy, getDocs, writeBatch, serverTimestamp, addDoc, setDoc } from 'firebase/firestore';
+import type { User, Transaction, AppSettings } from '@/lib/data';
+import { doc, collection, query, where, orderBy } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Copy, Send } from 'lucide-react';
+import { Copy } from 'lucide-react';
 
 
 export default function InvitationPage() {
@@ -20,21 +20,17 @@ export default function InvitationPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [targetUserId, setTargetUserId] = React.useState('');
-  const [isSendingRequest, setIsSendingRequest] = React.useState(false);
-  const [isAlreadyReferred, setIsAlreadyReferred] = React.useState(false);
-
   const userDocRef = useMemoFirebase(
       () => user && firestore ? doc(firestore, 'users', user.uid) : null,
       [user, firestore]
   );
   const { data: currentUserData, isLoading: isLoadingCurrentUser } = useDoc<User>(userDocRef);
 
-  React.useEffect(() => {
-      if (currentUserData?.referrerId) {
-          setIsAlreadyReferred(true);
-      }
-  }, [currentUserData]);
+  const settingsRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore]
+  );
+  const { data: appSettings } = useDoc<AppSettings>(settingsRef);
   
   const myTeamQuery = useMemoFirebase(
     () => (user && firestore ? query(collection(firestore, 'users'), where('referrerId', '==', user.uid)) : null),
@@ -53,66 +49,25 @@ export default function InvitationPage() {
   );
   const { data: transactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(transactionsQuery);
 
-  const handleSendRequest = async () => {
-      if (!user || !firestore || !currentUserData) {
-          toast({ variant: 'destructive', title: 'You must be logged in.' });
-          return;
-      }
-      if (!targetUserId) {
-          toast({ variant: 'destructive', title: 'Please enter a User ID.' });
-          return;
-      }
-      if (String(currentUserData.numericId) === targetUserId) {
-           toast({ variant: 'destructive', title: 'Invalid Action', description: "You cannot refer yourself." });
-           return;
-      }
+  const referralLink = React.useMemo(() => {
+    if (!appSettings?.baseInvitationUrl || !currentUserData?.numericId) return '';
+    
+    // Ensure the base URL ends with a slash if it doesn't already
+    const baseUrl = appSettings.baseInvitationUrl.endsWith('/') 
+        ? appSettings.baseInvitationUrl 
+        : `${appSettings.baseInvitationUrl}/`;
+        
+    return `${baseUrl}?ref=${currentUserData.numericId}`;
+  }, [appSettings, currentUserData]);
 
-      setIsSendingRequest(true);
-      try {
-          const targetUserQuery = query(collection(firestore, 'users'), where('numericId', '==', parseInt(targetUserId, 10)));
-          const targetUserSnapshot = await getDocs(targetUserQuery);
-
-          if (targetUserSnapshot.empty) {
-              throw new Error("User with this ID not found.");
-          }
-
-          const targetUserData = targetUserSnapshot.docs[0].data() as User;
-          
-          // Check if a pending request already exists
-          const existingRequestQuery = query(
-              collection(firestore, 'referral_requests'),
-              where('requesterId', '==', user.uid),
-              where('targetId', '==', targetUserData.id),
-              where('status', '==', 'pending')
-          );
-          const existingRequestSnapshot = await getDocs(existingRequestQuery);
-          if(!existingRequestSnapshot.empty) {
-              throw new Error("A pending request to this user already exists.");
-          }
-
-
-          const newRequestRef = doc(collection(firestore, 'referral_requests'));
-          const newRequest: ReferralRequest = {
-              id: newRequestRef.id,
-              requesterId: user.uid,
-              requesterName: currentUserData.name || 'A User',
-              targetId: targetUserData.id,
-              status: 'pending',
-              createdAt: serverTimestamp() as any,
-          };
-          
-          await setDoc(newRequestRef, newRequest);
-
-          toast({ title: 'Request Sent', description: `Your referral request has been sent to User ID ${targetUserId}.` });
-          setTargetUserId('');
-
-      } catch (e: any) {
-          toast({ variant: 'destructive', title: 'Error', description: e.message });
-      } finally {
-          setIsSendingRequest(false);
-      }
+  const handleCopyLink = () => {
+    if (!referralLink) return;
+    navigator.clipboard.writeText(referralLink);
+    toast({
+      title: 'Link Copied!',
+      description: 'Your invitation link has been copied to your clipboard.',
+    });
   };
-
 
   const totalReferralIncome = React.useMemo(() => {
     if (!transactions) return 0;
@@ -129,7 +84,7 @@ export default function InvitationPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-headline">Invite & Team</h1>
-        <p className="text-muted-foreground">Add members to your team and earn commissions.</p>
+        <p className="text-muted-foreground">Share your link to build your team and earn commissions.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-8">
@@ -137,29 +92,24 @@ export default function InvitationPage() {
         <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
           <Card>
             <CardHeader>
-              <CardTitle>Join a Team</CardTitle>
+              <CardTitle>Your Invitation Link</CardTitle>
               <CardDescription>
-                {isAlreadyReferred 
-                  ? "You are already part of a team." 
-                  : "If someone invited you, enter their User ID here to join their team."
-                }
+                Share this link with your friends. When they sign up, they will automatically join your team.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center space-x-2">
                 <Input 
-                  id="target-user-id" 
-                  value={targetUserId}
-                  onChange={(e) => setTargetUserId(e.target.value)}
-                  placeholder="Enter inviter's User ID"
-                  disabled={isAlreadyReferred || isSendingRequest}
+                  id="referral-link" 
+                  value={referralLink || 'Generating link...'}
+                  readOnly
                 />
                 <Button 
-                  onClick={handleSendRequest} 
-                  disabled={isAlreadyReferred || isSendingRequest || !targetUserId}
+                  onClick={handleCopyLink} 
+                  disabled={!referralLink}
+                  aria-label="Copy Link"
                 >
-                  <Send className="mr-2 h-4 w-4" />
-                  {isSendingRequest ? 'Sending...' : 'Send Request'}
+                  <Copy className="h-4 w-4" />
                 </Button>
               </div>
             </CardContent>

@@ -81,7 +81,7 @@ export default function ReferralSettingsPage() {
               disabled={isLoading}
             />
              <p className="text-xs text-muted-foreground">
-                This is the main URL for your app. The user's referral ID will be added to it (e.g., ?ref=USER_ID).
+                This is the main URL for your app. The user's referral ID will be added to it automatically (e.g., ?ref=USER_ID).
              </p>
           </div>
            <div className="space-y-2">
