@@ -127,17 +127,21 @@ export default function UserDashboardPage() {
   
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, {userData?.name || userData?.email}!</p>
-        {userData.id && (
-            <div className="flex items-center text-sm mt-1">
-                <span className="text-muted-foreground">ID: {userData.id}</span>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopy(String(userData.id), 'User ID')}>
-                    <Copy className="h-4 w-4 text-muted-foreground" />
-                </Button>
-            </div>
-        )}
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
+        <Card>
+          <CardContent className="p-6">
+            <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
+            <p className="text-muted-foreground">Welcome back, {userData?.name || userData?.email}!</p>
+            {userData.id && (
+                <div className="flex items-center text-sm mt-1">
+                    <span className="text-muted-foreground">ID: {userData.id}</span>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopy(String(userData.id), 'User ID')}>
+                        <Copy className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
       
       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
@@ -202,37 +206,42 @@ export default function UserDashboardPage() {
         </Card>
       </div>
 
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
+        <Card>
+          <CardHeader>
+            <CardTitle>My Active Investments</CardTitle>
+            <CardDescription>
+              Here's an overview of your current investment portfolio.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {activeInvestments.length > 0 ? (
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                {activeInvestments.map((plan) => (
+                  <InvestmentPlanCard key={plan.id} plan={plan} isPurchased={true} showPurchaseButton={false} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                  <p className="text-muted-foreground mb-4">You have no active investments yet.</p>
+                  <Button asChild>
+                      <Link href="/user/investments">Explore our plans to get started!</Link>
+                  </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+       </div>
 
-       <Card>
-        <CardHeader>
-          <CardTitle>My Active Investments</CardTitle>
-          <CardDescription>
-            Here's an overview of your current investment portfolio.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-           {activeInvestments.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {activeInvestments.map((plan) => (
-                <InvestmentPlanCard key={plan.id} plan={plan} isPurchased={true} showPurchaseButton={false} />
-              ))}
-            </div>
-           ) : (
-             <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">You have no active investments yet.</p>
-                <Button asChild>
-                    <Link href="/user/investments">Explore our plans to get started!</Link>
-                </Button>
-             </div>
-           )}
-        </CardContent>
-      </Card>
-
-      <div className="pt-4">
-        <Button variant="outline" className="w-full" onClick={handleLogout}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Sign Out
-        </Button>
+      <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
+        <Card>
+          <CardContent className="p-4">
+            <Button variant="outline" className="w-full" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
