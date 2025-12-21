@@ -10,8 +10,10 @@ import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs
 import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleAuthProvider, signInWithPopup, User as FirebaseAuthUser } from 'firebase/auth';
-import { ShieldCheck, TrendingUp, Users, Copy } from 'lucide-react';
+import { ShieldCheck, TrendingUp, Users, Copy, Gift } from 'lucide-react';
 import Image from 'next/image';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 
 function LoginPageContent() {
@@ -24,11 +26,13 @@ function LoginPageContent() {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [invitationCode, setInvitationCode] = useState('');
+  const [isRefCodeFromUrl, setIsRefCodeFromUrl] = useState(false);
 
   useEffect(() => {
     const refCode = searchParams.get('ref');
     if (refCode) {
       setInvitationCode(refCode);
+      setIsRefCodeFromUrl(true);
     }
   }, [searchParams]);
 
@@ -168,16 +172,32 @@ function LoginPageContent() {
               <p className="text-muted-foreground text-sm text-center">Your trusted partner in modern investments.</p>
             </div>
             
-            <Button onClick={handleGoogleSignIn} className="w-full h-12 text-md" disabled={isProcessing}>
-                {isProcessing ? (
-                    'Signing in...'
-                ) : (
-                    <>
-                        <Image src="/google-logo.svg" alt="Google" width={20} height={20} className="mr-2" />
-                        Sign in with Google
-                    </>
-                )}
-            </Button>
+            <div className="space-y-6">
+                <Button onClick={handleGoogleSignIn} className="w-full h-12 text-md" disabled={isProcessing}>
+                    {isProcessing ? (
+                        'Signing in...'
+                    ) : (
+                        <>
+                            <Image src="/google-logo.svg" alt="Google" width={20} height={20} className="mr-2" />
+                            Sign in with Google
+                        </>
+                    )}
+                </Button>
+
+                <div className="space-y-2">
+                    <Label htmlFor="invitation-code" className="flex items-center gap-1.5 text-muted-foreground">
+                        <Gift className="h-4 w-4" />
+                        Invitation Code (Optional)
+                    </Label>
+                    <Input 
+                        id="invitation-code"
+                        placeholder="Enter your invitation code"
+                        value={invitationCode}
+                        onChange={(e) => setInvitationCode(e.target.value)}
+                        disabled={isRefCodeFromUrl}
+                    />
+                </div>
+            </div>
             
             <div className="mt-8 flex justify-around text-muted-foreground">
                 <div className="flex items-center gap-2 text-xs">
