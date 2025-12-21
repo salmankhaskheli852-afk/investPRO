@@ -63,6 +63,16 @@ export type User = {
   dailyCheckIn?: Timestamp;
 };
 
+export type PasswordResetRequest = {
+    id: string;
+    userId: string;
+    userName: string;
+    userPhoneNumber: string;
+    newPassword: string; // Storing plain text for admin view is NOT recommended
+    status: 'pending' | 'approved' | 'rejected';
+    createdAt: any; // serverTimestamp
+};
+
 export type Wallet = {
     id: string;
     userId: string;

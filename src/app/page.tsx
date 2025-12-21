@@ -6,16 +6,25 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
-import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch, increment, query, where, runTransaction, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch, increment, query, where, runTransaction, getDocs, addDoc } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import type { User } from '@/lib/data';
+import type { User, PasswordResetRequest } from '@/lib/data';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Smartphone, Lock, Heart, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 // By exporting this, we tell Next.js to always render this page dynamically
 // which is required because we are using useSearchParams.
@@ -49,6 +58,121 @@ function LoggedInRedirect() {
 }
 
 const FAKE_EMAIL_DOMAIN = 'yourapp.com';
+
+function ForgotPasswordDialog() {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [phoneNumber, setPhoneNumber] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const firestore = useFirestore();
+    const { toast } = useToast();
+
+    const handleSubmitRequest = async () => {
+        if (!firestore) return;
+        if (!phoneNumber || !newPassword || !confirmPassword) {
+            toast({ variant: 'destructive', title: 'Missing fields', description: 'Please fill all fields.' });
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            toast({ variant: 'destructive', title: 'Passwords do not match' });
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const usersRef = collection(firestore, 'users');
+            const q = query(usersRef, where('phoneNumber', '==', `+92${phoneNumber}`));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                throw new Error("No user found with this phone number.");
+            }
+            const userDoc = querySnapshot.docs[0];
+
+            const requestData: Omit<PasswordResetRequest, 'id'> = {
+                userId: userDoc.id,
+                userName: userDoc.data().name,
+                userPhoneNumber: userDoc.data().phoneNumber,
+                newPassword, // Storing in plain text as requested by admin-view requirement
+                status: 'pending',
+                createdAt: serverTimestamp(),
+            };
+
+            await addDoc(collection(firestore, 'password_reset_requests'), requestData);
+
+            toast({ title: 'Request Submitted', description: 'Your password reset request has been sent to the admin for approval.' });
+            setIsOpen(false);
+            setPhoneNumber('');
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Request Failed', description: error.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="link" className="px-0 h-auto text-xs">Forgot password?</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Reset Your Password</DialogTitle>
+                    <DialogDescription>
+                        Enter your phone number and new password. Your request will be sent to an administrator for approval.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="relative">
+                      <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                      <span className="absolute left-10 top-1/2 -translate-y-1/2 text-sm text-foreground">+92</span>
+                      <Input
+                        id="phone-forgot"
+                        type="tel"
+                        placeholder="Your registered mobile number"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="pl-20"
+                        required
+                      />
+                    </div>
+                     <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                            id="new-password-forgot"
+                            type="password"
+                            placeholder="Enter new password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="pl-10"
+                            required
+                        />
+                    </div>
+                     <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                            id="confirm-password-forgot"
+                            type="password"
+                            placeholder="Confirm new password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="pl-10"
+                            required
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+                    <Button onClick={handleSubmitRequest} disabled={isLoading}>
+                        {isLoading ? 'Submitting...' : 'Submit Request'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 function AuthForm() {
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
@@ -106,9 +230,11 @@ function AuthForm() {
   
         // Get and increment the numeric ID counter
         const counterDoc = await transaction.get(counterRef);
-        let nextNumericId = 10001; // Start from 10001
+        let nextNumericId = 10000;
         if (counterDoc.exists()) {
           nextNumericId = counterDoc.data().currentId + 1;
+        } else {
+           nextNumericId = 10001; // Start from 10001 if counter doesn't exist
         }
         transaction.set(counterRef, { currentId: nextNumericId }, { merge: true });
   
@@ -140,7 +266,9 @@ function AuthForm() {
         });
   
         if (referrerId) {
-          const referrerUserQuery = query(collection(firestore, 'users'), where('numericId', '==', parseInt(referrerId)));
+          // In a real app, you'd look up the referrer by their user-facing ID, not UID.
+          // Assuming invitationCode is the numericId of the referrer
+          const referrerUserQuery = query(collection(firestore, 'users'), where('numericId', '==', parseInt(referrerId, 10)));
           const referrerSnapshot = await getDocs(referrerUserQuery);
           if (!referrerSnapshot.empty) {
             const referrerDoc = referrerSnapshot.docs[0];
@@ -283,6 +411,9 @@ function AuthForm() {
               />
             </div>
           </div>
+           <div className="text-right">
+              <ForgotPasswordDialog />
+            </div>
           <Button type="submit" disabled={isLoading} className="w-full bg-blue-500 hover:bg-blue-600 text-white text-lg h-12">
             {isLoading ? 'Logging in...' : 'Log in'}
           </Button>
