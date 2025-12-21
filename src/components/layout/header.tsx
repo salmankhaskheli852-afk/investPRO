@@ -116,12 +116,6 @@ export function Header() {
            <Image src="/logo.png" alt="investPro Logo" width={48} height={48} />
           <span className="font-headline text-3xl font-semibold text-white">investPro</span>
         </Link>
-         {!isLoadingSettings && appSettings?.isVerificationBadgeEnabled && appSettings?.verificationBadgeText && (
-          <div className="hidden md:flex items-center gap-1.5 ml-4 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
-            <ShieldCheck className="h-4 w-4" />
-            <span>{appSettings.verificationBadgeText}</span>
-          </div>
-        )}
       </div>
 
       <div className="flex items-center gap-4">

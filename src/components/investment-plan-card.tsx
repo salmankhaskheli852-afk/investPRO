@@ -275,7 +275,7 @@ export function InvestmentPlanCard({
           {isPurchased && showAsPurchased && (
               <div className="absolute top-2 right-2 bg-primary/80 backdrop-blur-sm text-primary-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                   <CheckCircle className="w-3 h-3" />
-                  <span>Purchased</span>
+                  <span className="text-xs">Purchased</span>
               </div>
           )}
           {isPurchased && !showAsPurchased && (
