@@ -5,14 +5,14 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { doc, setDoc, getDoc, serverTimestamp, runTransaction, collection, query, where, getDocs } from 'firebase/firestore';
 import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Heart } from 'lucide-react';
-import { GoogleAuthProvider, signInWithPopup, UserCredential } from 'firebase/auth';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
 function LoginPageContent() {
   const auth = useAuth();
@@ -20,57 +20,66 @@ function LoginPageContent() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
-  const searchParams = useSearchParams();
 
-  const [invitationCode, setInvitationCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isCodeFromUrl, setIsCodeFromUrl] = useState(false);
-
-  useEffect(() => {
-    const refFromUrl = searchParams.get('ref');
-    if (refFromUrl) {
-      setInvitationCode(refFromUrl);
-      setIsCodeFromUrl(true);
+  
+  // Login state
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  
+  // Register state
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
+  const [invitationCode, setInvitationCode] = useState('');
+  
+  const handleLogin = async () => {
+    if (!auth || !loginEmail || !loginPassword) {
+      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please enter your email and password.' });
+      return;
     }
-  }, [searchParams]);
-
-  const handleGoogleSignIn = async () => {
-    if (!auth || !firestore) return;
     setIsProcessing(true);
-
-    const provider = new GoogleAuthProvider();
     try {
-      const result: UserCredential = await signInWithPopup(auth, provider);
-      const loggedInUser = result.user;
-
-      if (loggedInUser) {
-        const userDocRef = doc(firestore, 'users', loggedInUser.uid);
-        const docSnap = await getDoc(userDocRef);
-
-        if (!docSnap.exists()) {
-          await createUserProfile(loggedInUser.uid, loggedInUser.email!, loggedInUser.displayName, loggedInUser.photoURL, invitationCode);
-        }
-      }
+      await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+      // onAuthStateChanged will handle redirection
     } catch (error: any) {
-      console.error("Google Sign-In Error:", error);
-      if (error.code !== 'auth/popup-closed-by-user' && error.message !== "Could not create user profile.") {
-        toast({
-            variant: 'destructive',
-            title: 'Google Sign-In Failed',
-            description: error.message || 'An unknown error occurred.',
-        });
-      }
+      toast({ variant: 'destructive', title: 'Login Failed', description: error.message });
     } finally {
-        setIsProcessing(false);
+      setIsProcessing(false);
     }
   };
 
-  const createUserProfile = async (uid: string, email: string, name: string | null, photoURL: string | null, referrerIdFromInput: string | null) => {
-    if (!firestore) return;
+  const handleRegister = async () => {
+    if (!auth || !firestore) return;
+    if (!registerEmail || !registerPassword || !registerConfirmPassword) {
+      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please fill all required fields.' });
+      return;
+    }
+    if (registerPassword !== registerConfirmPassword) {
+      toast({ variant: 'destructive', title: 'Passwords do not match.' });
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, registerEmail, registerPassword);
+      const newUser = userCredential.user;
+      
+      if (newUser) {
+        await createUserProfile(newUser.uid, newUser.email!, invitationCode);
+      }
+      // onAuthStateChanged will handle redirection
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Registration Failed', description: error.message });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
+  const createUserProfile = async (uid: string, email: string, referrerIdFromInput: string | null) => {
+    if (!firestore) return;
+    
     let finalReferrerUid: string | null = null;
     
-    // Check for referrer outside the transaction
     if (referrerIdFromInput) {
         const numericReferrerId = parseInt(referrerIdFromInput, 10);
         if (!isNaN(numericReferrerId)) {
@@ -78,7 +87,7 @@ function LoginPageContent() {
             const referrerSnapshot = await getDocs(referrerQuery);
             if (!referrerSnapshot.empty) {
                 const referrerDoc = referrerSnapshot.docs[0];
-                if (referrerDoc.id !== uid) { // Can't refer yourself
+                if (referrerDoc.id !== uid) {
                     finalReferrerUid = referrerDoc.id;
                 }
             }
@@ -102,8 +111,8 @@ function LoginPageContent() {
           id: uid,
           numericId: newNumericId,
           email: email,
-          name: name || `User ${String(newNumericId)}`,
-          avatarUrl: photoURL || `https://picsum.photos/seed/${newNumericId}/200`,
+          name: `User ${String(newNumericId)}`,
+          avatarUrl: `https://picsum.photos/seed/${newNumericId}/200`,
           role: 'user',
           investments: [],
           agentId: null,
@@ -145,6 +154,10 @@ function LoginPageContent() {
           } else {
             router.push('/user/me');
           }
+        } else {
+           // This can happen if profile creation was interrupted. 
+           // We'll let them stay on the login page to try again or contact support.
+           console.log("User is authenticated but profile document not found.");
         }
       });
     }
@@ -163,7 +176,7 @@ function LoginPageContent() {
       <div className="w-full max-w-sm rounded-xl p-1 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card className="shadow-lg">
           <CardContent className="p-6">
-            <div className="flex justify-center items-center gap-2 mb-8">
+            <div className="flex justify-center items-center gap-2 mb-6">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
@@ -181,28 +194,52 @@ function LoginPageContent() {
               <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
             </div>
 
-            <div className="space-y-6">
-              <Button onClick={handleGoogleSignIn} className="w-full h-12 rounded-full text-lg" variant="outline" disabled={isProcessing}>
-                <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-                  <path fill="currentColor" d="M488 261.8C488 403.3 381.5 512 244 512 111.8 512 0 400.2 0 264.1 0 128.1 111.8 16.5 244 16.5c70.3 0 129.5 27.2 176.4 71.8l-68.3 64.6C314.5 118.2 282.8 100 244 100c-77.5 0-140.7 63.2-140.7 140.7s63.2 140.7 140.7 140.7c86.3 0 112.5-63.2 115.8-93.1H244v-75.5h236.4c2.5 13.3 3.6 27.5 3.6 42.9z"></path>
-                </svg>
-                {isProcessing ? 'Processing...' : 'Sign in with Google'}
-              </Button>
+            <Tabs defaultValue="login" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Log in</TabsTrigger>
+                <TabsTrigger value="register">Register</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="login">
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-email">Email</Label>
+                    <Input id="login-email" type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="your@email.com" disabled={isProcessing} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="login-password">Password</Label>
+                    <Input id="login-password" type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} disabled={isProcessing} />
+                  </div>
+                  <Button onClick={handleLogin} className="w-full" disabled={isProcessing}>
+                    {isProcessing ? 'Logging in...' : 'Log In'}
+                  </Button>
+                </div>
+              </TabsContent>
 
-              <div className="space-y-2">
-                <Label htmlFor="invitation-code">Invitation Code (Optional)</Label>
-                <Input 
-                  id="invitation-code" 
-                  type="text" 
-                  placeholder="Code from your inviter"
-                  value={invitationCode}
-                  onChange={(e) => setInvitationCode(e.target.value)}
-                  icon={<Heart className="h-5 w-5 text-muted-foreground" />}
-                  readOnly={isCodeFromUrl}
-                  className={isCodeFromUrl ? 'bg-muted/50 cursor-not-allowed' : ''}
-                />
-              </div>
-            </div>
+              <TabsContent value="register">
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="register-email">Email</Label>
+                    <Input id="register-email" type="email" value={registerEmail} onChange={e => setRegisterEmail(e.target.value)} placeholder="your@email.com" disabled={isProcessing} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-password">Password</Label>
+                    <Input id="register-password" type="password" value={registerPassword} onChange={e => setRegisterPassword(e.target.value)} disabled={isProcessing} />
+                  </div>
+                   <div className="space-y-2">
+                    <Label htmlFor="register-confirm-password">Confirm Password</Label>
+                    <Input id="register-confirm-password" type="password" value={registerConfirmPassword} onChange={e => setRegisterConfirmPassword(e.target.value)} disabled={isProcessing} />
+                  </div>
+                   <div className="space-y-2">
+                    <Label htmlFor="invitation-code">Invitation Code (Optional)</Label>
+                    <Input id="invitation-code" value={invitationCode} onChange={e => setInvitationCode(e.target.value)} placeholder="Code from your inviter" disabled={isProcessing} />
+                  </div>
+                  <Button onClick={handleRegister} className="w-full" disabled={isProcessing}>
+                    {isProcessing ? 'Registering...' : 'Register'}
+                  </Button>
+                </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
