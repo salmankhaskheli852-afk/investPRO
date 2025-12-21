@@ -51,6 +51,7 @@ export function Header() {
   };
   
   const handleCopy = (text: string, label: string) => {
+    if (typeof navigator === 'undefined') return;
     navigator.clipboard.writeText(text);
     toast({
       title: 'Copied!',
@@ -59,6 +60,11 @@ export function Header() {
   };
   
   const handleShare = async () => {
+    // Ensure this code only runs on the client
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return;
+    }
+
     let shareUrl = window.location.origin; // Default to base URL
     
     // If a logged-in user is sharing, create their personal referral link
