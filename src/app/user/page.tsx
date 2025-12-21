@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -12,11 +13,12 @@ import {
   ArrowDownToLine, 
   ArrowUpFromLine, 
   Users, 
-  CalendarCheck, 
+  History, 
   Crown,
   Gift,
   Ticket,
-  Award
+  Award,
+  Share2
 } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import Autoplay from "embla-carousel-autoplay"
@@ -25,9 +27,9 @@ import Image from 'next/image';
 const ServiceButton = ({ icon, label, href, className }: { icon: React.ElementType, label: string, href: string, className?: string }) => {
   const Icon = icon;
   return (
-    <Link href={href} className="text-center">
-      <div className={`p-4 rounded-xl shadow-md transition-all hover:transform hover:-translate-y-1 ${className}`}>
-        <div className="mx-auto bg-white/50 rounded-full h-14 w-14 flex items-center justify-center mb-2">
+    <Link href={href} className="text-center group">
+      <div className={cn("p-4 rounded-xl shadow-md transition-all hover:transform hover:-translate-y-1", className)}>
+        <div className="mx-auto bg-white/20 group-hover:bg-white/30 transition-colors rounded-full h-14 w-14 flex items-center justify-center mb-2">
             <Icon className="h-8 w-8 text-white" />
         </div>
         <span className="text-sm font-medium text-slate-800">{label}</span>
@@ -49,6 +51,12 @@ export default function UserHomePage() {
     [firestore]
   );
   const { data: appSettings } = useDoc<AppSettings>(settingsRef);
+
+  const services = [
+    { icon: Share2, label: 'Refer Friends', href: '/user/invitation', className: 'bg-gradient-to-br from-blue-300 to-indigo-400' },
+    { icon: History, label: 'History', href: '/user/history', className: 'bg-gradient-to-br from-purple-300 to-violet-400' },
+    { icon: Award, label: 'VIP Agent', href: '#', className: 'bg-gradient-to-br from-amber-300 to-orange-400' },
+  ];
 
   return (
     <>
@@ -102,9 +110,15 @@ export default function UserHomePage() {
       <div>
         <h2 className="text-xl font-bold mb-4 text-slate-800">Service</h2>
         <div className="grid grid-cols-3 gap-4">
-          <ServiceButton icon={Users} label="Refer Friends" href="/user/invitation" className="bg-gradient-to-br from-blue-300 to-indigo-400" />
-          <ServiceButton icon={CalendarCheck} label="Daily check-in" href="/user/history" className="bg-gradient-to-br from-purple-300 to-violet-400" />
-          <ServiceButton icon={Crown} label="VIP Agent" href="#" className="bg-gradient-to-br from-amber-300 to-orange-400" />
+          {services.map((service, index) => (
+            <ServiceButton 
+              key={index}
+              icon={service.icon} 
+              label={service.label} 
+              href={service.href} 
+              className={service.className} 
+            />
+          ))}
         </div>
       </div>
        
