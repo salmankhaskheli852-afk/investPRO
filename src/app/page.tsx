@@ -12,14 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Smartphone, ShieldCheck, Lock, Heart, User as UserIcon } from 'lucide-react';
-import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
-
-declare global {
-  interface Window {
-    recaptchaVerifier?: RecaptchaVerifier;
-    confirmationResult?: ConfirmationResult;
-  }
-}
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
 export default function Home() {
   const auth = useAuth();
@@ -28,23 +21,21 @@ export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState('login');
   
   // Login State
   const [loginPhoneNumber, setLoginPhoneNumber] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   
   // Register State
   const [regPhoneNumber, setRegPhoneNumber] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [regInvitationCode, setRegInvitationCode] = useState('');
   const [regVerificationCode, setRegVerificationCode] = useState('');
 
   const [captchaCode, setCaptchaCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  const [otp, setOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-
 
   useEffect(() => {
     generateCaptcha();
@@ -59,83 +50,58 @@ export default function Home() {
     setCaptchaCode(code);
   };
   
-  const handleSendOtp = async () => {
-    if (!auth) return toast({ variant: 'destructive', title: 'Auth not ready' });
-    if (!recaptchaContainerRef.current) return toast({ variant: 'destructive', title: 'reCAPTCHA not ready' });
-
-    const numberToUse = activeTab === 'register' ? regPhoneNumber : loginPhoneNumber;
-    if (!numberToUse) return toast({ variant: 'destructive', title: 'Missing phone number' });
-    
-    if (activeTab === 'register' && regVerificationCode !== captchaCode) {
+  const formatEmailFromPhone = (phone: string) => {
+    const formattedPhone = `+92${phone.replace(/^0+/, '')}`;
+    return `${formattedPhone}@investpro.com`;
+  }
+  
+  const handleRegister = async () => {
+    if (!auth || !firestore) return;
+    if (!regPhoneNumber || !regPassword || !regConfirmPassword) {
+      return toast({ variant: 'destructive', title: 'Missing fields', description: 'Please fill all required fields.' });
+    }
+    if (regPassword !== regConfirmPassword) {
+      return toast({ variant: 'destructive', title: 'Passwords do not match' });
+    }
+    if (regVerificationCode !== captchaCode) {
       generateCaptcha();
       return toast({ variant: 'destructive', title: 'Invalid verification code' });
     }
 
     setIsProcessing(true);
-    let verifier;
+    const fakeEmail = formatEmailFromPhone(regPhoneNumber);
+
     try {
-      const formattedPhoneNumber = `+92${numberToUse.replace(/^0+/, '')}`;
+      const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, regPassword);
+      const newUser = userCredential.user;
       
-      // Clear previous verifier if it exists to prevent "already rendered" error
-      if (window.recaptchaVerifier) {
-          window.recaptchaVerifier.clear();
-      }
-      
-      verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
-          'size': 'invisible'
-      });
-      window.recaptchaVerifier = verifier;
-
-      // This will wait until the reCAPTCHA is solved.
-      await verifier.render();
-
-      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhoneNumber, verifier);
-      window.confirmationResult = confirmationResult;
-      setOtpSent(true);
-      toast({ title: 'OTP Sent', description: 'Please check your phone for the verification code.' });
-
+      await createUserProfile(newUser.uid, `+92${regPhoneNumber.replace(/^0+/, '')}`, regInvitationCode);
+      // Let the useEffect handle redirection
     } catch (error: any) {
-      console.error("OTP send error:", error);
-      toast({ variant: 'destructive', title: 'Failed to Send OTP', description: error.message });
-      if (verifier) {
-        verifier.clear();
+      let message = 'An unknown error occurred.';
+      if (error.code === 'auth/email-already-in-use') {
+        message = 'This phone number is already registered.';
+      } else if (error.code === 'auth/weak-password') {
+        message = 'Password should be at least 6 characters.';
       }
+      toast({ variant: 'destructive', title: 'Registration Failed', description: message });
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleVerifyOtpAndRegister = async () => {
-    if (!window.confirmationResult) return toast({ variant: 'destructive', title: 'Verification failed', description: 'Please send OTP first.' });
-    if (!otp) return toast({ variant: 'destructive', title: 'Missing OTP' });
-    
-    setIsProcessing(true);
-    try {
-      const userCredential = await window.confirmationResult.confirm(otp);
-      const loggedInUser = userCredential.user;
-      
-      await createUserProfile(loggedInUser.uid, loggedInUser.phoneNumber!, regInvitationCode);
-      // On successful verification, the useEffect for user state change will handle redirection.
-    } catch (error: any) {
-      console.error("OTP verification error:", error);
-      toast({ variant: 'destructive', title: 'Registration Failed', description: 'The OTP is incorrect or has expired.' });
-    } finally {
-      setIsProcessing(false);
+  const handleLogin = async () => {
+    if (!auth) return;
+    if (!loginPhoneNumber || !loginPassword) {
+      return toast({ variant: 'destructive', title: 'Missing fields' });
     }
-  };
-
-  const handleLoginWithOtp = async () => {
-    if (!window.confirmationResult) return toast({ variant: 'destructive', title: 'Login failed', description: 'Please send OTP first.' });
-    if (!otp) return toast({ variant: 'destructive', title: 'Missing OTP' });
-
     setIsProcessing(true);
+    const fakeEmail = formatEmailFromPhone(loginPhoneNumber);
     try {
-      await window.confirmationResult.confirm(otp);
-      // On successful verification, the useEffect for user state change will handle redirection.
-      // No need to check for profile, as user must exist to log in.
+      await signInWithEmailAndPassword(auth, fakeEmail, loginPassword);
+      // Let the useEffect handle redirection
     } catch (error: any) {
-      console.error("OTP login error:", error);
-      toast({ variant: 'destructive', title: 'Login Failed', description: 'The OTP is incorrect or has expired.' });
+       toast({ variant: 'destructive', title: 'Login Failed', description: 'Incorrect phone number or password.' });
     } finally {
       setIsProcessing(false);
     }
@@ -154,7 +120,6 @@ export default function Home() {
             let referrerValid = false;
             let referrerDoc;
             if (referrerIdFromInput) {
-                // Check if referrer is a numeric ID or a UID
                 let referrerQuery;
                 const numericReferrerId = parseInt(referrerIdFromInput, 10);
                 if (!isNaN(numericReferrerId)) {
@@ -186,7 +151,7 @@ export default function Home() {
                 role: 'user',
                 investments: [],
                 agentId: null,
-                referralId: uid, // User's own referral ID
+                referralId: uid,
                 createdAt: serverTimestamp() as any,
                 isVerified: false,
                 totalDeposit: 0,
@@ -242,56 +207,41 @@ export default function Home() {
 
   const renderLoginTab = () => (
     <div className="space-y-4">
-      {!otpSent ? (
-        <>
-          <div className="space-y-2">
+        <div className="space-y-2">
             <Label htmlFor="phone-login">Phone Number</Label>
             <div className="relative">
-              <Input 
-                  id="phone-login" 
-                  type="tel" 
-                  placeholder="3001234567" 
-                  value={loginPhoneNumber} 
-                  onChange={(e) => setLoginPhoneNumber(e.target.value)}
-                  className="pl-12"
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">+92</span>
+                <Input 
+                    id="phone-login" 
+                    type="tel" 
+                    placeholder="3001234567" 
+                    value={loginPhoneNumber} 
+                    onChange={(e) => setLoginPhoneNumber(e.target.value)}
+                    className="pl-12"
+                    icon={<Smartphone className="h-5 w-5 text-muted-foreground" />}
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">+92</span>
             </div>
-          </div>
-          <Button onClick={handleSendOtp} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
-              {isProcessing ? 'Sending...' : 'Send OTP'}
-          </Button>
-        </>
-      ) : (
-        <>
-          <div className="space-y-2">
-              <Label htmlFor="otp-login">Verification Code</Label>
-              <Input 
-                  id="otp-login"
-                  type="text"
-                  placeholder="Enter the 6-digit code"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  icon={<ShieldCheck className="h-5 w-5 text-muted-foreground" />}
-                  maxLength={6}
-              />
-          </div>
-          <Button onClick={handleLoginWithOtp} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
-              {isProcessing ? 'Verifying...' : 'Verify & Login'}
-          </Button>
-          <Button variant="link" onClick={() => { setOtpSent(false); setOtp(''); }}>
-              Entered wrong number?
-          </Button>
-        </>
-      )}
+        </div>
+        <div className="space-y-2">
+            <Label htmlFor="password-login">Password</Label>
+            <Input 
+                id="password-login" 
+                type="password" 
+                placeholder="Enter your password" 
+                value={loginPassword} 
+                onChange={(e) => setLoginPassword(e.target.value)}
+                icon={<Lock className="h-5 w-5 text-muted-foreground" />}
+            />
+        </div>
+        <Button onClick={handleLogin} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
+            {isProcessing ? 'Logging in...' : 'Log In'}
+        </Button>
     </div>
   );
 
  const renderRegisterTab = () => (
     <div className="space-y-4">
-      {!otpSent ? (
-         <>
-          <div className="space-y-2">
+        <div className="space-y-2">
             <Label htmlFor="phone-reg">Phone Number</Label>
             <div className="relative">
                 <Input 
@@ -301,11 +251,34 @@ export default function Home() {
                     value={regPhoneNumber} 
                     onChange={(e) => setRegPhoneNumber(e.target.value)} 
                     className="pl-12"
+                    icon={<Smartphone className="h-5 w-5 text-muted-foreground" />}
                 />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">+92</span>
             </div>
-          </div>
-           <div className="space-y-2">
+        </div>
+        <div className="space-y-2">
+            <Label htmlFor="password-reg">Create Password</Label>
+            <Input 
+                id="password-reg" 
+                type="password" 
+                placeholder="Must be at least 6 characters"
+                value={regPassword} 
+                onChange={(e) => setRegPassword(e.target.value)}
+                icon={<Lock className="h-5 w-5 text-muted-foreground" />}
+            />
+        </div>
+        <div className="space-y-2">
+            <Label htmlFor="confirm-password-reg">Confirm Password</Label>
+            <Input 
+                id="confirm-password-reg" 
+                type="password" 
+                placeholder="Re-enter your password"
+                value={regConfirmPassword} 
+                onChange={(e) => setRegConfirmPassword(e.target.value)}
+                icon={<Lock className="h-5 w-5 text-muted-foreground" />}
+            />
+        </div>
+        <div className="space-y-2">
             <Label htmlFor="invitation-code">Invitation Code (Optional)</Label>
             <Input 
                 id="invitation-code" 
@@ -315,9 +288,9 @@ export default function Home() {
                 onChange={(e) => setRegInvitationCode(e.target.value)}
                 icon={<Heart className="h-5 w-5 text-muted-foreground" />}
             />
-          </div>
-          <div className="flex items-end gap-2">
-              <div className="space-y-2 flex-grow">
+        </div>
+        <div className="flex items-end gap-2">
+            <div className="space-y-2 flex-grow">
                 <Label htmlFor="verification-code">Verification Code</Label>
                 <Input 
                     id="verification-code" 
@@ -327,48 +300,24 @@ export default function Home() {
                     icon={<ShieldCheck className="h-5 w-5 text-muted-foreground" />}
                     maxLength={4}
                 />
-              </div>
-              <div 
+            </div>
+            <div 
                 className="h-10 px-4 py-2 border rounded-md bg-muted select-none flex items-center justify-center font-mono text-lg tracking-widest"
                 onClick={generateCaptcha}
                 title="Click to refresh"
-              >
-                  {captchaCode}
-              </div>
-          </div>
-          <Button onClick={handleSendOtp} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
-              {isProcessing ? 'Sending...' : 'Send OTP'}
-          </Button>
-         </>
-      ) : (
-        <>
-            <div className="space-y-2">
-                <Label htmlFor="otp-reg">SMS Verification Code</Label>
-                <Input 
-                    id="otp-reg"
-                    type="text"
-                    placeholder="Enter the 6-digit code"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    icon={<ShieldCheck className="h-5 w-5 text-muted-foreground" />}
-                    maxLength={6}
-                />
+            >
+                {captchaCode}
             </div>
-            <Button onClick={handleVerifyOtpAndRegister} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
-                {isProcessing ? 'Verifying...' : 'Verify & Register'}
-            </Button>
-            <Button variant="link" onClick={() => { setOtpSent(false); setOtp(''); }}>
-                Entered wrong number?
-            </Button>
-        </>
-      )}
+        </div>
+        <Button onClick={handleRegister} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
+            {isProcessing ? 'Registering...' : 'Register'}
+        </Button>
     </div>
  );
 
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
-      <div ref={recaptchaContainerRef}></div>
       <div className="w-full max-w-sm rounded-xl p-1 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card className="shadow-lg">
           <CardContent className="p-6">
@@ -415,3 +364,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
