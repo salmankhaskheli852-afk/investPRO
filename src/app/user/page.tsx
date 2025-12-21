@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -14,9 +13,6 @@ import {
   Landmark,
   Users, 
   History, 
-  Crown,
-  Gift,
-  Ticket,
   Award,
   Share2
 } from 'lucide-react';
@@ -24,6 +20,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import Autoplay from "embla-carousel-autoplay"
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const ServiceButton = ({ icon, label, href, className }: { icon: React.ElementType, label: string, href: string, className?: string }) => {
   const Icon = icon;
@@ -128,7 +125,17 @@ export default function UserHomePage() {
             <h2 className="text-xl font-bold mb-4 text-slate-800">Profit Model</h2>
             <Card>
                 <CardContent className="p-4">
-                    <p className="text-muted-foreground">Details about the profit model will be displayed here.</p>
+                    <ScrollArea className="h-48 w-full pr-4">
+                        <div className="space-y-3 text-sm text-foreground">
+                            <p className="font-bold">Welcome to investPro, your trusted partner in modern investments. Our platform is designed to help you grow your wealth through carefully selected investment plans and a powerful referral system.</p>
+                            <p className="font-bold">How to Earn:</p>
+                            <p className="font-bold">1. Purchase an Investment Plan: Browse our diverse range of investment plans. Each plan has a specific price, a daily income percentage, and a duration. Once you purchase a plan, you will start receiving daily income directly into your wallet.</p>
+                            <p className="font-bold">2. Daily Income: Your earnings are calculated daily based on the percentage specified in your purchased plan. This income is automatically added to your account balance every 24 hours for the entire duration of the plan.</p>
+                            <p className="font-bold">3. Build Your Team: Share your unique invitation link with friends and family. When someone registers using your link and makes their first deposit, you will earn a commission. Building a larger team increases your potential earnings significantly.</p>
+                            <p className="font-bold">4. Withdraw Your Profits: You can easily withdraw your earnings and balance to your personal bank account or digital wallet once you meet the minimum withdrawal criteria.</p>
+                            <p className="font-bold">Our goal is to provide a transparent and reliable platform for your financial growth. Start your investment journey with us today!</p>
+                        </div>
+                    </ScrollArea>
                 </CardContent>
             </Card>
         </div>
