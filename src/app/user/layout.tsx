@@ -59,7 +59,11 @@ export default function UserLayout({
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24">
           {showVerificationPopup && <VerificationPopup />}
           <ReferralRequestManager />
-          {children}
+          <div className="rounded-xl p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
+             <div className="bg-card rounded-lg p-4 sm:p-6 lg:p-8">
+                {children}
+             </div>
+          </div>
         </main>
         <WhatsAppWidget />
         <BottomNav />
