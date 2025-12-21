@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -15,26 +14,26 @@ import {
   Users, 
   CalendarCheck, 
   Crown,
+  Gift,
+  Ticket,
+  Award
 } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import Autoplay from "embla-carousel-autoplay"
 import Image from 'next/image';
 
-const ServiceButton = ({ icon, label, href, onClick }: { icon: React.ElementType, label: string, href?: string, onClick?: () => void }) => {
+const ServiceButton = ({ icon, label, href, className }: { icon: React.ElementType, label: string, href: string, className?: string }) => {
   const Icon = icon;
-  const content = (
-      <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-card shadow-md hover:bg-gray-50 transition-colors">
-        <div className="p-3 bg-green-100 rounded-full">
-            <Icon className="h-8 w-8 text-primary" />
+  return (
+    <Link href={href} className="text-center">
+      <div className={`p-4 rounded-xl shadow-md transition-all hover:transform hover:-translate-y-1 ${className}`}>
+        <div className="mx-auto bg-white/50 rounded-full h-14 w-14 flex items-center justify-center mb-2">
+            <Icon className="h-8 w-8 text-white" />
         </div>
-        <span className="text-sm font-medium text-gray-700">{label}</span>
+        <span className="text-sm font-medium text-slate-800">{label}</span>
       </div>
+    </Link>
   );
-
-  if (href) {
-      return <Link href={href}>{content}</Link>
-  }
-  return <button onClick={onClick} className="text-left w-full">{content}</button>;
 };
 
 export default function UserHomePage() {
@@ -77,49 +76,41 @@ export default function UserHomePage() {
       )}
 
       {/* Wallet Section */}
-      <Card className="shadow-sm hover:shadow-md transition-shadow">
-        <CardContent className="p-4 flex items-center justify-between">
-          <Link href="/user/wallet" className="flex items-center gap-3">
-            <Bell className="h-6 w-6 text-primary" />
-            <span className="font-semibold text-lg">Wallet</span>
-          </Link>
-          <div className="grid grid-cols-2 gap-4">
-            <Link href="/user/deposit">
-              <div className="flex flex-col items-center p-2 rounded-lg bg-red-100 text-red-800 cursor-pointer">
-                  <ArrowDownToLine className="h-6 w-6" />
-                  <span className="text-xs font-bold">RECHARGE</span>
-              </div>
+      <div className="space-y-2">
+        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Bell className="h-5 w-5 text-primary" /> Wallet</h2>
+        <div className="grid grid-cols-2 gap-4">
+            <Link href="/user/deposit" className="block p-4 rounded-xl bg-gradient-to-br from-red-200 to-rose-300 shadow-md hover:shadow-lg transition-shadow">
+                <div className="flex items-center justify-between">
+                    <span className="font-bold text-red-800">RECHARGE</span>
+                    <div className="p-2 bg-white/50 rounded-full">
+                        <ArrowDownToLine className="h-6 w-6 text-red-600" />
+                    </div>
+                </div>
             </Link>
-            <Link href="/user/wallet">
-              <div className="flex flex-col items-center p-2 rounded-lg bg-green-100 text-green-800">
-                <ArrowUpFromLine className="h-6 w-6" />
-                <span className="text-xs font-bold">WITHDRAW</span>
-              </div>
+             <Link href="/user/wallet" className="block p-4 rounded-xl bg-gradient-to-br from-green-200 to-emerald-300 shadow-md hover:shadow-lg transition-shadow">
+                <div className="flex items-center justify-between">
+                    <span className="font-bold text-green-800">WITHDRAW</span>
+                    <div className="p-2 bg-white/50 rounded-full">
+                        <ArrowUpFromLine className="h-6 w-6 text-green-600" />
+                    </div>
+                </div>
             </Link>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
       
       {/* Service Section */}
       <div>
-        <h2 className="text-xl font-bold mb-4">Service</h2>
+        <h2 className="text-xl font-bold mb-4 text-slate-800">Service</h2>
         <div className="grid grid-cols-3 gap-4">
-          <ServiceButton icon={Users} label="Refer Friends" href="/user/invitation" />
-          <Link href="/user/history">
-            <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-card shadow-md hover:bg-gray-50 transition-colors">
-              <div className="p-3 bg-green-100 rounded-full">
-                <CalendarCheck className="h-8 w-8 text-primary" />
-              </div>
-              <span className="text-sm font-medium text-gray-700">Daily check-in</span>
-            </div>
-          </Link>
-          <ServiceButton icon={Crown} label="VIP Agent" href="#" />
+          <ServiceButton icon={Users} label="Refer Friends" href="/user/invitation" className="bg-gradient-to-br from-blue-300 to-indigo-400" />
+          <ServiceButton icon={CalendarCheck} label="Daily check-in" href="/user/history" className="bg-gradient-to-br from-purple-300 to-violet-400" />
+          <ServiceButton icon={Crown} label="VIP Agent" href="#" className="bg-gradient-to-br from-amber-300 to-orange-400" />
         </div>
       </div>
        
         {/* Profit Model Section */}
         <div>
-            <h2 className="text-xl font-bold mb-4">Profit Model</h2>
+            <h2 className="text-xl font-bold mb-4 text-slate-800">Profit Model</h2>
             <Card>
                 <CardContent className="p-4">
                     <p className="text-muted-foreground">Details about the profit model will be displayed here.</p>
