@@ -5,7 +5,7 @@ import React, { Suspense, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth, useFirestore, useUser } from '@/firebase';
+import { useAuth, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, getDoc, serverTimestamp, collection, writeBatch, increment, query, where } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
@@ -13,7 +13,7 @@ import type { User } from '@/lib/data';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Smartphone, Lock } from 'lucide-react';
+import { Smartphone, Lock, Heart, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 
@@ -55,12 +55,39 @@ function AuthForm() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [invitationCode, setInvitationCode] = useState('');
+  const [captcha, setCaptcha] = useState('');
+  const [userCaptcha, setUserCaptcha] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const auth = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   const searchParams = useSearchParams();
+
+  const generateCaptcha = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let randomString = '';
+    for (let i = 0; i < 6; i++) {
+      randomString += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setCaptcha(randomString);
+  };
+  
+  useEffect(() => {
+    // Generate captcha when the component mounts or tab switches to register
+    if (activeTab === 'register') {
+      generateCaptcha();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    // Prefill invitation code from URL if present
+    const refFromUrl = searchParams.get('ref');
+    if (refFromUrl) {
+      setInvitationCode(refFromUrl);
+    }
+  }, [searchParams]);
   
   const createUserProfile = async (firebaseUser: FirebaseUser) => {
     if (!firestore) return;
@@ -71,13 +98,13 @@ function AuthForm() {
     if (!userDoc.exists()) {
         const batch = writeBatch(firestore);
         const name = "User " + firebaseUser.uid.slice(-4);
-        const referrerId = searchParams.get('ref') || null;
+        // Use invitation code from the form field as referrerId
+        const referrerId = invitationCode || null;
 
         batch.set(userRef, {
             id: firebaseUser.uid,
             name: name,
             phoneNumber: `+92${phoneNumber}`,
-            avatarUrl: null,
             investments: [],
             createdAt: serverTimestamp(),
             role: 'user',
@@ -120,7 +147,7 @@ function AuthForm() {
       await signInWithEmailAndPassword(auth, email, password);
       // Let LoggedInRedirect handle navigation
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Login Failed', description: error.message });
+      toast({ variant: 'destructive', title: 'Login Failed', description: "Invalid phone number or password." });
     } finally {
       setIsLoading(false);
     }
@@ -128,14 +155,21 @@ function AuthForm() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth || !phoneNumber || !password || !confirmPassword) {
-        toast({ variant: 'destructive', title: 'Missing fields' });
+    if (!auth || !phoneNumber || !password || !confirmPassword || !userCaptcha) {
+        toast({ variant: 'destructive', title: 'Missing fields', description: 'Please fill all the fields.' });
         return;
     }
     if (password !== confirmPassword) {
         toast({ variant: 'destructive', title: 'Passwords do not match' });
         return;
     }
+    if (userCaptcha.toLowerCase() !== captcha.toLowerCase()) {
+        toast({ variant: 'destructive', title: 'Invalid Verification Code', description: 'Please check the code and try again.' });
+        generateCaptcha(); // Regenerate captcha
+        setUserCaptcha('');
+        return;
+    }
+
     setIsLoading(true);
     try {
         const email = `+92${phoneNumber}@${FAKE_EMAIL_DOMAIN}`;
@@ -143,7 +177,7 @@ function AuthForm() {
         await createUserProfile(userCredential.user);
         // Let LoggedInRedirect handle navigation
     } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Registration Failed', description: error.message });
+        toast({ variant: 'destructive', title: 'Registration Failed', description: error.code === 'auth/email-already-in-use' ? 'This phone number is already registered.' : error.message });
     } finally {
         setIsLoading(false);
     }
@@ -160,7 +194,7 @@ function AuthForm() {
               <Input
                 id="phone-login"
                 type="tel"
-                placeholder="Please input account number"
+                placeholder="Please enter mobile account"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 className="pl-20"
@@ -195,7 +229,7 @@ function AuthForm() {
                     <Input 
                         id="phone-register" 
                         type="tel" 
-                        placeholder="Please input account number" 
+                        placeholder="Please enter mobile account" 
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value)}
                         className="pl-20"
@@ -207,7 +241,7 @@ function AuthForm() {
                     <Input 
                         id="password-register" 
                         type="password"
-                        placeholder="Please set a password" 
+                        placeholder="Please input password" 
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className="pl-10"
@@ -219,16 +253,51 @@ function AuthForm() {
                     <Input 
                         id="confirm-password-register" 
                         type="password"
-                        placeholder="Please confirm password" 
+                        placeholder="Please enter password again" 
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         className="pl-10"
                         required
                     />
                 </div>
+                <div className="relative">
+                    <Heart className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input 
+                        id="invitation-code" 
+                        type="text"
+                        placeholder="Invitation Code (Optional)" 
+                        value={invitationCode}
+                        onChange={(e) => setInvitationCode(e.target.value)}
+                        className="pl-10"
+                    />
+                </div>
+                <div className="relative flex items-center gap-2">
+                  <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input 
+                      id="captcha-input" 
+                      type="text"
+                      placeholder="Verification code" 
+                      value={userCaptcha}
+                      onChange={(e) => setUserCaptcha(e.target.value)}
+                      className="pl-10"
+                      required
+                  />
+                  <div 
+                    onClick={generateCaptcha} 
+                    className="cursor-pointer select-none rounded-md border bg-gray-200 px-3 py-1 font-mono text-xl tracking-widest text-gray-700"
+                    style={{
+                      fontFamily: "'Courier New', Courier, monospace",
+                      fontStyle: 'italic',
+                      textDecoration: 'line-through',
+                      backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'30\'%3E%3Cpath d=\'M10 15 Q 30 5, 50 15 T 90 15\' stroke=\'rgba(0,0,0,0.2)\' fill=\'transparent\'/%3E%3C/svg%3E")',
+                    }}
+                  >
+                    {captcha}
+                  </div>
+                </div>
             </div>
             <Button type="submit" disabled={isLoading} className="w-full bg-blue-500 hover:bg-blue-600 text-white text-lg h-12">
-                {isLoading ? 'Registering...' : 'Register'}
+                {isLoading ? 'Registering...' : 'Sign up'}
             </Button>
         </form>
     );
@@ -254,7 +323,7 @@ function AuthForm() {
           <CardContent className="p-6">
             <div className="flex mb-6 border-b">
               <button
-                onClick={() => setActiveTab('login')}
+                onClick={() => { setActiveTab('login'); setPhoneNumber(''); setPassword(''); setConfirmPassword(''); }}
                 className={cn(
                   "flex-1 py-3 text-lg font-semibold relative",
                   activeTab === 'login' ? 'text-primary tab-active-border' : 'text-muted-foreground'
@@ -263,7 +332,7 @@ function AuthForm() {
                 Log in
               </button>
               <button
-                onClick={() => setActiveTab('register')}
+                onClick={() => { setActiveTab('register'); setPhoneNumber(''); setPassword(''); setConfirmPassword(''); }}
                 className={cn(
                   "flex-1 py-3 text-lg font-semibold relative",
                   activeTab === 'register' ? 'text-primary tab-active-border' : 'text-muted-foreground'
