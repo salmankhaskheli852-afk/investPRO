@@ -1,20 +1,20 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { GoogleAuthProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { doc, setDoc, getDoc, serverTimestamp, runTransaction, collection, DocumentReference } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, runTransaction, collection } from 'firebase/firestore';
 import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Smartphone, Lock } from 'lucide-react';
 
-const googleProvider = new GoogleAuthProvider();
+const DUMMY_DOMAIN = 'investpro.app';
 
 export default function Home() {
   const auth = useAuth();
@@ -27,78 +27,45 @@ export default function Home() {
   const referralIdFromUrl = searchParams.get('ref');
 
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  const formatEmail = (phone: string) => `${phone.replace(/\D/g, '')}@${DUMMY_DOMAIN}`;
 
-  // Setup reCAPTCHA verifier
-  useEffect(() => {
-    if (!auth) return;
-
-    // Add a small delay to ensure the 'recaptcha-container' div is in the DOM
-    const timer = setTimeout(() => {
-        if (!window.recaptchaVerifier) {
-            window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-              'size': 'invisible',
-              'callback': (response: any) => {
-                // reCAPTCHA solved, allow signInWithPhoneNumber.
-              }
-            });
-        }
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [auth]);
-
-  const handleSendCode = async () => {
-    if (!auth) return toast({ variant: 'destructive', title: 'Auth not ready' });
-    if (!phoneNumber.match(/^\+92[0-9]{10}$/)) {
-        return toast({ variant: 'destructive', title: 'Invalid Phone Number', description: 'Please use the format +923xxxxxxxxx' });
-    }
-
-    setIsProcessing(true);
-    try {
-      const appVerifier = window.recaptchaVerifier;
-      const result = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
-      setConfirmationResult(result);
-      setIsCodeSent(true);
-      toast({ title: 'Code Sent', description: 'A verification code has been sent to your phone.' });
-    } catch (error: any) {
-      console.error("Phone auth error:", error);
-      toast({ variant: 'destructive', title: 'Failed to send code', description: error.message });
-    } finally {
-        setIsProcessing(false);
-    }
-  };
-
-  const handleVerifyCode = async (isRegistering: boolean) => {
-    if (!confirmationResult) return toast({ variant: 'destructive', title: 'Verification failed', description: 'Please request a new code.' });
-    if (verificationCode.length !== 6) return toast({ variant: 'destructive', title: 'Invalid Code', description: 'Code must be 6 digits.' });
-
-    setIsProcessing(true);
-    try {
-        const result = await confirmationResult.confirm(verificationCode);
-        const loggedInUser = result.user;
-
-        const userRef = doc(firestore, 'users', loggedInUser.uid);
-        const userDoc = await getDoc(userRef);
-
-        if (isRegistering) {
-            if (userDoc.exists()) {
-                 throw new Error("This phone number is already registered. Please log in.");
-            }
-            await createUserProfile(loggedInUser.uid, loggedInUser.phoneNumber);
-        } else if (!isRegistering && !userDoc.exists()) {
-            // If logging in but profile doesn't exist, create it.
-            await createUserProfile(loggedInUser.uid, loggedInUser.phoneNumber);
-        }
-
+  const handleLogin = async () => {
+      if (!auth) return toast({ variant: 'destructive', title: 'Auth not ready' });
+      if (!phoneNumber || !password) return toast({ variant: 'destructive', title: 'Missing fields', description: 'Please enter phone and password.' });
+      
+      setIsProcessing(true);
+      const email = formatEmail(phoneNumber);
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
         router.push('/user/me');
+      } catch (error: any) {
+        console.error("Login error:", error);
+        toast({ variant: 'destructive', title: 'Login Failed', description: error.code === 'auth/invalid-credential' ? 'Invalid phone number or password.' : error.message });
+      } finally {
+        setIsProcessing(false);
+      }
+  };
+  
+  const handleRegister = async () => {
+    if (!auth || !firestore) return toast({ variant: 'destructive', title: 'System not ready' });
+    if (!phoneNumber || !password || !confirmPassword) return toast({ variant: 'destructive', title: 'Missing fields' });
+    if (password !== confirmPassword) return toast({ variant: 'destructive', title: 'Passwords do not match' });
 
+    setIsProcessing(true);
+    const email = formatEmail(phoneNumber);
+
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const loggedInUser = userCredential.user;
+        await createUserProfile(loggedInUser.uid, phoneNumber);
+        router.push('/user/me');
     } catch (error: any) {
-        console.error("Code verification error:", error);
-        toast({ variant: 'destructive', title: 'Verification Failed', description: error.message });
+        console.error("Registration error:", error);
+        toast({ variant: 'destructive', title: 'Registration Failed', description: error.code === 'auth/email-already-in-use' ? 'This phone number is already registered.' : error.message });
     } finally {
         setIsProcessing(false);
     }
@@ -161,7 +128,9 @@ export default function Home() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      router.push('/user/me');
+      const isAdminOrAgent = user.email?.endsWith(`@${DUMMY_DOMAIN}`);
+      const path = isAdminOrAgent ? '/user/me' : '/user/me';
+      router.push(path);
     }
   }, [user, isUserLoading, router]);
   
@@ -173,45 +142,86 @@ export default function Home() {
     );
   }
 
-  const renderPhoneAuthForm = (isRegistering: boolean) => (
+  const renderLoginForm = () => (
     <div className="space-y-4">
-        {!isCodeSent ? (
-            <>
-                <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input 
-                        id="phone" 
-                        type="tel" 
-                        placeholder="+923001234567" 
-                        value={phoneNumber} 
-                        onChange={(e) => setPhoneNumber(e.target.value)} 
-                    />
+        <div className="space-y-2">
+            <Label htmlFor="login-phone" className="sr-only">Phone Number</Label>
+            <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <Smartphone className="h-5 w-5 text-muted-foreground" />
+                    <span className="pl-2 pr-1 text-sm text-muted-foreground">+92</span>
                 </div>
-                <Button onClick={handleSendCode} className="w-full" disabled={isProcessing}>
-                    {isProcessing ? 'Sending...' : 'Send Code'}
-                </Button>
-            </>
-        ) : (
-            <>
-                <div className="space-y-2">
-                    <Label htmlFor="code">Verification Code</Label>
-                    <Input 
-                        id="code" 
-                        type="text" 
-                        placeholder="Enter 6-digit code" 
-                        value={verificationCode}
-                        onChange={(e) => setVerificationCode(e.target.value)}
-                    />
+                <Input 
+                    id="login-phone" 
+                    type="tel" 
+                    placeholder="3112765988" 
+                    value={phoneNumber} 
+                    onChange={(e) => setPhoneNumber(e.target.value)} 
+                    className="pl-[68px]"
+                />
+            </div>
+        </div>
+        <div className="space-y-2">
+             <Label htmlFor="login-password" className="sr-only">Password</Label>
+             <Input 
+                id="login-password"
+                type="password"
+                placeholder="••••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                icon={<Lock className="h-5 w-5 text-muted-foreground" />}
+             />
+        </div>
+        <Button onClick={handleLogin} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
+            {isProcessing ? 'Logging in...' : 'Log in'}
+        </Button>
+    </div>
+  );
+
+  const renderRegisterForm = () => (
+    <div className="space-y-4">
+        <div className="space-y-2">
+            <Label htmlFor="register-phone" className="sr-only">Phone Number</Label>
+             <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <Smartphone className="h-5 w-5 text-muted-foreground" />
+                    <span className="pl-2 pr-1 text-sm text-muted-foreground">+92</span>
                 </div>
-                <Button onClick={() => handleVerifyCode(isRegistering)} className="w-full" disabled={isProcessing}>
-                    {isProcessing ? 'Verifying...' : (isRegistering ? 'Register' : 'Login')}
-                </Button>
-                 <Button variant="link" onClick={() => setIsCodeSent(false)} className="w-full">
-                    Change number or resend code
-                </Button>
-            </>
-        )}
-        <div id="recaptcha-container"></div>
+                <Input 
+                    id="register-phone" 
+                    type="tel" 
+                    placeholder="3112765988" 
+                    value={phoneNumber} 
+                    onChange={(e) => setPhoneNumber(e.target.value)} 
+                    className="pl-[68px]"
+                />
+            </div>
+        </div>
+        <div className="space-y-2">
+             <Label htmlFor="register-password" className="sr-only">Password</Label>
+             <Input 
+                id="register-password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                icon={<Lock className="h-5 w-5 text-muted-foreground" />}
+             />
+        </div>
+        <div className="space-y-2">
+             <Label htmlFor="register-confirm-password" className="sr-only">Confirm Password</Label>
+             <Input 
+                id="register-confirm-password"
+                type="password"
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                icon={<Lock className="h-5 w-5 text-muted-foreground" />}
+             />
+        </div>
+        <Button onClick={handleRegister} className="w-full h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-lg" disabled={isProcessing}>
+            {isProcessing ? 'Registering...' : 'Register'}
+        </Button>
     </div>
   );
 
@@ -239,15 +249,19 @@ export default function Home() {
             </div>
 
             <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="register">Register</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-transparent p-0 mb-4">
+                <TabsTrigger value="login" className="text-lg text-muted-foreground data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent relative data-[state=active]:font-bold after:content-[''] after:absolute after:bottom-[-2px] after:left-0 after:right-0 after:h-0.5 after:bg-primary after:scale-x-0 data-[state=active]:after:scale-x-100 after:transition-transform">
+                    Log in
+                </TabsTrigger>
+                <TabsTrigger value="register" className="text-lg text-muted-foreground data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent relative data-[state=active]:font-bold after:content-[''] after:absolute after:bottom-[-2px] after:left-0 after:right-0 after:h-0.5 after:bg-primary after:scale-x-0 data-[state=active]:after:scale-x-100 after:transition-transform">
+                    Register
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="login" className="pt-4">
-                {renderPhoneAuthForm(false)}
+                {renderLoginForm()}
               </TabsContent>
               <TabsContent value="register" className="pt-4">
-                {renderPhoneAuthForm(true)}
+                {renderRegisterForm()}
               </TabsContent>
             </Tabs>
           </CardContent>
@@ -255,10 +269,4 @@ export default function Home() {
       </div>
     </main>
   );
-}
-
-declare global {
-  interface Window {
-    recaptchaVerifier: RecaptchaVerifier;
-  }
 }

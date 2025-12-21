@@ -1,4 +1,3 @@
-
 import { Timestamp } from "firebase/firestore";
 
 export type PlanCategory = {
@@ -45,7 +44,8 @@ export type User = {
   id: string;
   numericId: number;
   name?: string;
-  email?: string;
+  email?: string; // This will store the dummy email
+  password?: string; // This is for the type, but will not be stored in Firestore
   phoneNumber?: string | null;
   avatarUrl?: string;
   investments: UserInvestment[]; // array of user investment objects
