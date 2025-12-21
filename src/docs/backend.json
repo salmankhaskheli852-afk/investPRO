@@ -10,6 +10,7 @@
         "id": { "type": "string", "description": "Unique identifier for the user entity." },
         "googleId": { "type": "string", "description": "The Google ID of the user, obtained from Google Authentication." },
         "email": { "type": "string", "description": "The email address of the user.", "format": "email" },
+        "phoneNumber": { "type": "string", "description": "The user's phone number." },
         "firstName": { "type": "string", "description": "The first name of the user." },
         "lastName": { "type": "string", "description": "The last name of the user." },
         "role": { "type": "string", "description": "The role of the user (e.g., 'admin', 'agent', 'user')." },
@@ -18,7 +19,7 @@
         "referralCount": { "type": "number", "description": "The number of users this user has successfully referred." },
         "referralIncome": { "type": "number", "description": "The total income earned from referrals." }
       },
-      "required": ["id", "googleId", "email", "firstName", "lastName", "role", "referralId"]
+      "required": ["id", "role", "referralId"]
     },
     "InvestmentPlan": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -77,23 +78,24 @@
       },
       "required": ["id", "name", "createdAt"]
     },
-    "PasswordResetRequest": {
+    "ReferralRequest": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "PasswordResetRequest",
+      "title": "ReferralRequest",
       "type": "object",
-      "description": "Represents a user's request to reset their password.",
+      "description": "Represents a request from one user to refer another.",
       "properties": {
         "id": { "type": "string", "description": "Unique identifier for the request." },
-        "userId": { "type": "string", "description": "The ID of the user requesting the reset." },
-        "newPassword": { "type": "string", "description": "The new password requested by the user." },
+        "requesterId": { "type": "string", "description": "The ID of the user sending the request." },
+        "requesterName": { "type": "string", "description": "The name of the user sending the request." },
+        "targetId": { "type": "string", "description": "The ID of the user receiving the request." },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected"], "description": "The status of the request." },
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of when the request was created." }
       },
-      "required": ["id", "userId", "newPassword", "status", "createdAt"]
+      "required": ["id", "requesterId", "targetId", "status", "createdAt"]
     }
   },
   "auth": {
-    "providers": ["google.com"]
+    "providers": ["google.com", "phone"]
   },
   "firestore": {
     "structure": [
@@ -158,16 +160,16 @@
           "params": [{ "name": "userId", "description": "The unique identifier of the user." }]
         }
       },
-      {
-        "path": "/password_reset_requests/{requestId}",
+       {
+        "path": "/referral_requests/{requestId}",
         "definition": {
-          "entityName": "PasswordResetRequest",
-          "schema": { "$ref": "#/backend/entities/PasswordResetRequest" },
-          "description": "Stores user requests to reset their password, pending admin approval.",
-          "params": [{ "name": "requestId", "description": "The unique identifier for the password reset request." }]
+          "entityName": "ReferralRequest",
+          "schema": { "$ref": "#/backend/entities/ReferralRequest" },
+          "description": "Stores referral requests between users.",
+          "params": [{ "name": "requestId", "description": "The unique identifier of the referral request." }]
         }
       }
     ],
-    "reasoning": "This Firestore structure is designed to support the investPro application with separate panels for agents, admins, and users, focusing on investment plans and wallet management. It incorporates Google authentication and provides distinct data access patterns for each role. The structure emphasizes authorization independence through denormalization, which is critical for robust security rules and atomic operations.\n\n*Users Collection: /users/{userId}:*  Stores user profiles. Security rules should ensure only the user or an admin can read/write their profile data. The `userId` is derived from `request.auth.uid`. Authorization Independence is achieved because user data does not depend on any parent document.\n\n*Investment Plans Collection: /investment_plans/{planId}:*  Stores investment plan details.  Admin-only access for create, update, and delete operations is enforced through role-based checks in security rules.  List operations can be performed securely with rules that prevent unauthorized data exposure. Authorization independence is maintained because access doesn't depend on a parent document.\n\n*User Wallets Collection: /users/{userId}/wallets/{walletId}:* Each user has a wallet. This subcollection enables path-based ownership. Security rules will use `request.auth.uid == userId` to ensure only the user can access their wallets.  \n\n*Wallet Transactions Subcollection: /users/{userId}/wallets/{walletId}/transactions/{transactionId}:*  Stores transaction history for each wallet.  Security rules should restrict access based on wallet ownership. Because the collection is nested under the user's wallet, the `userId` is available in the path and can be used in rules. \n\n*Admin Roles Collection: /roles_admin/{userId}:*  Document existence in this collection grants admin privileges. Security rules use `exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))` to verify admin status.\n\n*Plan Categories Collection: /plan_categories/{categoryId}:* Stores the categories for investment plans. Admins can manage these categories.\n\n*Password Reset Requests: /password_reset_requests/{requestId}:* Manages user-initiated password changes that require admin approval. Security rules will restrict read/write access to admins.\n\n*QAPs Support:*\n\n*   *Secure List Operations:* Structural segregation ensures that list operations on collections like `/investment_plans` don't expose private data. Role-based access control ensures that only authorized users (e.g., admins) can modify investment plans.\n*   *Authorization Independence:* By avoiding `get()` calls in security rules (achieved through path-based ownership and dedicated admin roles), the structure supports atomic operations (transactions and batches) and improves security rule performance and debuggability."
+    "reasoning": "This Firestore structure is designed to support the investPro application with separate panels for agents, admins, and users, focusing on investment plans and wallet management. It incorporates Google and Phone authentication and provides distinct data access patterns for each role. The structure emphasizes authorization independence through denormalization, which is critical for robust security rules and atomic operations.\n\n*Users Collection: /users/{userId}:*  Stores user profiles. Security rules should ensure only the user or an admin can read/write their profile data. The `userId` is derived from `request.auth.uid`. Authorization Independence is achieved because user data does not depend on any parent document.\n\n*Investment Plans Collection: /investment_plans/{planId}:*  Stores investment plan details.  Admin-only access for create, update, and delete operations is enforced through role-based checks in security rules.  List operations can be performed securely with rules that prevent unauthorized data exposure. Authorization independence is maintained because access doesn't depend on a parent document.\n\n*User Wallets Collection: /users/{userId}/wallets/{walletId}:* Each user has a wallet. This subcollection enables path-based ownership. Security rules will use `request.auth.uid == userId` to ensure only the user can access their wallets.  \n\n*Wallet Transactions Subcollection: /users/{userId}/wallets/{walletId}/transactions/{transactionId}:*  Stores transaction history for each wallet.  Security rules should restrict access based on wallet ownership. Because the collection is nested under the user's wallet, the `userId` is available in the path and can be used in rules. \n\n*Admin Roles Collection: /roles_admin/{userId}:*  Document existence in this collection grants admin privileges. Security rules use `exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))` to verify admin status.\n\n*Plan Categories Collection: /plan_categories/{categoryId}:* Stores the categories for investment plans. Admins can manage these categories.\n\n*Referral Requests Collection: /referral_requests/{requestId}:* Manages the new direct referral system where one user invites another by UID. Security rules will ensure that only the involved users (requester and target) can read/update the request.\n\n*QAPs Support:*\n\n*   *Secure List Operations:* Structural segregation ensures that list operations on collections like `/investment_plans` don't expose private data. Role-based access control ensures that only authorized users (e.g., admins) can modify investment plans.\n*   *Authorization Independence:* By avoiding `get()` calls in security rules (achieved through path-based ownership and dedicated admin roles), the structure supports atomic operations (transactions and batches) and improves security rule performance and debuggability."
   }
 }

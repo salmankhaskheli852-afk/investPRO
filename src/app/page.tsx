@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { GoogleAuthProvider, signInWithPopup, User as FirebaseAuthUser } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, User as FirebaseAuthUser, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { ShieldCheck, TrendingUp, Users, Copy, Gift } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,13 @@ function LoginPageContent() {
   const [invitationCode, setInvitationCode] = useState('');
   const [isRefCodeFromUrl, setIsRefCodeFromUrl] = useState(false);
 
+  // Phone auth state
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+
   useEffect(() => {
     const refCode = searchParams.get('ref');
     if (refCode) {
@@ -35,6 +42,65 @@ function LoginPageContent() {
       setIsRefCodeFromUrl(true);
     }
   }, [searchParams]);
+
+  const setupRecaptcha = () => {
+    if (!auth || recaptchaVerifierRef.current) return;
+    recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      'size': 'invisible',
+      'callback': (response: any) => {
+        // reCAPTCHA solved, allow signInWithPhoneNumber.
+      },
+    });
+  };
+
+  const onSignInSubmit = async () => {
+    if (!auth) return;
+    setIsProcessing(true);
+    setupRecaptcha();
+    
+    try {
+      const appVerifier = recaptchaVerifierRef.current!;
+      const result = await signInWithPhoneNumber(auth, phone, appVerifier);
+      setConfirmationResult(result);
+      setIsOtpSent(true);
+      toast({ title: 'OTP Sent', description: `An OTP has been sent to ${phone}.` });
+    } catch (error: any) {
+      console.error("Phone Sign-In Error:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to Send OTP',
+        description: error.message,
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    if (!confirmationResult) return;
+    setIsProcessing(true);
+    try {
+      const result = await confirmationResult.confirm(otp);
+      const phoneUser = result.user;
+      
+      const userDocRef = doc(firestore, 'users', phoneUser.uid);
+      const docSnap = await getDoc(userDocRef);
+
+      if (!docSnap.exists()) {
+        await createUserProfile(phoneUser, invitationCode, phone);
+      }
+      // Redirection will be handled by the useEffect hook
+    } catch (error: any) {
+       console.error("OTP Verification Error:", error);
+      toast({
+        variant: 'destructive',
+        title: 'OTP Verification Failed',
+        description: error.message,
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  }
 
   const handleGoogleSignIn = async () => {
     if (!auth || !firestore) return;
@@ -51,7 +117,7 @@ function LoginPageContent() {
   
       if (!docSnap.exists()) {
         // New user, create a profile for them
-        await createUserProfile(googleUser, invitationCode);
+        await createUserProfile(googleUser, invitationCode, null);
         // Explicitly redirect new users to their dashboard immediately after profile creation
         router.push('/user/me');
       }
@@ -68,18 +134,17 @@ function LoginPageContent() {
     }
   };
 
-  const createUserProfile = async (googleUser: FirebaseAuthUser, referrerIdFromInput: string | null) => {
+  const createUserProfile = async (user: FirebaseAuthUser, referrerIdFromInput: string | null, phoneNumber: string | null) => {
     if (!firestore) return;
   
     try {
       let finalReferrerUid: string | null = null;
       if (referrerIdFromInput) {
-        // Since we removed numericId, we assume the ref code is the user's UID
         const referrerQuery = query(collection(firestore, 'users'), where('id', '==', referrerIdFromInput));
         const referrerSnapshot = await getDocs(referrerQuery);
         if (!referrerSnapshot.empty) {
           const referrerDoc = referrerSnapshot.docs[0];
-          if (referrerDoc.id !== googleUser.uid) { 
+          if (referrerDoc.id !== user.uid) { 
             finalReferrerUid = referrerDoc.id;
           }
         } else {
@@ -87,31 +152,31 @@ function LoginPageContent() {
         }
       }
   
-      const userRef = doc(firestore, 'users', googleUser.uid);
-      const walletRef = doc(firestore, 'users', googleUser.uid, 'wallets', 'main');
+      const userRef = doc(firestore, 'users', user.uid);
+      const walletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
   
       const newUser: AppUser = {
-        id: googleUser.uid,
-        email: googleUser.email!,
-        name: googleUser.displayName || `User ${googleUser.uid.substring(0, 5)}`,
-        avatarUrl: googleUser.photoURL || `https://picsum.photos/seed/${googleUser.uid}/200`,
+        id: user.uid,
+        email: user.email || '',
+        phoneNumber: user.phoneNumber || phoneNumber || '',
+        name: user.displayName || `User ${user.uid.substring(0, 5)}`,
+        avatarUrl: user.photoURL || `https://picsum.photos/seed/${user.uid}/200`,
         role: 'user',
         investments: [],
         agentId: null,
         createdAt: serverTimestamp() as any,
         isVerified: false,
         totalDeposit: 0,
-        referralId: googleUser.uid, // User's own referral ID is their UID
+        referralId: user.uid,
         referrerId: finalReferrerUid,
       };
       
       const newWallet: Wallet = {
         id: 'main',
-        userId: googleUser.uid,
+        userId: user.uid,
         balance: 0,
       };
   
-      // Create user and wallet documents
       await setDoc(userRef, newUser);
       await setDoc(walletRef, newWallet);
   
@@ -135,10 +200,25 @@ function LoginPageContent() {
           } else {
             router.push('/user/me');
           }
+        } else {
+            // This might happen in a race condition where the doc is not yet created
+            // We give it a second and then try to create it.
+            setTimeout(() => {
+                 getDoc(userDocRef).then(async (snap) => {
+                     if (!snap.exists()) {
+                         if (user.providerData[0].providerId === 'phone') {
+                             await createUserProfile(user, invitationCode, user.phoneNumber);
+                         } else {
+                             await createUserProfile(user, invitationCode, null);
+                         }
+                         router.push('/user/me');
+                     }
+                 })
+            }, 1000);
         }
       });
     }
-  }, [user, isUserLoading, firestore, router]);
+  }, [user, isUserLoading, firestore, router, invitationCode]);
   
   if (isUserLoading || user) {
     return (
@@ -150,6 +230,7 @@ function LoginPageContent() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-login-gradient p-4">
+      <div id="recaptcha-container"></div>
       <div className="w-full max-w-sm rounded-xl p-1 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
         <Card className="shadow-lg overflow-hidden rounded-xl">
           <CardContent>
@@ -172,6 +253,37 @@ function LoginPageContent() {
                         </>
                     )}
                 </Button>
+                
+                <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                    </div>
+                </div>
+
+                {!isOtpSent ? (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="phone">Phone Number</Label>
+                        <Input id="phone" type="tel" placeholder="+1 123 456 7890" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                    </div>
+                    <Button onClick={onSignInSubmit} className="w-full" disabled={isProcessing || !phone}>
+                      {isProcessing ? 'Sending...' : 'Send OTP'}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="otp">OTP</Label>
+                      <Input id="otp" type="text" placeholder="Enter OTP" value={otp} onChange={(e) => setOtp(e.target.value)} />
+                    </div>
+                    <Button onClick={verifyOtp} className="w-full" disabled={isProcessing || !otp}>
+                      {isProcessing ? 'Verifying...' : 'Verify OTP & Sign In'}
+                    </Button>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                     <Label htmlFor="invitation-code" className="flex items-center gap-1.5 text-muted-foreground">
