@@ -113,7 +113,7 @@ export function Header() {
       <div className="flex items-center gap-2">
         {showSidebarTrigger && <SidebarTrigger className="md:hidden text-white hover:bg-white/20" />}
         <Link href="/" className="flex items-center gap-2">
-           <Image src="/google-logo.svg" alt="investPro Logo" width={24} height={24} />
+           <Image src="/logo.png" alt="investPro Logo" width={24} height={24} />
           <span className="font-headline text-lg font-semibold text-white">investPro</span>
         </Link>
          {!isLoadingSettings && appSettings?.isVerificationBadgeEnabled && appSettings?.verificationBadgeText && (
