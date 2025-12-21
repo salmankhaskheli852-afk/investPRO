@@ -53,17 +53,13 @@ export default function UserLayout({
   const showVerificationPopup = appSettings?.isVerificationEnabled && userData && !userData.isVerified;
 
   return (
-    <div className="bg-login-gradient min-h-screen">
+    <div className="bg-muted min-h-screen">
       <div className="relative mx-auto max-w-md min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24">
           {showVerificationPopup && <VerificationPopup />}
           <ReferralRequestManager />
-          <div className="rounded-xl p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-             <div className="bg-card rounded-lg p-4 sm:p-6 lg:p-8">
-                {children}
-             </div>
-          </div>
+          {children}
         </main>
         <WhatsAppWidget />
         <BottomNav />
