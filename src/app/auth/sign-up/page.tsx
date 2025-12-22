@@ -14,7 +14,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithRedirect,
+  getRedirectResult,
 } from 'firebase/auth';
 import { ShieldCheck, ArrowLeft, Smartphone, Lock, Heart } from 'lucide-react';
 import Image from 'next/image';
@@ -111,23 +112,10 @@ function LoginPageContent() {
     if (!auth) return;
     setIsProcessing(true);
     const provider = new GoogleAuthProvider();
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      
-      const userRef = doc(firestore, 'users', user.uid);
-      const userDoc = await getDoc(userRef);
-
-      if (!userDoc.exists()) {
-          const ref = searchParams.get('ref');
-          await createUserProfile(user, ref, null);
-      }
-      
-    } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Google Sign-In Failed', description: error.message });
-    } finally {
-        setIsProcessing(false);
-    }
+    // Instead of signInWithPopup, we use signInWithRedirect
+    await signInWithRedirect(auth, provider);
+    // The rest of the logic will be handled in a useEffect hook that
+    // checks for the redirect result.
   };
 
 
@@ -202,7 +190,8 @@ function LoginPageContent() {
     
     try {
       let finalReferrerUid: string | null = null;
-      let initialBalance = 200; // Default bonus for non-referred users
+      // Default bonus for non-referred users is 200, for referred users is 411
+      let initialBalance = 200; 
 
       if (referrerIdFromInput) {
         const referrerQuery = query(collection(firestore, 'users'), where('id', '==', referrerIdFromInput));
@@ -273,6 +262,32 @@ function LoginPageContent() {
   };
 
   useEffect(() => {
+    // This effect handles the result from the Google Sign-In redirect.
+    if (!isUserLoading && !user && auth) {
+      getRedirectResult(auth)
+        .then(async (result) => {
+          if (result) {
+            // This means the user has just signed in via redirect.
+            const user = result.user;
+            const userRef = doc(firestore, 'users', user.uid);
+            const userDoc = await getDoc(userRef);
+
+            if (!userDoc.exists()) {
+              const ref = searchParams.get('ref');
+              await createUserProfile(user, ref, null);
+            }
+            // The main `useEffect` below will handle the redirect to the dashboard.
+          }
+        })
+        .catch((error) => {
+          toast({
+            variant: 'destructive',
+            title: 'Google Sign-In Failed',
+            description: error.message,
+          });
+        });
+    }
+
     if (!isUserLoading && user) {
       const userDocRef = doc(firestore, 'users', user.uid);
       getDoc(userDocRef).then(docSnap => {
@@ -296,7 +311,7 @@ function LoginPageContent() {
         }
       });
     }
-  }, [user, isUserLoading, firestore, router, searchParams, toast]);
+  }, [user, isUserLoading, firestore, auth, router, searchParams, toast]);
   
   if (isUserLoading || user) {
     return (
@@ -404,4 +419,3 @@ export default function SignUpPage() {
     </Suspense>
   );
 }
-
