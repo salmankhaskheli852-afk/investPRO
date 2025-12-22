@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -62,7 +61,7 @@ export default function UserDashboardPage() {
   const handleLogout = async () => {
     if (!auth) return;
     await signOut(auth);
-    router.push('/');
+    router.push('/auth/sign-up');
   };
 
   const handleCopy = (text: string, label: string) => {
@@ -90,7 +89,7 @@ export default function UserDashboardPage() {
 
   React.useEffect(() => {
     if (!isUserLoading && !user) {
-      router.push('/');
+      router.push('/auth/sign-up');
     }
   }, [user, isUserLoading, router]);
 

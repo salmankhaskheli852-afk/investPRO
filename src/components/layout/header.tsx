@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -48,7 +47,7 @@ export function Header() {
   const handleLogout = async () => {
     if (!auth) return;
     await signOut(auth);
-    router.push('/');
+    router.push('/auth/sign-up');
   };
   
   const handleCopy = (text: string, label: string) => {
@@ -112,7 +111,7 @@ export function Header() {
     <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b bg-login-gradient px-4 sm:px-6">
       <div className="flex items-center gap-2">
         {showSidebarTrigger && <SidebarTrigger className="md:hidden text-white hover:bg-white/20" />}
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/auth/sign-up" className="flex items-center gap-2">
            <Image src="/logo.png" alt="investPro Logo" width={48} height={48} />
           <span className="font-headline text-2xl font-semibold text-white">investPro</span>
         </Link>
@@ -173,7 +172,7 @@ export function Header() {
                 </DropdownMenuItem>
               </>
             ) : (
-              <DropdownMenuItem onClick={() => router.push('/')}>
+              <DropdownMenuItem onClick={() => router.push('/auth/sign-up')}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log in</span>
                 </DropdownMenuItem>
@@ -184,5 +183,3 @@ export function Header() {
     </header>
   );
 }
-
-    

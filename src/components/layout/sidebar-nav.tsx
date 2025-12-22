@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -38,13 +37,13 @@ export function SidebarNav({ navItems }: SidebarNavProps) {
   const handleLogout = async () => {
     if (!auth) return;
     await signOut(auth);
-    router.push('/');
+    router.push('/auth/sign-up');
   };
 
   return (
     <>
       <SidebarHeader>
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/auth/sign-up" className="flex items-center gap-2">
           <Image src="/logo.png" alt="investPro Logo" width={32} height={32} />
           <span className="font-headline text-2xl font-semibold text-primary group-data-[collapsible=icon]:hidden">
             investPro
