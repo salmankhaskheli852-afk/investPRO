@@ -51,7 +51,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { PlaceHolderImages, type ImagePlaceholder } from '@/lib/placeholder-images';
 
 
 const PlanFormDialog = ({
@@ -75,7 +74,8 @@ const PlanFormDialog = ({
     const [price, setPrice] = React.useState(1000);
     const [dailyPercentage, setDailyPercentage] = React.useState(5);
     const [period, setPeriod] = React.useState(60);
-    const [selectedImage, setSelectedImage] = React.useState<ImagePlaceholder | null>(PlaceHolderImages[0] || null);
+    const [imageUrl, setImageUrl] = React.useState('https://picsum.photos/seed/105/600/400');
+    const [imageHint, setImageHint] = React.useState('investment growth');
 
     const [purchaseLimit, setPurchaseLimit] = React.useState(0);
     const [isSoldOut, setIsSoldOut] = React.useState(false);
@@ -98,8 +98,8 @@ const PlanFormDialog = ({
             setPrice(planToEdit.price);
             setDailyPercentage(planToEdit.dailyIncomePercentage);
             setPeriod(planToEdit.incomePeriod);
-            const currentImage = PlaceHolderImages.find(img => img.imageUrl === planToEdit.imageUrl);
-            setSelectedImage(currentImage || null);
+            setImageUrl(planToEdit.imageUrl);
+            setImageHint(planToEdit.imageHint || 'investment growth');
             setOfferEnabled(planToEdit.isOfferEnabled || false);
             setPurchaseLimit(planToEdit.purchaseLimit || 0);
             setIsSoldOut(planToEdit.isSoldOut || false);
@@ -119,7 +119,8 @@ const PlanFormDialog = ({
         setPrice(1000);
         setDailyPercentage(5);
         setPeriod(60);
-        setSelectedImage(PlaceHolderImages[0] || null);
+        setImageUrl('https://picsum.photos/seed/105/600/400');
+        setImageHint('investment growth');
         setOfferEnabled(false);
         setOfferDays(1);
         setOfferHours(0);
@@ -131,7 +132,7 @@ const PlanFormDialog = ({
 
     const handleSavePlan = async () => {
         if (!firestore) return;
-        if (!name || !categoryId || !price || !dailyPercentage || !period || !selectedImage) {
+        if (!name || !categoryId || !price || !dailyPercentage || !period || !imageUrl) {
             toast({
                 variant: 'destructive',
                 title: 'Missing Fields',
@@ -163,8 +164,8 @@ const PlanFormDialog = ({
                 price,
                 dailyIncomePercentage: dailyPercentage,
                 incomePeriod: period,
-                imageUrl: selectedImage.imageUrl,
-                imageHint: selectedImage.imageHint,
+                imageUrl,
+                imageHint,
                 totalIncome: totalIncome,
                 isOfferEnabled: offerEnabled,
                 purchaseLimit: purchaseLimit,
@@ -239,25 +240,12 @@ const PlanFormDialog = ({
                         </Select>
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor="image">Image</Label>
-                        <Select
-                            value={selectedImage?.id}
-                            onValueChange={(id) => {
-                                const image = PlaceHolderImages.find(img => img.id === id);
-                                setSelectedImage(image || null);
-                            }}
-                        >
-                            <SelectTrigger id="image">
-                                <SelectValue placeholder="Select an image" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {PlaceHolderImages.map(img => (
-                                    <SelectItem key={img.id} value={img.id}>
-                                        {img.description}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <Label htmlFor="image-url">Image URL</Label>
+                        <Input id="image-url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/image.png" />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="image-hint">Image Hint (Optional)</Label>
+                        <Input id="image-hint" value={imageHint} onChange={(e) => setImageHint(e.target.value)} placeholder="e.g., finance growth" />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="price">Product Price (Rs)</Label>
@@ -636,5 +624,7 @@ export default function AdminInvestmentsPage() {
     </>
   );
 }
+
+    
 
     
