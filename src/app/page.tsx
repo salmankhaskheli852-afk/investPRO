@@ -291,7 +291,7 @@ function LoginPageContent() {
             </Link>
        </div>
       
-      <Card className="shadow-lg rounded-t-3xl flex-1 p-6">
+      <Card className="shadow-lg rounded-t-3xl flex-1 p-6 bg-card/80 backdrop-blur-sm">
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-muted p-1 rounded-md">
@@ -359,7 +359,7 @@ function LoginPageContent() {
           <div className="mt-6 space-y-4">
             <div className="relative">
                 <Separator />
-                <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-card px-2 text-sm text-muted-foreground">OR</span>
+                <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-card/80 px-2 text-sm text-muted-foreground">OR</span>
             </div>
              <Button variant="outline" className="w-full h-12 text-base" onClick={handleGoogleSignIn} disabled={isProcessing}>
                 <GoogleIcon className="mr-2" />
