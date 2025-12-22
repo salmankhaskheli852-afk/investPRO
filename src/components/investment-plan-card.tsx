@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Image from 'next/image';
@@ -311,9 +310,13 @@ export function InvestmentPlanCard({
                       <span className="text-xs text-muted-foreground">Daily income</span> 
                       <span className="font-medium text-foreground text-sm">{dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
                   </div>
-                  <div className="flex flex-col text-right">
+                  <div className="flex flex-col">
                       <span className="text-xs text-muted-foreground">Period</span> 
                       <span className="font-medium text-foreground text-sm">{plan.incomePeriod} days</span>
+                  </div>
+                   <div className="flex flex-col">
+                      <span className="text-xs text-muted-foreground">Total income</span> 
+                      <span className="font-medium text-foreground text-sm">{totalIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
                   </div>
               </div>
           </div>
@@ -324,3 +327,4 @@ export function InvestmentPlanCard({
     </div>
   );
 }
+
