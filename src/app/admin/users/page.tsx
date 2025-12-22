@@ -72,11 +72,12 @@ function UserRow({
         <div className="flex items-center gap-3">
           <Avatar>
             <AvatarImage src={user.avatarUrl} alt={user.name} />
-            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
           </Avatar>
           <div>
             <div className="font-medium">{user.name}</div>
             <div className="text-sm text-muted-foreground">{user.email}</div>
+            <div className="text-xs text-muted-foreground truncate max-w-[150px]">ID: {user.id}</div>
           </div>
         </div>
       </TableCell>
@@ -239,7 +240,7 @@ export default function AdminUsersPage() {
     if (!users) return [];
     if (!searchQuery) return users;
     return users.filter(user => 
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [users, searchQuery]);
@@ -356,3 +357,5 @@ export default function AdminUsersPage() {
     </>
   );
 }
+
+    
