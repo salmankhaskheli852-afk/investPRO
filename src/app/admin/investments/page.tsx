@@ -624,7 +624,3 @@ export default function AdminInvestmentsPage() {
     </>
   );
 }
-
-    
-
-    
