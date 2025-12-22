@@ -114,7 +114,7 @@ export function Header() {
         {showSidebarTrigger && <SidebarTrigger className="md:hidden text-white hover:bg-white/20" />}
         <Link href="/" className="flex items-center gap-2">
            <Image src="/logo.png" alt="investPro Logo" width={48} height={48} />
-          <span className="font-headline text-3xl font-semibold text-white">investPro</span>
+          <span className="font-headline text-2xl font-semibold text-white">investPro</span>
         </Link>
       </div>
 
