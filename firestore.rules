@@ -76,9 +76,9 @@ service cloud.firestore {
         allow create, delete: if isAdmin() || isAgent();
     }
 
-    // Any authenticated user can view plan categories.
+    // Any user (authenticated or not) can view plan categories.
     match /plan_categories/{categoryId} {
-        allow read: if isUserAuthenticated();
+        allow read: if true;
         allow create, update, delete: if isAdmin() || isAgent();
     }
     
