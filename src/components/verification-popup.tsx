@@ -29,7 +29,7 @@ export function VerificationPopup() {
 
   const handleDepositClick = () => {
     setIsOpen(false);
-    router.push('/user/wallet');
+    router.push('/user/deposit');
   };
 
   if (!appSettings) {
@@ -62,3 +62,5 @@ export function VerificationPopup() {
     </AlertDialog>
   );
 }
+
+    

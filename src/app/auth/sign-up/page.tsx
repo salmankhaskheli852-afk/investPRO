@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, Suspense, useRef } from 'react';
@@ -208,6 +209,23 @@ function LoginPageContent() {
           const referrerDoc = referrerSnapshot.docs[0];
           if (referrerDoc.id !== user.uid) { // Prevent self-referral
             finalReferrerUid = referrerDoc.id;
+             // Give 300 PKR gift to the referrer
+            const referrerWalletRef = doc(firestore, 'users', finalReferrerUid, 'wallets', 'main');
+            const referrerTxRef = doc(collection(firestore, 'users', finalReferrerUid, 'wallets', 'main', 'transactions'));
+
+            batch.update(referrerWalletRef, { balance: increment(300) });
+            batch.set(referrerTxRef, {
+                id: referrerTxRef.id,
+                type: 'referral_income',
+                amount: 300,
+                status: 'completed',
+                date: serverTimestamp(),
+                walletId: 'main',
+                details: {
+                    reason: `Referral gift from new user ${user.displayName || user.uid.substring(0,5)}`,
+                    referredUserId: user.uid,
+                }
+            });
           }
         } else {
            toast({ variant: 'destructive', title: 'Invalid Referrer', description: `Referrer with ID ${referrerIdFromInput} not found.` });
@@ -332,7 +350,7 @@ function LoginPageContent() {
                 />
                 <Input 
                     icon={<Lock className="text-muted-foreground" />} 
-                    type="password" _
+                    type="password" 
                     placeholder="Please input password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)} 
@@ -383,3 +401,5 @@ export default function SignUpPage() {
     </Suspense>
   );
 }
+
+    
