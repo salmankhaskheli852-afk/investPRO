@@ -14,8 +14,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
 } from 'firebase/auth';
 import { ShieldCheck, ArrowLeft, Smartphone, Lock, Heart } from 'lucide-react';
 import Image from 'next/image';
@@ -112,10 +111,27 @@ function LoginPageContent() {
     if (!auth) return;
     setIsProcessing(true);
     const provider = new GoogleAuthProvider();
-    // Instead of signInWithPopup, we use signInWithRedirect
-    await signInWithRedirect(auth, provider);
-    // The rest of the logic will be handled in a useEffect hook that
-    // checks for the redirect result.
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const userRef = doc(firestore, 'users', user.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (!userDoc.exists()) {
+        const ref = searchParams.get('ref');
+        await createUserProfile(user, ref, null);
+      }
+    } catch (error: any) {
+      if (error.code !== 'auth/popup-closed-by-user') {
+        toast({
+          variant: 'destructive',
+          title: 'Google Sign-In Failed',
+          description: error.message,
+        });
+      }
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
 
@@ -262,32 +278,6 @@ function LoginPageContent() {
   };
 
   useEffect(() => {
-    // This effect handles the result from the Google Sign-In redirect.
-    if (!isUserLoading && !user && auth) {
-      getRedirectResult(auth)
-        .then(async (result) => {
-          if (result) {
-            // This means the user has just signed in via redirect.
-            const user = result.user;
-            const userRef = doc(firestore, 'users', user.uid);
-            const userDoc = await getDoc(userRef);
-
-            if (!userDoc.exists()) {
-              const ref = searchParams.get('ref');
-              await createUserProfile(user, ref, null);
-            }
-            // The main `useEffect` below will handle the redirect to the dashboard.
-          }
-        })
-        .catch((error) => {
-          toast({
-            variant: 'destructive',
-            title: 'Google Sign-In Failed',
-            description: error.message,
-          });
-        });
-    }
-
     if (!isUserLoading && user) {
       const userDocRef = doc(firestore, 'users', user.uid);
       getDoc(userDocRef).then(docSnap => {
