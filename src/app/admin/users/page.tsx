@@ -16,7 +16,7 @@ import { Edit, Trash2, MoreHorizontal, Eye, ShieldCheck, UserPlus, Search } from
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import type { User, Wallet } from '@/lib/data';
+import type { User, Wallet, Transaction } from '@/lib/data';
 import { collection, query, where, doc, getDocs, writeBatch, deleteDoc } from 'firebase/firestore';
 import {
   DropdownMenu,
@@ -190,21 +190,28 @@ export default function AdminUsersPage() {
       const batch = writeBatch(firestore);
 
       // 1. Delete all transactions in the user's subcollection
-      const transactionsCollectionRef = collection(firestore, 'users', userToDelete.id, 'wallets', 'main', 'transactions');
-      const transactionsSnapshot = await getDocs(transactionsCollectionRef);
-      transactionsSnapshot.forEach(doc => {
+      const userTransactionsCollectionRef = collection(firestore, 'users', userToDelete.id, 'wallets', 'main', 'transactions');
+      const userTransactionsSnapshot = await getDocs(userTransactionsCollectionRef);
+      userTransactionsSnapshot.forEach(doc => {
         batch.delete(doc.ref);
       });
 
-      // 2. Delete the wallet document
+      // 2. Find and delete all related transactions in the root /transactions collection
+      const globalTransactionsQuery = query(collection(firestore, 'transactions'), where('details.userId', '==', userToDelete.id));
+      const globalTransactionsSnapshot = await getDocs(globalTransactionsQuery);
+      globalTransactionsSnapshot.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+
+      // 3. Delete the wallet document
       const walletRef = doc(firestore, 'users', userToDelete.id, 'wallets', 'main');
       batch.delete(walletRef);
 
-      // 3. Delete the main user document
+      // 4. Delete the main user document
       const userRef = doc(firestore, 'users', userToDelete.id);
       batch.delete(userRef);
 
-      // 4. If the user is an admin, delete their role document
+      // 5. If the user is an admin, delete their role document
       if (userToDelete.role === 'admin') {
         const adminRoleRef = doc(firestore, 'roles_admin', userToDelete.id);
         batch.delete(adminRoleRef);
