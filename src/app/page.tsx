@@ -44,7 +44,11 @@ function LoginPageContent() {
   }, [searchParams]);
 
   const setupRecaptcha = () => {
-    if (!auth || recaptchaVerifierRef.current) return;
+    if (!auth) return;
+    // Destroy previous instance if it exists
+    if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+    }
     recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
       'size': 'invisible',
       'callback': (response: any) => {
@@ -66,6 +70,9 @@ function LoginPageContent() {
       toast({ title: 'OTP Sent', description: `An OTP has been sent to ${phone}.` });
     } catch (error: any) {
       console.error("Phone Sign-In Error:", error);
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear(); // Clear verifier on error
+      }
       toast({
         variant: 'destructive',
         title: 'Failed to Send OTP',
