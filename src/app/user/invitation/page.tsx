@@ -90,7 +90,7 @@ export default function InvitationPage() {
 
       <div className="grid grid-cols-1 gap-8">
         
-        <Card className="rounded-lg">
+        <Card className="rounded-lg bg-background/50 backdrop-blur-sm">
           <CardHeader>
             <CardTitle>Your Invitation Link</CardTitle>
             <CardDescription>
@@ -117,7 +117,7 @@ export default function InvitationPage() {
         
 
         <div className="grid grid-cols-2 gap-8">
-            <Card className="flex flex-col items-center justify-center text-center h-full rounded-lg">
+            <Card className="flex flex-col items-center justify-center text-center h-full rounded-lg bg-background/50 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="text-4xl font-bold">{isLoadingTeam ? '...' : myTeam?.length || 0}</CardTitle>
               </CardHeader>
@@ -125,7 +125,7 @@ export default function InvitationPage() {
                 <p className="text-muted-foreground">Team Members</p>
               </CardContent>
             </Card>
-            <Card className="flex flex-col items-center justify-center text-center h-full rounded-lg">
+            <Card className="flex flex-col items-center justify-center text-center h-full rounded-lg bg-background/50 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="text-4xl font-bold">{isLoadingTransactions ? '...' : totalReferralIncome.toLocaleString()} <span className="text-lg text-muted-foreground">PKR</span></CardTitle>
               </CardHeader>
@@ -135,7 +135,7 @@ export default function InvitationPage() {
             </Card>
         </div>
 
-        <Card className="rounded-lg">
+        <Card className="rounded-lg bg-background/50 backdrop-blur-sm">
             <CardHeader>
                 <CardTitle>My Team</CardTitle>
                 <CardDescription>Users you have successfully referred.</CardDescription>
