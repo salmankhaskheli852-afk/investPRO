@@ -133,7 +133,7 @@ function LoginPageContent() {
 
   const handleRegister = async () => {
     if (!auth || !firestore) return;
-    if (!phone || !password || !confirmPassword || !invitationCode || !captchaInput) {
+    if (!phone || !password || !confirmPassword || !captchaInput) {
       toast({ variant: 'destructive', title: 'Missing fields', description: 'Please fill all required fields.' });
       return;
     }
@@ -162,7 +162,10 @@ function LoginPageContent() {
       setCaptchaText(generateCaptcha());
       if (error.code === 'auth/email-already-in-use') {
         toast({ variant: 'destructive', title: 'Registration Failed', description: 'This phone number is already registered.' });
-      } else {
+      } else if (error.code === 'auth/operation-not-allowed') {
+         toast({ variant: 'destructive', title: 'Registration Failed', description: 'Email/Password sign-in is not enabled. Please contact support.' });
+      }
+      else {
         toast({ variant: 'destructive', title: 'Registration Failed', description: error.message });
       }
     } finally {
@@ -341,7 +344,7 @@ function LoginPageContent() {
                 <Input 
                     icon={<Heart className="text-muted-foreground" />} 
                     type="text" 
-                    placeholder="Please enter the invitation code"
+                    placeholder="Invitation Code (Optional)"
                     value={invitationCode}
                     onChange={(e) => setInvitationCode(e.target.value)}
                     disabled={isRefCodeFromUrl}
