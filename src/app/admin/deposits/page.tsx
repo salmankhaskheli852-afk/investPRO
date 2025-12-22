@@ -86,53 +86,73 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
     const userRef = doc(firestore, 'users', user.id);
 
     try {
-        const batch = writeBatch(firestore);
-
-        // --- PRE-CHECKS ---
-        if (newStatus === 'completed') {
-            const completedTxQuery = query(
-                collection(firestore, 'transactions'), 
-                where('details.tid', '==', tx.details.tid),
-                where('status', '==', 'completed')
-            );
-            const completedTxSnapshot = await getDocs(completedTxQuery);
-
-            if (!completedTxSnapshot.empty) {
-                throw new Error("This Transaction ID has already been processed.");
-            }
-        }
-        
-        // --- DATA FETCHING ---
-        const userDoc = await getDoc(userRef);
-
-        if (!userDoc.exists()) throw new Error("User not found!");
-        
-        const currentUserData = userDoc.data();
-
-        // --- LOGIC & BATCH WRITES ---
-        if (newStatus === 'completed') {
-            // 1. Update user's balance
-            batch.update(walletRef, { balance: increment(tx.amount) });
-
-            // 2. Denormalize totalDeposit on user profile
-            const newTotalDeposit = (currentUserData.totalDeposit || 0) + tx.amount;
-            batch.update(userRef, { totalDeposit: newTotalDeposit });
-
-            // 3. Handle account verification
-            if (appSettings?.isVerificationEnabled && !currentUserData.isVerified) {
-                if (tx.amount >= (appSettings.verificationDepositAmount || 0)) {
-                    batch.update(userRef, { isVerified: true });
+        await runTransaction(firestore, async (transaction) => {
+            // --- PRE-CHECKS ---
+            if (newStatus === 'completed') {
+                const completedTxQuery = query(
+                    collection(firestore, 'transactions'), 
+                    where('details.tid', '==', tx.details.tid),
+                    where('status', '==', 'completed')
+                );
+                const completedTxSnapshot = await getDocs(completedTxQuery);
+                if (!completedTxSnapshot.empty) {
+                    throw new Error("This Transaction ID has already been processed.");
                 }
             }
-        }
-        
-        // 5. Update transaction status in both locations
-        batch.update(globalTransactionRef, { status: newStatus });
-        // Use set with merge to create or update the user transaction doc
-        batch.set(userTransactionRef, { status: newStatus }, { merge: true });
+            
+            // --- DATA FETCHING (within transaction) ---
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists()) throw new Error("User not found!");
+            const currentUserData = userDoc.data() as User;
 
-        // Commit all changes at once
-        await batch.commit();
+            // --- LOGIC & BATCH WRITES ---
+            if (newStatus === 'completed') {
+                // 1. Update user's balance
+                transaction.update(walletRef, { balance: increment(tx.amount) });
+
+                // 2. Denormalize totalDeposit on user profile
+                const newTotalDeposit = (currentUserData.totalDeposit || 0) + tx.amount;
+                transaction.update(userRef, { totalDeposit: newTotalDeposit });
+
+                // 3. Handle account verification
+                if (appSettings?.isVerificationEnabled && !currentUserData.isVerified) {
+                    if (tx.amount >= (appSettings.verificationDepositAmount || 0)) {
+                        transaction.update(userRef, { isVerified: true });
+                    }
+                }
+
+                // 4. Handle referral commission on FIRST deposit
+                const isFirstDeposit = !currentUserData.totalDeposit || currentUserData.totalDeposit === 0;
+                if (isFirstDeposit && currentUserData.referrerId && appSettings?.referralCommissionPercentage) {
+                    const commissionRate = appSettings.referralCommissionPercentage / 100;
+                    const commissionAmount = tx.amount * commissionRate;
+
+                    if (commissionAmount > 0) {
+                        const referrerWalletRef = doc(firestore, 'users', currentUserData.referrerId, 'wallets', 'main');
+                        transaction.update(referrerWalletRef, { balance: increment(commissionAmount) });
+
+                        const referrerTxRef = doc(collection(firestore, 'users', currentUserData.referrerId, 'wallets', 'main', 'transactions'));
+                        transaction.set(referrerTxRef, {
+                            id: referrerTxRef.id,
+                            type: 'referral_income',
+                            amount: commissionAmount,
+                            status: 'completed',
+                            date: serverTimestamp(),
+                            walletId: 'main',
+                            details: {
+                                reason: `Commission from ${currentUserData.name}'s first deposit`,
+                                referredUserId: currentUserData.id,
+                                depositAmount: tx.amount,
+                            }
+                        });
+                    }
+                }
+            }
+            
+            // 5. Update transaction status in both locations
+            transaction.update(globalTransactionRef, { status: newStatus });
+            transaction.set(userTransactionRef, { status: newStatus }, { merge: true });
+        });
 
         toast({
             title: `Request ${newStatus}`,

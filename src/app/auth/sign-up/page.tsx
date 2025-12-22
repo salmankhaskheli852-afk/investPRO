@@ -201,18 +201,16 @@ function LoginPageContent() {
     
     try {
       let finalReferrerUid: string | null = null;
-      let referrerName: string | null = null;
       if (referrerIdFromInput) {
         const referrerQuery = query(collection(firestore, 'users'), where('id', '==', referrerIdFromInput));
         const referrerSnapshot = await getDocs(referrerQuery);
         if (!referrerSnapshot.empty) {
           const referrerDoc = referrerSnapshot.docs[0];
-          if (referrerDoc.id !== user.uid) { 
+          if (referrerDoc.id !== user.uid) { // Prevent self-referral
             finalReferrerUid = referrerDoc.id;
-            referrerName = (referrerDoc.data() as AppUser).name || 'a user';
           }
         } else {
-          toast({ variant: 'destructive', title: 'Invalid Referrer', description: `Referrer with ID ${referrerIdFromInput} not found.` });
+           toast({ variant: 'destructive', title: 'Invalid Referrer', description: `Referrer with ID ${referrerIdFromInput} not found.` });
         }
       }
   
@@ -244,28 +242,6 @@ function LoginPageContent() {
       batch.set(userRef, newUser);
       batch.set(walletRef, newWallet);
       
-      // If there's a referrer, give them the 300 PKR gift
-      if (finalReferrerUid) {
-        const giftAmount = 300;
-        const referrerWalletRef = doc(firestore, 'users', finalReferrerUid, 'wallets', 'main');
-        
-        batch.update(referrerWalletRef, { balance: increment(giftAmount) });
-
-        const referrerTxRef = doc(collection(firestore, 'users', finalReferrerUid, 'wallets', 'main', 'transactions'));
-        batch.set(referrerTxRef, {
-            id: referrerTxRef.id,
-            type: 'referral_income',
-            amount: giftAmount,
-            status: 'completed',
-            date: serverTimestamp(),
-            walletId: 'main',
-            details: {
-                reason: `Referral Gift for new user ${newUser.name}`,
-                referredUserId: user.uid,
-            }
-        });
-      }
-
       await batch.commit();
   
     } catch (e: any) {
