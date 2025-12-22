@@ -327,11 +327,10 @@ function LoginPageContent() {
                 </div>
             </div>
             
-            <div className="flex justify-center">
-                 <Button onClick={handleGoogleSignIn} variant="outline" className="h-14 w-14 rounded-full p-0" disabled={isProcessing}>
-                    <Image src="/google-logo.svg" alt="Google" width={28} height={28} />
-                 </Button>
-            </div>
+            <Button onClick={handleGoogleSignIn} variant="outline" className="w-full h-12 text-base rounded-full" disabled={isProcessing}>
+                <Image src="/google-logo.svg" alt="Google" width={24} height={24} className="mr-2" />
+                Sign in with Google
+            </Button>
         </CardContent>
       </Card>
     </main>
