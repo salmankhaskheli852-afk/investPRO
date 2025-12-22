@@ -18,6 +18,7 @@ import {
 } from 'firebase/auth';
 import { ShieldCheck, ArrowLeft, Smartphone, Lock, Heart } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { generateCaptcha } from '@/lib/utils';
@@ -376,5 +377,3 @@ export default function Home() {
     </Suspense>
   );
 }
-
-    
