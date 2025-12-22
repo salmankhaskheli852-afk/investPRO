@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, increment } from 'firebase/firestore';
 import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -197,8 +197,11 @@ function LoginPageContent() {
   const createUserProfile = async (user: FirebaseAuthUser, referrerIdFromInput: string | null, phoneNumber: string | null) => {
     if (!firestore) return;
   
+    const batch = writeBatch(firestore);
+    
     try {
       let finalReferrerUid: string | null = null;
+      let referrerName: string | null = null;
       if (referrerIdFromInput) {
         const referrerQuery = query(collection(firestore, 'users'), where('id', '==', referrerIdFromInput));
         const referrerSnapshot = await getDocs(referrerQuery);
@@ -206,6 +209,7 @@ function LoginPageContent() {
           const referrerDoc = referrerSnapshot.docs[0];
           if (referrerDoc.id !== user.uid) { 
             finalReferrerUid = referrerDoc.id;
+            referrerName = (referrerDoc.data() as AppUser).name || 'a user';
           }
         } else {
           toast({ variant: 'destructive', title: 'Invalid Referrer', description: `Referrer with ID ${referrerIdFromInput} not found.` });
@@ -237,8 +241,32 @@ function LoginPageContent() {
         balance: 0,
       };
   
-      await setDoc(userRef, newUser);
-      await setDoc(walletRef, newWallet);
+      batch.set(userRef, newUser);
+      batch.set(walletRef, newWallet);
+      
+      // If there's a referrer, give them the 300 PKR gift
+      if (finalReferrerUid) {
+        const giftAmount = 300;
+        const referrerWalletRef = doc(firestore, 'users', finalReferrerUid, 'wallets', 'main');
+        
+        batch.update(referrerWalletRef, { balance: increment(giftAmount) });
+
+        const referrerTxRef = doc(collection(firestore, 'users', finalReferrerUid, 'wallets', 'main', 'transactions'));
+        batch.set(referrerTxRef, {
+            id: referrerTxRef.id,
+            type: 'referral_income',
+            amount: giftAmount,
+            status: 'completed',
+            date: serverTimestamp(),
+            walletId: 'main',
+            details: {
+                reason: `Referral Gift for new user ${newUser.name}`,
+                referredUserId: user.uid,
+            }
+        });
+      }
+
+      await batch.commit();
   
     } catch (e: any) {
       console.error("Profile creation failed: ", e);
@@ -328,7 +356,7 @@ function LoginPageContent() {
                 />
                 <Input 
                     icon={<Lock className="text-muted-foreground" />} 
-                    type="password" 
+                    type="password" _
                     placeholder="Please input password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)} 

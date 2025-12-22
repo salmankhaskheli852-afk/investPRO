@@ -124,38 +124,6 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
                     batch.update(userRef, { isVerified: true });
                 }
             }
-
-            // 4. Handle referral system
-            if (currentUserData.referrerId) {
-                const commissionRate = (appSettings?.referralCommissionPercentage || 0) / 100;
-                const commissionAmount = tx.amount * commissionRate;
-
-                if (commissionAmount > 0) {
-                    const referrerWalletRef = doc(firestore, 'users', currentUserData.referrerId, 'wallets', 'main');
-                    const referrerWalletDoc = await getDoc(referrerWalletRef);
-
-                    if (referrerWalletDoc.exists()) {
-                        // IMPORTANT: Add commission to balance
-                        batch.update(referrerWalletRef, { balance: increment(commissionAmount) });
-
-                        // Create a transaction record for the commission
-                        const referrerTxRef = doc(collection(firestore, 'users', currentUserData.referrerId, 'wallets', 'main', 'transactions'));
-                        batch.set(referrerTxRef, {
-                            id: referrerTxRef.id,
-                            type: 'referral_income',
-                            amount: commissionAmount,
-                            status: 'completed',
-                            date: serverTimestamp(),
-                            walletId: 'main',
-                            details: {
-                                referredUserId: user.id,
-                                referredUserName: user.name,
-                                originalDeposit: tx.amount,
-                            }
-                        });
-                    }
-                }
-            }
         }
         
         // 5. Update transaction status in both locations
