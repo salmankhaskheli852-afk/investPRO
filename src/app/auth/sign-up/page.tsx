@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, increment } from 'firebase/firestore';
-import type { User as AppUser, Wallet } from '@/lib/data';
+import type { User as AppUser, Wallet, AppSettings } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { 
   User as FirebaseAuthUser, 
@@ -205,9 +205,12 @@ function LoginPageContent() {
     const batch = writeBatch(firestore);
     
     try {
+      const settingsRef = doc(firestore, 'app_config', 'app_settings');
+      const settingsSnap = await getDoc(settingsRef);
+      const appSettings = settingsSnap.data() as AppSettings;
+
       let finalReferrerUid: string | null = null;
-      // Default bonus for non-referred users is 200, for referred users is 411
-      let initialBalance = 200; 
+      let initialBalance = appSettings?.nonReferralBonus || 200;
 
       if (referrerIdFromInput) {
         const referrerQuery = query(collection(firestore, 'users'), where('id', '==', referrerIdFromInput));
@@ -216,7 +219,7 @@ function LoginPageContent() {
           const referrerDoc = referrerSnapshot.docs[0];
           if (referrerDoc.id !== user.uid) { // Prevent self-referral
             finalReferrerUid = referrerDoc.id;
-            initialBalance = 411; // Bonus for referred users
+            initialBalance = appSettings?.referralBonus || 411; 
              // Give 300 PKR gift to the referrer
             const referrerWalletRef = doc(firestore, 'users', finalReferrerUid, 'wallets', 'main');
             const referrerTxRef = doc(collection(firestore, 'users', finalReferrerUid, 'wallets', 'main', 'transactions'));

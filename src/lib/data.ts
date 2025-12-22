@@ -130,6 +130,8 @@ export type AppSettings = {
     maxWithdrawal?: number;
     baseInvitationUrl?: string;
     referralCommissionPercentage?: number;
+    nonReferralBonus?: number; // Welcome bonus for users without a referrer
+    referralBonus?: number; // Welcome bonus for users with a referrer
     userMaintenanceMode?: boolean;
     userMaintenanceMessage?: string;
     agentMaintenanceMode?: boolean;
