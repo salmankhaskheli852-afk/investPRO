@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -232,8 +233,8 @@ export default function UserDashboardPage() {
             <div>
               {activeInvestments.length > 0 ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  {activeInvestments.map((plan) => (
-                    <InvestmentPlanCard key={plan.id} plan={plan} isPurchased={true} showPurchaseButton={false} />
+                  {activeInvestments.map((plan, index) => (
+                    <InvestmentPlanCard key={`${plan.id}-${index}`} plan={plan} isPurchased={true} showPurchaseButton={false} />
                   ))}
                 </div>
               ) : (
