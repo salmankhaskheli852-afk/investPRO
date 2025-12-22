@@ -202,6 +202,8 @@ function LoginPageContent() {
     
     try {
       let finalReferrerUid: string | null = null;
+      let initialBalance = 200; // Default bonus for non-referred users
+
       if (referrerIdFromInput) {
         const referrerQuery = query(collection(firestore, 'users'), where('id', '==', referrerIdFromInput));
         const referrerSnapshot = await getDocs(referrerQuery);
@@ -209,6 +211,7 @@ function LoginPageContent() {
           const referrerDoc = referrerSnapshot.docs[0];
           if (referrerDoc.id !== user.uid) { // Prevent self-referral
             finalReferrerUid = referrerDoc.id;
+            initialBalance = 411; // Bonus for referred users
              // Give 300 PKR gift to the referrer
             const referrerWalletRef = doc(firestore, 'users', finalReferrerUid, 'wallets', 'main');
             const referrerTxRef = doc(collection(firestore, 'users', finalReferrerUid, 'wallets', 'main', 'transactions'));
@@ -254,7 +257,7 @@ function LoginPageContent() {
       const newWallet: Wallet = {
         id: 'main',
         userId: user.uid,
-        balance: 0,
+        balance: initialBalance,
       };
   
       batch.set(userRef, newUser);
@@ -402,4 +405,3 @@ export default function SignUpPage() {
   );
 }
 
-    
