@@ -9,11 +9,22 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import type { User as AppUser, Wallet } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { GoogleAuthProvider, signInWithPopup, User as FirebaseAuthUser, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-import { ShieldCheck, TrendingUp, Users, Copy, Gift } from 'lucide-react';
+import { 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  User as FirebaseAuthUser, 
+  RecaptchaVerifier, 
+  signInWithPhoneNumber, 
+  ConfirmationResult,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword
+} from 'firebase/auth';
+import { ShieldCheck, TrendingUp, Users, Copy, Gift, ArrowLeft, Smartphone, Lock, Heart } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 function LoginPageContent() {
@@ -27,13 +38,17 @@ function LoginPageContent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [invitationCode, setInvitationCode] = useState('');
   const [isRefCodeFromUrl, setIsRefCodeFromUrl] = useState(false);
+  const [activeTab, setActiveTab] = useState('register');
 
-  // Phone auth state
+  // Register state
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [isOtpSent, setIsOtpSent] = useState(false);
-  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Login state
+  const [loginPhone, setLoginPhone] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
 
   useEffect(() => {
     const refCode = searchParams.get('ref');
@@ -43,71 +58,71 @@ function LoginPageContent() {
     }
   }, [searchParams]);
 
-  const setupRecaptcha = () => {
-    if (!auth) return;
-    // Destroy previous instance if it exists
-    if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear();
-    }
-    recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      'size': 'invisible',
-      'callback': (response: any) => {
-        // reCAPTCHA solved, allow signInWithPhoneNumber.
-      },
-    });
-  };
+  // Helper to format phone number to a valid email for Firebase Auth
+  const formatPhoneAsEmail = (phone: string) => {
+    // Remove all non-digit characters and ensure it starts with '+'
+    const cleanedPhone = phone.startsWith('+') ? phone : `+${phone.replace(/\D/g, '')}`;
+    if(cleanedPhone.length < 10) return null; // Basic validation
+    return `${cleanedPhone}@investpro.app`; // Using a dummy domain
+  }
 
-  const onSignInSubmit = async () => {
-    if (!auth) return;
-    setIsProcessing(true);
-    setupRecaptcha();
+  const handleRegister = async () => {
+    if (!auth || !firestore) return;
+    if (!phone || !password || !confirmPassword) {
+      toast({ variant: 'destructive', title: 'Missing fields', description: 'Please fill all required fields.' });
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast({ variant: 'destructive', title: 'Passwords do not match' });
+      return;
+    }
+
+    const email = formatPhoneAsEmail(phone);
+    if (!email) {
+      toast({ variant: 'destructive', title: 'Invalid Phone Number', description: 'Please enter a valid phone number with country code.' });
+      return;
+    }
     
+    setIsProcessing(true);
     try {
-      const appVerifier = recaptchaVerifierRef.current!;
-      const result = await signInWithPhoneNumber(auth, phone, appVerifier);
-      setConfirmationResult(result);
-      setIsOtpSent(true);
-      toast({ title: 'OTP Sent', description: `An OTP has been sent to ${phone}.` });
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const newUser = userCredential.user;
+      await createUserProfile(newUser, invitationCode, phone);
+      // Redirection will be handled by useEffect
     } catch (error: any) {
-      console.error("Phone Sign-In Error:", error);
-      if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear(); // Clear verifier on error
+      if (error.code === 'auth/email-already-in-use') {
+        toast({ variant: 'destructive', title: 'Registration Failed', description: 'This phone number is already registered.' });
+      } else {
+        toast({ variant: 'destructive', title: 'Registration Failed', description: error.message });
       }
-      toast({
-        variant: 'destructive',
-        title: 'Failed to Send OTP',
-        description: error.message,
-      });
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const verifyOtp = async () => {
-    if (!confirmationResult) return;
+  const handleLogin = async () => {
+    if (!auth) return;
+     if (!loginPhone || !loginPassword) {
+      toast({ variant: 'destructive', title: 'Missing fields' });
+      return;
+    }
+    const email = formatPhoneAsEmail(loginPhone);
+    if (!email) {
+       toast({ variant: 'destructive', title: 'Invalid Phone Number' });
+       return;
+    }
+    
     setIsProcessing(true);
     try {
-      const result = await confirmationResult.confirm(otp);
-      const phoneUser = result.user;
-      
-      const userDocRef = doc(firestore, 'users', phoneUser.uid);
-      const docSnap = await getDoc(userDocRef);
-
-      if (!docSnap.exists()) {
-        await createUserProfile(phoneUser, invitationCode, phone);
-      }
-      // Redirection will be handled by the useEffect hook
+      await signInWithEmailAndPassword(auth, email, loginPassword);
+      // Redirection will be handled by useEffect
     } catch (error: any) {
-       console.error("OTP Verification Error:", error);
-      toast({
-        variant: 'destructive',
-        title: 'OTP Verification Failed',
-        description: error.message,
-      });
+       toast({ variant: 'destructive', title: 'Login Failed', description: 'Invalid phone number or password.' });
     } finally {
       setIsProcessing(false);
     }
   }
+
 
   const handleGoogleSignIn = async () => {
     if (!auth || !firestore) return;
@@ -123,12 +138,8 @@ function LoginPageContent() {
       const docSnap = await getDoc(userDocRef);
   
       if (!docSnap.exists()) {
-        // New user, create a profile for them
         await createUserProfile(googleUser, invitationCode, null);
-        // Explicitly redirect new users to their dashboard immediately after profile creation
-        router.push('/user/me');
       }
-      // For existing users, the useEffect hook below will handle redirection.
     } catch (error: any) {
       console.error("Google Sign-In Error:", error);
       toast({
@@ -164,7 +175,7 @@ function LoginPageContent() {
   
       const newUser: AppUser = {
         id: user.uid,
-        email: user.email || '',
+        email: user.email || formatPhoneAsEmail(phoneNumber || '') || '',
         phoneNumber: user.phoneNumber || phoneNumber || '',
         name: user.displayName || `User ${user.uid.substring(0, 5)}`,
         avatarUrl: user.photoURL || `https://picsum.photos/seed/${user.uid}/200`,
@@ -208,13 +219,11 @@ function LoginPageContent() {
             router.push('/user/me');
           }
         } else {
-            // This might happen in a race condition where the doc is not yet created
-            // We give it a second and then try to create it.
             setTimeout(() => {
                  getDoc(userDocRef).then(async (snap) => {
                      if (!snap.exists()) {
-                         if (user.providerData[0].providerId === 'phone') {
-                             await createUserProfile(user, invitationCode, user.phoneNumber);
+                         if (user.providerData[0].providerId === 'phone' || user.providerData[0].providerId === 'password') {
+                             await createUserProfile(user, invitationCode, user.phoneNumber || phone);
                          } else {
                              await createUserProfile(user, invitationCode, null);
                          }
@@ -225,106 +234,106 @@ function LoginPageContent() {
         }
       });
     }
-  }, [user, isUserLoading, firestore, router, invitationCode]);
+  }, [user, isUserLoading, firestore, router, invitationCode, phone]);
   
   if (isUserLoading || user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-login-gradient">
         <p>Loading...</p>
       </div>
     );
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-login-gradient p-4">
-      <div id="recaptcha-container"></div>
-      <div className="w-full max-w-sm rounded-xl p-1 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-        <Card className="shadow-lg overflow-hidden rounded-xl">
-          <CardContent>
-            <div className="relative h-48 w-full">
-              <Image src="/logo.png" alt="investPro Logo" fill className="object-cover" />
-            </div>
-            <div className="flex flex-col justify-center items-center gap-2 py-8">
-              <h1 className="font-headline text-4xl font-bold text-primary">investPro</h1>
-              <p className="text-muted-foreground text-sm text-center">Your trusted partner in modern investments.</p>
+    <main className="flex min-h-screen flex-col bg-login-gradient p-4">
+       <div className="flex items-center h-16">
+            <Button variant="ghost" size="icon" onClick={() => router.back()}>
+                <ArrowLeft className="h-6 w-6" />
+            </Button>
+       </div>
+       <div className="flex flex-col items-center justify-center pt-8 pb-12">
+            <Image src="/logo.png" alt="investPro Logo" width={80} height={80} />
+            <h1 className="font-headline text-4xl font-bold text-primary mt-2">investPro</h1>
+       </div>
+      
+      <Card className="shadow-lg rounded-t-3xl flex-1 p-6">
+        <CardContent className="p-0">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login" className="text-lg">Log in</TabsTrigger>
+              <TabsTrigger value="register" className="text-lg">Register</TabsTrigger>
+            </TabsList>
+            <TabsContent value="login" className="mt-8 space-y-6">
+              <Input 
+                icon={<Smartphone className="text-muted-foreground" />} 
+                type="tel" 
+                placeholder="Please enter mobile account"
+                value={loginPhone}
+                onChange={(e) => setLoginPhone(e.target.value)}
+              />
+              <Input 
+                icon={<Lock className="text-muted-foreground" />} 
+                type="password" 
+                placeholder="Please input password" 
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+              />
+              <Button onClick={handleLogin} className="w-full h-12 text-lg rounded-full" disabled={isProcessing}>
+                {isProcessing ? 'Logging in...' : 'Log In'}
+              </Button>
+            </TabsContent>
+            <TabsContent value="register" className="mt-8 space-y-6">
+                <Input 
+                    icon={<Smartphone className="text-muted-foreground" />} 
+                    type="tel" 
+                    placeholder="Please enter mobile account"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                />
+                <Input 
+                    icon={<Lock className="text-muted-foreground" />} 
+                    type="password" 
+                    placeholder="Please input password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)} 
+                />
+                 <Input 
+                    icon={<Lock className="text-muted-foreground" />} 
+                    type="password" 
+                    placeholder="Please enter password again" 
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+                <Input 
+                    icon={<Heart className="text-muted-foreground" />} 
+                    type="text" 
+                    placeholder="Please enter the invitation code"
+                    value={invitationCode}
+                    onChange={(e) => setInvitationCode(e.target.value)}
+                    disabled={isRefCodeFromUrl}
+                />
+              <Button onClick={handleRegister} className="w-full h-12 text-lg rounded-full" disabled={isProcessing}>
+                {isProcessing ? 'Signing up...' : 'Sign Up'}
+              </Button>
+            </TabsContent>
+          </Tabs>
+
+            <div className="relative my-8">
+                <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or</span>
+                </div>
             </div>
             
-            <div className="space-y-6 px-8 pb-8">
-                <Button onClick={handleGoogleSignIn} className="w-full h-12 text-md" disabled={isProcessing}>
-                    {isProcessing ? (
-                        'Signing in...'
-                    ) : (
-                        <>
-                            <Image src="/google-logo.svg" alt="Google" width={20} height={20} className="mr-2" />
-                            Sign in with Google
-                        </>
-                    )}
-                </Button>
-                
-                <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-                    </div>
-                </div>
-
-                {!isOtpSent ? (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="phone">Phone Number</Label>
-                        <Input id="phone" type="tel" placeholder="+1 123 456 7890" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                    </div>
-                    <Button onClick={onSignInSubmit} className="w-full" disabled={isProcessing || !phone}>
-                      {isProcessing ? 'Sending...' : 'Send OTP'}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="otp">OTP</Label>
-                      <Input id="otp" type="text" placeholder="Enter OTP" value={otp} onChange={(e) => setOtp(e.target.value)} />
-                    </div>
-                    <Button onClick={verifyOtp} className="w-full" disabled={isProcessing || !otp}>
-                      {isProcessing ? 'Verifying...' : 'Verify OTP & Sign In'}
-                    </Button>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                    <Label htmlFor="invitation-code" className="flex items-center gap-1.5 text-muted-foreground">
-                        <Gift className="h-4 w-4" />
-                        Invitation Code (Optional)
-                    </Label>
-                    <Input 
-                        id="invitation-code"
-                        placeholder="Enter your invitation code"
-                        value={invitationCode}
-                        onChange={(e) => setInvitationCode(e.target.value)}
-                        disabled={isRefCodeFromUrl}
-                    />
-                </div>
+            <div className="flex justify-center">
+                 <Button onClick={handleGoogleSignIn} variant="outline" className="h-14 w-14 rounded-full p-0" disabled={isProcessing}>
+                    <Image src="/google-logo.svg" alt="Google" width={28} height={28} />
+                 </Button>
             </div>
-            
-            <div className="mt-8 flex justify-around text-muted-foreground p-8 border-t">
-                <div className="flex items-center gap-2 text-xs">
-                    <ShieldCheck className="h-4 w-4 text-green-500" />
-                    <span>Secure</span>
-                </div>
-                 <div className="flex items-center gap-2 text-xs">
-                    <TrendingUp className="h-4 w-4 text-blue-500" />
-                    <span>Reliable</span>
-                </div>
-                 <div className="flex items-center gap-2 text-xs">
-                    <Users className="h-4 w-4 text-purple-500" />
-                    <span>Community</span>
-                </div>
-            </div>
-
-          </CardContent>
-        </Card>
-      </div>
+        </CardContent>
+      </Card>
     </main>
   );
 }
@@ -332,7 +341,7 @@ function LoginPageContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><p>Loading...</p></div>}>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-login-gradient"><p>Loading...</p></div>}>
       <LoginPageContent />
     </Suspense>
   );
