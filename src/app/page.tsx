@@ -72,14 +72,14 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [invitationCode, setInvitationCode] = useState('');
-  const [isRefCodeFromUrl, setIsRefCodeFromUrl] = useState(false);
   const [activeTab, setActiveTab] = useState('register');
 
   // Register state
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [invitationCode, setInvitationCode] = useState('');
+  const [isRefCodeFromUrl, setIsRefCodeFromUrl] = useState(false);
   const [captchaInput, setCaptchaInput] = useState('');
   const [captchaText, setCaptchaText] = useState('');
 
