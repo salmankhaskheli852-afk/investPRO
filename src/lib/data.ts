@@ -132,7 +132,6 @@ export type AppSettings = {
     referralCommissionPercentage?: number;
     nonReferralBonus?: number; // Welcome bonus for users without a referrer
     referralBonus?: number; // Welcome bonus for users with a referrer
-    giftOnDeposit?: number; // Gift on every deposit
     userMaintenanceMode?: boolean;
     userMaintenanceMessage?: string;
     agentMaintenanceMode?: boolean;

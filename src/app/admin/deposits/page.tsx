@@ -278,28 +278,9 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
                       });
                   }
                 }
-
-                // 6. Handle Gift on Every Deposit
-                if (appSettings?.giftOnDeposit && appSettings.giftOnDeposit > 0) {
-                    const giftAmount = appSettings.giftOnDeposit;
-                    transaction.update(walletRef, { balance: increment(giftAmount) });
-
-                    const giftTxRef = doc(collection(firestore, 'users', user.id, 'wallets', 'main', 'transactions'));
-                    transaction.set(giftTxRef, {
-                        id: giftTxRef.id,
-                        type: 'gift_bonus',
-                        amount: giftAmount,
-                        status: 'completed',
-                        date: serverTimestamp(),
-                        walletId: 'main',
-                        details: {
-                            reason: `Gift for depositing ${tx.amount} PKR`,
-                        }
-                    });
-                }
             }
             
-            // 7. Update transaction status in both locations
+            // 6. Update transaction status in both locations
             transaction.update(globalTransactionRef, { status: newStatus });
             transaction.set(userTransactionRef, { status: newStatus }, { merge: true });
         });
