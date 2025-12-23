@@ -14,6 +14,11 @@ service cloud.firestore {
              );
     }
 
+    // Explicit rule for transactions collection for Admin and Agent
+    match /transactions/{transactionId} {
+      allow read, write, list, create, update, delete: if isAdmin() || isAgent();
+    }
+
     // Helper function to check if the user is an agent by their role document.
     // IMPORTANT: It now checks for the existence of the user document first to prevent errors on new user registration.
     function isAgent() {
@@ -32,14 +37,14 @@ service cloud.firestore {
 
     // Grant AGENTS broad access to necessary collections.
     match /{collection}/{docId} {
-      allow read, write: if isAgent() && 
-                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests'];
+      allow read, write, list: if isAgent() && 
+                                 collection in ['users', 'investment_plans', 'plan_categories', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests'];
     }
      match /users/{userId}/{subCollection}/{docId} {
-        allow read, write: if isAgent();
+        allow read, write, list: if isAgent();
     }
      match /users/{userId}/{subCollection}/{docId}/{nestedSubCollection}/{nestedDocId} {
-        allow read, write: if isAgent();
+        allow read, write, list: if isAgent();
     }
     
     // --- Rules for regular authenticated users ---
@@ -109,7 +114,7 @@ service cloud.firestore {
       allow create: if isUserAuthenticated();
       // Allow user to read their own transaction from the global list for status checks,
       // but not list the entire collection.
-      allow read: if isUserAuthenticated() && request.auth.uid == get(/databases/$(database)/documents/transactions/$(transactionId)).data.details.userId;
+      allow read: if isUserAuthenticated() && get(/databases/$(database)/documents/transactions/$(transactionId)).data.details.userId == request.auth.uid;
     }
     
     // Allow creation and writing to the referral requests
