@@ -19,7 +19,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { User, Transaction } from '@/lib/data';
 import { collection, doc, query, where, collectionGroup } from 'firebase/firestore';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 
 export default function AgentHistoryPage({ params }: { params: { agentId: string } }) {
   const agentId = params.agentId as string;
@@ -54,6 +54,27 @@ export default function AgentHistoryPage({ params }: { params: { agentId: string
       [firestore, managedUsers, adminUser]
   );
   const { data: withdrawalTransactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(withdrawalTransactionsQuery);
+
+  const filteredHistory = React.useMemo(() => {
+    if (!withdrawalTransactions) return [];
+    
+    const sevenDaysAgo = subDays(new Date(), 7);
+
+    return withdrawalTransactions.filter(tx => {
+      // Always show pending transactions
+      if (tx.status === 'pending') {
+        return true;
+      }
+      
+      // For completed or failed transactions, only show if the date is older than 7 days
+      if (tx.date && (tx.status === 'completed' || tx.status === 'failed')) {
+        return tx.date.toDate() < sevenDaysAgo;
+      }
+      
+      // Fallback for transactions without a date, don't show them in history unless they're pending
+      return false;
+    });
+  }, [withdrawalTransactions]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -91,7 +112,7 @@ export default function AgentHistoryPage({ params }: { params: { agentId: string
         </Button>
         <div>
             <h1 className="text-3xl font-bold font-headline">Withdrawal History for {agent?.name || '...'}</h1>
-            <p className="text-muted-foreground">A record of all withdrawal transactions for users managed by this agent.</p>
+            <p className="text-muted-foreground">A record of withdrawal transactions for users managed by this agent (older than 7 days).</p>
         </div>
        </div>
 
@@ -114,8 +135,8 @@ export default function AgentHistoryPage({ params }: { params: { agentId: string
                     Loading history...
                   </TableCell>
                 </TableRow>
-              ) : withdrawalTransactions && withdrawalTransactions.length > 0 ? (
-                withdrawalTransactions.map((tx) => {
+              ) : filteredHistory && filteredHistory.length > 0 ? (
+                filteredHistory.map((tx) => {
                   const user = managedUsers?.find(u => u.id === tx.details.userId);
                   return (
                     <TableRow key={tx.id}>
@@ -147,7 +168,7 @@ export default function AgentHistoryPage({ params }: { params: { agentId: string
               ) : (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center h-24">
-                    No withdrawal history found for this agent's users.
+                    No withdrawal history found for this agent's users (older than 7 days).
                   </TableCell>
                 </TableRow>
               )}
