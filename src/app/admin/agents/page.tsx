@@ -84,12 +84,6 @@ function AgentRow({
               <Settings className="mr-2 h-4 w-4" />
               Manage Accounts
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={`/admin/agents/${agent.id}/history`}>
-                <History className="mr-2 h-4 w-4" />
-                View History
-              </Link>
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>
