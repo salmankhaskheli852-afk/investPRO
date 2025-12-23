@@ -376,10 +376,6 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
                   </Link>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Sender Details
-              </DropdownMenuItem>
                <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
@@ -538,3 +534,4 @@ export default function AdminDepositsPage() {
     
 
     
+
