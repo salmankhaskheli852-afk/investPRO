@@ -58,6 +58,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MoreHorizontal } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 
+type StatField = 'balance' | 'investment' | 'deposit' | 'withdraw';
+type TransactionTypeForField = 'income' | 'investment' | 'deposit' | 'withdrawal';
+
+
 export default function UserDetailsPage() {
   const params = useParams();
   const userId = params.userId as string;
@@ -65,7 +69,7 @@ export default function UserDetailsPage() {
   const { toast } = useToast();
 
   const [isStatEditDialogOpen, setIsStatEditDialogOpen] = React.useState(false);
-  const [editingStatField, setEditingStatField] = React.useState<{ title: string; value: number; field: string } | null>(null);
+  const [editingStatField, setEditingStatField] = React.useState<{ title: string; value: number; field: StatField } | null>(null);
   const [newStatValue, setNewStatValue] = React.useState('');
   const [adjustmentReason, setAdjustmentReason] = React.useState('');
 
@@ -120,7 +124,7 @@ export default function UserDetailsPage() {
 
   const isLoading = isLoadingUser || isLoadingWallet || isLoadingTransactions || isLoadingPlans;
 
-  const handleEditStatClick = (title: string, value: number, field: string) => {
+  const handleEditStatClick = (title: string, value: number, field: StatField) => {
     setEditingStatField({ title, value, field });
     setNewStatValue(String(value));
     setAdjustmentReason('');
@@ -129,12 +133,6 @@ export default function UserDetailsPage() {
   
   const handleSaveStatChanges = async () => {
     if (!editingStatField || !firestore || !userId || !walletDocRef) return;
-
-    // We only allow editing the wallet balance directly
-    if (editingStatField.field !== 'balance') {
-        toast({ variant: 'default', title: 'Read-only value', description: `${editingStatField.title} is a calculated value and cannot be edited directly.` });
-        return;
-    }
     
     const numericNewValue = parseFloat(newStatValue);
     if (isNaN(numericNewValue)) {
@@ -146,23 +144,37 @@ export default function UserDetailsPage() {
         return;
     }
 
-    const difference = numericNewValue - editingStatField.value;
+    const currentValue = editingStatField.value;
+    const difference = numericNewValue - currentValue;
+
+    // This map helps determine the transaction type and its effect on balance.
+    // Positive difference means adding to balance, negative means subtracting.
+    const fieldToActionMap: Record<StatField, { txType: TransactionTypeForField; reasonPrefix: string }> = {
+        'balance': { txType: 'income', reasonPrefix: 'Balance adjustment' },
+        'deposit': { txType: 'deposit', reasonPrefix: 'Deposit adjustment' },
+        'withdraw': { txType: 'withdrawal', reasonPrefix: 'Withdrawal adjustment' },
+        'investment': { txType: 'investment', reasonPrefix: 'Investment adjustment' }
+    };
+    const { txType, reasonPrefix } = fieldToActionMap[editingStatField.field];
 
     try {
         const batch = writeBatch(firestore);
 
-        // 1. Update the wallet balance
-        batch.update(walletDocRef, { [editingStatField.field]: numericNewValue });
+        // ALWAYS update the main wallet balance.
+        batch.update(walletDocRef, { balance: increment(difference) });
 
-        // 2. Create a new transaction log for the adjustment
+        // Create a new transaction log for the adjustment.
+        // Note: For 'withdrawal' and 'investment' adjustments, if the difference is positive (meaning we are increasing the total),
+        // we are still *adding* to the balance, which might seem counter-intuitive.
+        // The logic is: "Admin is manually adjusting this value, and the side-effect is a balance change".
         const newTxRef = doc(collection(firestore, 'users', userId, 'wallets', 'main', 'transactions'));
         batch.set(newTxRef, {
             id: newTxRef.id,
-            type: 'income', // Or a new type like 'adjustment'
-            amount: difference,
+            type: txType,
+            amount: difference, // Log the difference. Could be positive or negative.
             status: 'completed',
             date: serverTimestamp(),
-            details: { reason: `Manual Adjustment: ${adjustmentReason}` },
+            details: { reason: `Manual Adjustment: ${reasonPrefix}: ${adjustmentReason}` },
             walletId: 'main',
         });
         
@@ -511,7 +523,7 @@ export default function UserDetailsPage() {
           <DialogHeader>
             <DialogTitle>Edit {editingStatField?.title}</DialogTitle>
             <DialogDescription>
-              Enter the new value. This will be reflected in the user's account and a transaction will be logged.
+              Adjusting this value will directly modify the user's wallet balance and log a corresponding transaction.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 grid gap-4">
