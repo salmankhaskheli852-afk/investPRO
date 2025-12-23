@@ -165,12 +165,14 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
   const { data: appSettings } = useDoc<AppSettings>(settingsRef);
   
   const handleCopy = () => {
-    const textToCopy = `Name: ${tx.details?.senderName}\nAccount: ${tx.details?.senderAccount}\nTID: ${tx.details?.tid}`;
-    navigator.clipboard.writeText(textToCopy);
-    toast({
-      title: 'Copied!',
-      description: `Sender details have been copied to your clipboard.`,
-    });
+    const tidToCopy = tx.details?.tid || '';
+    if (tidToCopy) {
+      navigator.clipboard.writeText(tidToCopy);
+      toast({
+        title: 'TID Copied!',
+        description: 'Transaction ID has been copied to your clipboard.',
+      });
+    }
   };
 
   const handleUpdateStatus = async (newStatus: 'completed' | 'failed') => {
