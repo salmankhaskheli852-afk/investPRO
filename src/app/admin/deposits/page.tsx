@@ -317,18 +317,13 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
       </TableCell>
       <TableCell className="font-medium">{tx.amount.toLocaleString()} PKR</TableCell>
       <TableCell>
-        <div className="flex items-center justify-between gap-2">
-            <div>
-                <div className="font-medium">{details.senderName}</div>
-                <div className="text-sm text-muted-foreground">{details.senderAccount}</div>
-                <div className="text-xs text-muted-foreground">TID: {details.tid}</div>
-            </div>
-            <div className="flex flex-col gap-1">
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopy}>
+        <div>
+            <div className="font-medium">{details.senderName}</div>
+            <div className="text-sm text-muted-foreground">{details.senderAccount}</div>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span>TID: {details.tid}</span>
+                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleCopy}>
                     <Copy className="h-3 w-3" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditDialogOpen(true)}>
-                    <Edit className="h-3 w-3" />
                 </Button>
             </div>
         </div>
@@ -376,6 +371,10 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
                   </Link>
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Sender Details
+              </DropdownMenuItem>
                <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
@@ -530,8 +529,3 @@ export default function AdminDepositsPage() {
     </div>
   );
 }
-
-    
-
-    
-
