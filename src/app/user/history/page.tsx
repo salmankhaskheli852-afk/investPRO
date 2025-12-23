@@ -19,22 +19,31 @@ function TransactionRow({ tx }: { tx: Transaction }) {
         return 'bg-amber-500/20 text-amber-700';
       case 'failed':
         return 'bg-red-500/20 text-red-700';
+      case 'revoked':
+        return 'bg-gray-500/20 text-gray-700';
       default:
-        return '';
+        return 'bg-gray-500/20 text-gray-700';
     }
   };
   
   const getTypeText = () => {
-      if (tx.type === 'investment') {
-          return `Investment: ${tx.details?.planName || 'Plan'}`;
+      let typeText = tx.type.replace('_', ' ');
+      typeText = typeText.charAt(0).toUpperCase() + typeText.slice(1);
+      
+      if (tx.type === 'investment' && tx.details?.planName) {
+          return `${typeText}: ${tx.details.planName}`;
       }
-      return tx.type.charAt(0).toUpperCase() + tx.type.slice(1);
+      if(tx.type === 'referral_income' && tx.details?.reason) {
+          return tx.details.reason;
+      }
+      return typeText;
   }
 
   return (
     <TableRow>
       <TableCell>
         <div className="font-medium">{getTypeText()}</div>
+        {tx.details?.tid && <div className="text-xs text-muted-foreground">TID: {tx.details.tid}</div>}
       </TableCell>
       <TableCell className="text-right font-medium">{tx.amount.toLocaleString()} PKR</TableCell>
       <TableCell>
@@ -76,7 +85,7 @@ export default function UserHistoryPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Type</TableHead>
+                <TableHead>Details</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>

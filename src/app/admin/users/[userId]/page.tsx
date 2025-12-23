@@ -77,13 +77,13 @@ export default function UserDetailsPage() {
       () => firestore && userId ? doc(firestore, 'users', userId) : null,
       [firestore, userId]
   );
-  const { data: user, isLoading: isLoadingUser } = useDoc<User>(userDocRef);
+  const { data: user, isLoading: isLoadingUser, forceRefetch: refetchUser } = useDoc<User>(userDocRef);
   
   const walletDocRef = useMemoFirebase(
     () => firestore && userId ? doc(firestore, 'users', userId, 'wallets', 'main') : null,
     [firestore, userId]
   );
-  const { data: wallet, isLoading: isLoadingWallet } = useDoc<Wallet>(walletDocRef);
+  const { data: wallet, isLoading: isLoadingWallet, forceRefetch: refetchWallet } = useDoc<Wallet>(walletDocRef);
 
   const transactionsQuery = useMemoFirebase(
       () => firestore && userId
@@ -94,7 +94,7 @@ export default function UserDetailsPage() {
         : null,
       [firestore, userId]
   );
-  const { data: transactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(transactionsQuery);
+  const { data: transactions, isLoading: isLoadingTransactions, forceRefetch: refetchTransactions } = useCollection<Transaction>(transactionsQuery);
 
   const plansQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'investment_plans') : null,
@@ -152,10 +152,43 @@ export default function UserDetailsPage() {
   };
   
   const handleSaveTxChanges = async () => {
-    // This function is complex and needs careful review of the balance logic.
-    // Disabling for now to prevent accidental balance corruption.
-    toast({ variant: 'destructive', title: 'Not Implemented', description: 'Editing transactions is temporarily disabled.' });
+    if (!editingTransaction || !firestore || !userId) return;
+
+    const newAmount = parseFloat(editedTxAmount);
+    if (isNaN(newAmount)) {
+      toast({ variant: 'destructive', title: 'Invalid amount' });
+      return;
+    }
+
+    try {
+      const txRef = doc(firestore, 'users', userId, 'wallets', 'main', 'transactions', editingTransaction.id);
+      
+      await updateDoc(txRef, {
+        amount: newAmount,
+        type: editedTxType,
+        status: editedTxStatus,
+      });
+
+      // Also update the global transaction if it exists
+      const globalTxRef = doc(firestore, 'transactions', editingTransaction.id);
+      await updateDoc(globalTxRef, {
+        amount: newAmount,
+        type: editedTxType,
+        status: editedTxStatus,
+      }).catch(() => {
+        // Ignore if global transaction doesn't exist, as it's not critical
+      });
+
+      toast({ title: 'Transaction Updated', description: 'The transaction has been successfully modified. Please note that wallet balance is not automatically adjusted.' });
+      setIsTxEditDialogOpen(false);
+      setEditingTransaction(null);
+      refetchTransactions(); // Refetch to show updated data
+
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error Updating Transaction', description: e.message });
+    }
   };
+
 
   const handleDeleteTx = async (tx: Transaction) => {
     if (!firestore || !userId || !wallet) return;
@@ -165,14 +198,29 @@ export default function UserDetailsPage() {
         const txRef = doc(firestore, 'users', userId, 'wallets', 'main', 'transactions', tx.id);
         const walletRef = doc(firestore, 'users', userId, 'wallets', 'main');
 
-        if(tx.status === 'completed') {
-            batch.update(walletRef, { balance: increment(-tx.amount) });
+        // If the transaction being deleted was completed, adjust the balance
+        // This is a simple reversal. Deposits are subtracted, withdrawals/investments are added back.
+        if (tx.status === 'completed') {
+            if (tx.type === 'deposit' || tx.type === 'income' || tx.type === 'referral_income') {
+                batch.update(walletRef, { balance: increment(-tx.amount) });
+            } else if (tx.type === 'withdrawal' || tx.type === 'investment') {
+                batch.update(walletRef, { balance: increment(tx.amount) });
+            }
         }
         
         batch.delete(txRef);
+
+        // Also delete from global transactions if it exists
+        const globalTxRef = doc(firestore, 'transactions', tx.id);
+        batch.delete(globalTxRef);
+
         await batch.commit();
 
-        toast({ title: 'Transaction deleted' });
+        toast({ title: 'Transaction deleted', description: 'The transaction was deleted and the wallet balance was adjusted.' });
+        refetchTransactions();
+        refetchWallet();
+        refetchUser();
+
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Error deleting transaction', description: e.message });
     }
@@ -187,6 +235,10 @@ export default function UserDetailsPage() {
 
         batch.update(txRef, { status: 'revoked' });
         batch.update(walletRef, { balance: increment(-tx.amount) });
+
+        // Also update global transaction
+        const globalTxRef = doc(firestore, 'transactions', tx.id);
+        batch.update(globalTxRef, { status: 'revoked' });
 
         const revokedTxRef = doc(collection(firestore, 'users', userId, 'wallets', 'main', 'transactions'));
         batch.set(revokedTxRef, {
@@ -449,7 +501,7 @@ export default function UserDetailsPage() {
             <DialogHeader>
               <DialogTitle>Edit Transaction</DialogTitle>
               <DialogDescription>
-                Modify the transaction details below.
+                Modify the transaction details below. Wallet balance will not be auto-adjusted.
               </DialogDescription>
             </DialogHeader>
             <div className="py-4 grid gap-4">
