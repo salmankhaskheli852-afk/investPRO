@@ -477,8 +477,8 @@ export default function AdminDepositsPage() {
   const { data: depositRequests, isLoading: isLoadingDeposits, forceRefetch } = useCollection<Transaction>(depositsQuery);
   
   const adminWalletsQuery = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'admin_wallets') : null),
-    [firestore]
+    () => (firestore && adminUser ? collection(firestore, 'admin_wallets') : null),
+    [firestore, adminUser]
   );
   const { data: adminWallets, isLoading: isLoadingAdminWallets } = useCollection<AdminWallet>(adminWalletsQuery);
 
