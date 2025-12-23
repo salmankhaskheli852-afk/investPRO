@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { User, Transaction, AppSettings, AdminWallet, Wallet } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment, updateDoc, runTransaction, deleteDoc, setDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment, updateDoc, runTransaction, deleteDoc, setDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Search, Copy, MoreHorizontal, Eye, Trash2, ShieldX, Edit } from 'lucide-react';
@@ -42,8 +42,6 @@ import {
 import Link from 'next/link';
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 
 
 function EditSenderDetailsDialog({
@@ -466,65 +464,10 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
 }
 
 
-function HistoryRow({ tx, adminWallets }: { tx: Transaction; adminWallets: AdminWallet[] | null }) {
-    const firestore = useFirestore();
-    const userId = tx.details?.userId;
-    const userDocRef = useMemoFirebase(
-        () => (firestore && userId ? doc(firestore, 'users', userId) : null),
-        [firestore, userId]
-    );
-    const { data: user } = useDoc<User>(userDocRef);
-
-    const details = tx.details || {};
-    const depositToWallet = adminWallets?.find(w => w.id === details.adminWalletId);
-
-    const getStatusBadgeClass = (status: string) => {
-        switch (status) {
-            case 'completed': return 'bg-green-100 text-green-800';
-            case 'failed': return 'bg-red-100 text-red-800';
-            default: return 'bg-gray-100 text-gray-800';
-        }
-    };
-
-    return (
-        <TableRow>
-            <TableCell>
-                <div className="flex items-center gap-3">
-                    <Avatar>
-                        <AvatarImage src={user?.avatarUrl} alt={user?.name} />
-                        <AvatarFallback>{user?.name?.charAt(0) ?? '?'}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                        <div className="font-medium">{user?.name ?? '...'}</div>
-                        <div className="text-sm text-muted-foreground">{user?.email ?? '...'}</div>
-                    </div>
-                </div>
-            </TableCell>
-            <TableCell className="font-medium">{tx.amount.toLocaleString()} PKR</TableCell>
-            <TableCell>
-                <div>
-                    <div className="font-medium">{details.senderName}</div>
-                    <div className="text-sm text-muted-foreground">{details.senderAccount}</div>
-                    <div className="text-xs text-muted-foreground">TID: {details.tid}</div>
-                </div>
-            </TableCell>
-            <TableCell>
-                <div className="font-medium">{depositToWallet?.walletName}</div>
-                <div className="text-sm text-muted-foreground">{depositToWallet?.name}</div>
-            </TableCell>
-            <TableCell>
-                <Badge variant="outline" className={getStatusBadgeClass(tx.status)}>{tx.status}</Badge>
-            </TableCell>
-            <TableCell>{tx.date ? format(tx.date.toDate(), 'PPp') : 'N/A'}</TableCell>
-        </TableRow>
-    );
-}
-
 export default function AdminDepositsPage() {
   const firestore = useFirestore();
   const { user: adminUser } = useUser();
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [historySearchQuery, setHistorySearchQuery] = React.useState('');
 
   // Pending deposits query
   const depositsQuery = useMemoFirebase(
@@ -532,14 +475,6 @@ export default function AdminDepositsPage() {
     [firestore, adminUser]
   );
   const { data: depositRequests, isLoading: isLoadingDeposits, forceRefetch } = useCollection<Transaction>(depositsQuery);
-
-  // History query for completed and failed deposits
-  const historyQuery = useMemoFirebase(
-    () => (firestore && adminUser ? query(collection(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', 'in', ['completed', 'failed']), orderBy('date', 'desc')) : null),
-    [firestore, adminUser]
-  );
-  const { data: depositHistory, isLoading: isLoadingHistory } = useCollection<Transaction>(historyQuery);
-
   
   const adminWalletsQuery = useMemoFirebase(
     () => (firestore ? collection(firestore, 'admin_wallets') : null),
@@ -555,16 +490,6 @@ export default function AdminDepositsPage() {
     );
   }, [depositRequests, searchQuery]);
 
-  const filteredHistory = React.useMemo(() => {
-    if (!depositHistory) return [];
-    if (!historySearchQuery) return depositHistory;
-    return depositHistory.filter(tx =>
-        tx.details?.tid?.toLowerCase().includes(historySearchQuery.toLowerCase()) ||
-        tx.details?.senderName?.toLowerCase().includes(historySearchQuery.toLowerCase()) ||
-        tx.details?.senderAccount?.toLowerCase().includes(historySearchQuery.toLowerCase())
-    );
-  }, [depositHistory, historySearchQuery]);
-
   const isLoading = isLoadingDeposits || isLoadingAdminWallets;
 
   return (
@@ -574,128 +499,60 @@ export default function AdminDepositsPage() {
         <p className="text-muted-foreground">Approve, reject, and view the history of user deposit requests.</p>
       </div>
       
-      <Tabs defaultValue="pending">
-        <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="pending">Pending Requests</TabsTrigger>
-            <TabsTrigger value="history">Requests History</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="pending">
-             <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500 mt-4">
-              <Card className="rounded-lg">
-                <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <div >
-                            <CardTitle>Pending Requests</CardTitle>
-                            <CardDescription>Review the following deposit requests.</CardDescription>
-                        </div>
-                         <div className="w-full max-w-sm">
-                            <Input
-                                placeholder="Search by TID..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10"
-                                icon={<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />}
-                            />
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Sender Details</TableHead>
-                        <TableHead>Deposit To</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {isLoading ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center">
-                            Loading requests...
-                          </TableCell>
-                        </TableRow>
-                      ) : filteredRequests && filteredRequests.length > 0 ? (
-                        filteredRequests.map((tx) => (
-                          <DepositRequestRow key={tx.id} tx={tx} onUpdate={forceRefetch} adminWallets={adminWallets} />
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center">
-                            No pending deposit requests.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+       <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500 mt-4">
+        <Card className="rounded-lg">
+          <CardHeader>
+              <div className="flex justify-between items-center">
+                  <div >
+                      <CardTitle>Pending Requests</CardTitle>
+                      <CardDescription>Review the following deposit requests.</CardDescription>
+                  </div>
+                    <div className="w-full max-w-sm">
+                      <Input
+                          placeholder="Search by TID..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-10"
+                          icon={<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />}
+                      />
+                  </div>
               </div>
-        </TabsContent>
-
-        <TabsContent value="history">
-             <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500 mt-4">
-              <Card className="rounded-lg">
-                <CardHeader>
-                    <div className="flex justify-between items-center">
-                         <div>
-                            <CardTitle>Requests History</CardTitle>
-                            <CardDescription>A log of all completed and failed deposit requests.</CardDescription>
-                        </div>
-                         <div className="w-full max-w-sm">
-                            <Input
-                                placeholder="Search by TID, name, or account..."
-                                value={historySearchQuery}
-                                onChange={(e) => setHistorySearchQuery(e.target.value)}
-                                className="pl-10"
-                                icon={<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />}
-                            />
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Sender Details</TableHead>
-                        <TableHead>Deposit To</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {isLoadingHistory ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center">
-                            Loading history...
-                          </TableCell>
-                        </TableRow>
-                      ) : filteredHistory && filteredHistory.length > 0 ? (
-                        filteredHistory.map((tx) => (
-                          <HistoryRow key={tx.id} tx={tx} adminWallets={adminWallets} />
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center">
-                            No history found.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </div>
-        </TabsContent>
-      </Tabs>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Sender Details</TableHead>
+                  <TableHead>Deposit To</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      Loading requests...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredRequests && filteredRequests.length > 0 ? (
+                  filteredRequests.map((tx) => (
+                    <DepositRequestRow key={tx.id} tx={tx} onUpdate={forceRefetch} adminWallets={adminWallets} />
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      No pending deposit requests.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+        </div>
     </div>
   );
 }
-
-    
