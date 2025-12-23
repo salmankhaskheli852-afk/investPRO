@@ -221,18 +221,38 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
                 transaction.update(walletRef, { balance: increment(tx.amount) });
 
                 // 2. Denormalize totalDeposit on user profile
+                const isFirstDeposit = !currentUserData.totalDeposit || currentUserData.totalDeposit === 0;
                 const newTotalDeposit = (currentUserData.totalDeposit || 0) + tx.amount;
                 transaction.update(userRef, { totalDeposit: newTotalDeposit });
 
-                // 3. Handle account verification
-                if (appSettings?.isVerificationEnabled && !currentUserData.isVerified) {
+                // 3. Handle account verification on first deposit
+                if (isFirstDeposit && appSettings?.isVerificationEnabled && !currentUserData.isVerified) {
                     if (tx.amount >= (appSettings.verificationDepositAmount || 0)) {
                         transaction.update(userRef, { isVerified: true });
                     }
                 }
+                
+                // 4. Handle First Deposit Bonus
+                if (isFirstDeposit && appSettings?.firstDepositBonus && appSettings.firstDepositBonus > 0) {
+                    if(tx.amount >= (appSettings.minFirstDepositForBonus || 0)) {
+                        const bonusAmount = appSettings.firstDepositBonus;
+                        transaction.update(walletRef, { balance: increment(bonusAmount) });
+                        
+                        const bonusTxRef = doc(collection(firestore, 'users', user.id, 'wallets', 'main', 'transactions'));
+                        transaction.set(bonusTxRef, {
+                             id: bonusTxRef.id,
+                             type: 'first_deposit_bonus',
+                             amount: bonusAmount,
+                             status: 'completed',
+                             date: serverTimestamp(),
+                             walletId: 'main',
+                             details: { reason: `Bonus for first deposit of ${tx.amount} PKR` }
+                        });
+                    }
+                }
 
-                // 4. Handle referral commission on FIRST deposit
-                const isFirstDeposit = !currentUserData.totalDeposit || currentUserData.totalDeposit === 0;
+
+                // 5. Handle referral commission on FIRST deposit
                 if (isFirstDeposit && currentUserData.referrerId && appSettings?.referralCommissionPercentage) {
                     const commissionRate = appSettings.referralCommissionPercentage / 100;
                     const commissionAmount = tx.amount * commissionRate;
@@ -259,7 +279,7 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
                 }
             }
             
-            // 5. Update transaction status in both locations
+            // 6. Update transaction status in both locations
             transaction.update(globalTransactionRef, { status: newStatus });
             transaction.set(userTransactionRef, { status: newStatus }, { merge: true });
         });

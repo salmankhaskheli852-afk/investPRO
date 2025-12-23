@@ -142,6 +142,8 @@ export type AppSettings = {
     verificationDepositAmount?: number;
     shareableLink?: string;
     carouselImages?: string[];
+    minFirstDepositForBonus?: number;
+    firstDepositBonus?: number;
 }
 
 

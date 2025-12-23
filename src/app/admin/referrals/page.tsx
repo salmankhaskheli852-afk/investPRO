@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -17,6 +16,9 @@ export default function ReferralSettingsPage() {
   const [commissionPercentage, setCommissionPercentage] = React.useState('');
   const [nonReferralBonus, setNonReferralBonus] = React.useState('');
   const [referralBonus, setReferralBonus] = React.useState('');
+  const [minFirstDepositForBonus, setMinFirstDepositForBonus] = React.useState('');
+  const [firstDepositBonus, setFirstDepositBonus] = React.useState('');
+
 
   const [isSaving, setIsSaving] = React.useState(false);
   const { toast } = useToast();
@@ -34,6 +36,8 @@ export default function ReferralSettingsPage() {
       setCommissionPercentage(String(appSettings.referralCommissionPercentage || ''));
       setNonReferralBonus(String(appSettings.nonReferralBonus || '200'));
       setReferralBonus(String(appSettings.referralBonus || '411'));
+      setMinFirstDepositForBonus(String(appSettings.minFirstDepositForBonus || '1000'));
+      setFirstDepositBonus(String(appSettings.firstDepositBonus || '100'));
     }
   }, [appSettings]);
 
@@ -48,6 +52,8 @@ export default function ReferralSettingsPage() {
           referralCommissionPercentage: parseFloat(commissionPercentage) || 0,
           nonReferralBonus: parseFloat(nonReferralBonus) || 0,
           referralBonus: parseFloat(referralBonus) || 0,
+          minFirstDepositForBonus: parseFloat(minFirstDepositForBonus) || 0,
+          firstDepositBonus: parseFloat(firstDepositBonus) || 0,
         },
         { merge: true }
       );
@@ -149,6 +155,46 @@ export default function ReferralSettingsPage() {
               </p>
             </div>
           </CardContent>
+
+          <Separator className="my-6" />
+
+          <CardHeader>
+            <CardTitle>First Deposit Bonus</CardTitle>
+            <CardDescription>
+              Reward users for making their first deposit. This is separate from the welcome bonus.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+             <div className="space-y-2">
+              <Label htmlFor="min-first-deposit">Minimum Deposit for Bonus (PKR)</Label>
+              <Input
+                id="min-first-deposit"
+                type="number"
+                placeholder="e.g., 1000"
+                value={minFirstDepositForBonus}
+                onChange={(e) => setMinFirstDepositForBonus(e.target.value)}
+                disabled={isLoading}
+              />
+              <p className="text-xs text-muted-foreground">
+                User must deposit at least this amount to get the first deposit bonus.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="first-deposit-bonus">First Deposit Bonus Amount (PKR)</Label>
+              <Input
+                id="first-deposit-bonus"
+                type="number"
+                placeholder="e.g., 100"
+                value={firstDepositBonus}
+                onChange={(e) => setFirstDepositBonus(e.target.value)}
+                disabled={isLoading}
+              />
+              <p className="text-xs text-muted-foreground">
+                The bonus amount credited to the user's wallet on their first qualifying deposit.
+              </p>
+            </div>
+          </CardContent>
+
 
           <CardContent>
             <Button onClick={handleSave} disabled={isSaving || isLoading}>
