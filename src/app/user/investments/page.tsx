@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { InvestmentPlan, User, Wallet, PlanCategory } from '@/lib/data';
 import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function UserInvestmentsPage() {
   const { user } = useUser();
@@ -58,13 +59,15 @@ export default function UserInvestmentsPage() {
       </div>
 
       <Tabs defaultValue={planCategories?.[0]?.id || ''} className="w-full">
-        <TabsList className={`grid w-full grid-cols-${planCategories?.length || 1}`}>
-          {planCategories?.map(category => (
-            <TabsTrigger key={category.id} value={category.id}>
-              {category.name}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <ScrollArea className="w-full whitespace-nowrap">
+            <TabsList className="inline-flex h-auto">
+              {planCategories?.map(category => (
+                <TabsTrigger key={category.id} value={category.id} className="text-sm">
+                  {category.name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+        </ScrollArea>
         
         {planCategories?.map(category => {
           const plansInCategory = investmentPlans?.filter(plan => plan.categoryId === category.id);
