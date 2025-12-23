@@ -56,6 +56,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MoreHorizontal } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function UserDetailsPage() {
   const params = useParams();
@@ -66,6 +67,7 @@ export default function UserDetailsPage() {
   const [isStatEditDialogOpen, setIsStatEditDialogOpen] = React.useState(false);
   const [editingStatField, setEditingStatField] = React.useState<{ title: string; value: number; field: string } | null>(null);
   const [newStatValue, setNewStatValue] = React.useState('');
+  const [adjustmentReason, setAdjustmentReason] = React.useState('');
 
   const [isTxEditDialogOpen, setIsTxEditDialogOpen] = React.useState(false);
   const [editingTransaction, setEditingTransaction] = React.useState<Transaction | null>(null);
@@ -121,23 +123,50 @@ export default function UserDetailsPage() {
   const handleEditStatClick = (title: string, value: number, field: string) => {
     setEditingStatField({ title, value, field });
     setNewStatValue(String(value));
+    setAdjustmentReason('');
     setIsStatEditDialogOpen(true);
   };
   
   const handleSaveStatChanges = async () => {
-    if (!editingStatField || !firestore || !userId || !userDocRef || !walletDocRef) return;
+    if (!editingStatField || !firestore || !userId || !walletDocRef) return;
 
     const numericNewValue = parseFloat(newStatValue);
     if (isNaN(numericNewValue)) {
       toast({ variant: 'destructive', title: 'Invalid value', description: 'Please enter a valid number.' });
       return;
     }
+    if (!adjustmentReason) {
+        toast({ variant: 'destructive', title: 'Reason required', description: 'Please provide a reason for this adjustment.' });
+        return;
+    }
+
+    const difference = numericNewValue - editingStatField.value;
 
     try {
-        await updateDoc(walletDocRef, { [editingStatField.field]: numericNewValue });
-        toast({ title: 'Success', description: `${editingStatField.title} has been updated.` });
+        const batch = writeBatch(firestore);
+
+        // 1. Update the wallet balance
+        batch.update(walletDocRef, { [editingStatField.field]: numericNewValue });
+
+        // 2. Create a new transaction log for the adjustment
+        const newTxRef = doc(collection(firestore, 'users', userId, 'wallets', 'main', 'transactions'));
+        batch.set(newTxRef, {
+            id: newTxRef.id,
+            type: 'income', // Or a new type like 'adjustment'
+            amount: difference,
+            status: 'completed',
+            date: serverTimestamp(),
+            details: { reason: `Manual Adjustment: ${adjustmentReason}` },
+            walletId: 'main',
+        });
+        
+        await batch.commit();
+        
+        toast({ title: 'Success', description: `${editingStatField.title} has been updated and a transaction has been logged.` });
         setIsStatEditDialogOpen(false);
         setEditingStatField(null);
+        refetchWallet();
+        refetchTransactions();
     } catch (e: any) {
        toast({ variant: 'destructive', title: 'Error updating value', description: e.message });
     }
@@ -473,18 +502,29 @@ export default function UserDetailsPage() {
           <DialogHeader>
             <DialogTitle>Edit {editingStatField?.title}</DialogTitle>
             <DialogDescription>
-              Enter the new value. This will be reflected in the user's account.
+              Enter the new value. This will be reflected in the user's account and a transaction will be logged.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="new-value">New Value (PKR)</Label>
-            <Input
-              id="new-value"
-              type="number"
-              value={newStatValue}
-              onChange={(e) => setNewStatValue(e.target.value)}
-              placeholder={`Enter new ${editingStatField?.title.toLowerCase()}`}
-            />
+          <div className="py-4 grid gap-4">
+            <div className='space-y-2'>
+                <Label htmlFor="new-value">New Value (PKR)</Label>
+                <Input
+                id="new-value"
+                type="number"
+                value={newStatValue}
+                onChange={(e) => setNewStatValue(e.target.value)}
+                placeholder={`Enter new ${editingStatField?.title.toLowerCase()}`}
+                />
+            </div>
+            <div className='space-y-2'>
+                 <Label htmlFor="adjustment-reason">Reason for Adjustment</Label>
+                 <Textarea
+                    id="adjustment-reason"
+                    value={adjustmentReason}
+                    onChange={(e) => setAdjustmentReason(e.target.value)}
+                    placeholder="e.g., Manual bonus, correction, etc."
+                />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsStatEditDialogOpen(false)}>
@@ -551,3 +591,5 @@ export default function UserDetailsPage() {
     </div>
   );
 }
+
+    
