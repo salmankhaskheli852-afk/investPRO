@@ -12,30 +12,26 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
-import type { User, Transaction, AgentPermissions } from '@/lib/data';
-import { collection, query, where, orderBy, getDocs, doc } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import type { User, Transaction, AdminWallet } from '@/lib/data';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 function HistoryRow({ tx, user }: { tx: Transaction; user: User | undefined }) {
-  const getStatusBadge = () => {
-    switch (tx.status) {
-      case 'completed':
-        return 'bg-green-500/20 text-green-700';
-      case 'pending':
-        return 'bg-amber-500/20 text-amber-700';
-      case 'failed':
-        return 'bg-red-500/20 text-red-700';
-      case 'revoked':
-          return 'bg-gray-500/20 text-gray-700';
-      default:
-        return 'bg-gray-500/20 text-gray-700';
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'failed': return 'bg-red-100 text-red-800';
+      case 'revoked': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  const details = tx.details || {};
 
   return (
     <TableRow>
@@ -43,155 +39,199 @@ function HistoryRow({ tx, user }: { tx: Transaction; user: User | undefined }) {
         <div className="flex items-center gap-3">
           <Avatar>
             <AvatarImage src={user?.avatarUrl} alt={user?.name} />
-            <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{user?.name?.charAt(0) ?? '?'}</AvatarFallback>
           </Avatar>
           <div>
-            <div className="font-medium">{user?.name}</div>
-            <div className="text-sm text-muted-foreground">{user?.email}</div>
+            <div className="font-medium">{user?.name ?? '...'}</div>
+            <div className="text-sm text-muted-foreground">{user?.email ?? '...'}</div>
           </div>
         </div>
       </TableCell>
-      <TableCell className="capitalize">{tx.type.replace('_', ' ')}</TableCell>
-      <TableCell>{tx.amount.toLocaleString()} PKR</TableCell>
+      <TableCell className="font-medium">{tx.amount.toLocaleString()} PKR</TableCell>
       <TableCell>
-        <Badge variant='outline' className={getStatusBadge()}>
-          {tx.status}
-        </Badge>
+        {tx.type === 'deposit' ? (
+          <div>
+            <div className="font-medium">{details.senderName}</div>
+            <div className="text-sm text-muted-foreground">{details.senderAccount}</div>
+            <div className="text-xs text-muted-foreground">TID: {details.tid}</div>
+          </div>
+        ) : (
+           <div>
+            <div className="font-medium">{details.receiverName}</div>
+            <div className="text-sm text-muted-foreground">{details.receiverAccount}</div>
+            <div className="text-xs capitalize">{details.method}</div>
+          </div>
+        )}
       </TableCell>
-      <TableCell>{tx.date ? format(tx.date.toDate(), 'PPpp') : 'N/A'}</TableCell>
+      <TableCell>
+        <Badge variant="outline" className={getStatusBadgeClass(tx.status)}>{tx.status}</Badge>
+      </TableCell>
+      <TableCell>{tx.date ? format(tx.date.toDate(), 'PPp') : 'N/A'}</TableCell>
     </TableRow>
   );
 }
 
-export default function AgentHistorySearchPage() {
-  const { user: agentUser } = useUser();
-  const firestore = useFirestore();
-  
-  const [searchDigits, setSearchDigits] = React.useState('');
-  const [isSearching, setIsSearching] = React.useState(false);
-  const [searchResults, setSearchResults] = React.useState<{ user: User, transactions: Transaction[] }[]>([]);
-  const [searched, setSearched] = React.useState(false);
 
-  const agentDocRef = useMemoFirebase(
-      () => agentUser && firestore ? doc(firestore, 'users', agentUser.uid) : null,
-      [firestore, agentUser]
-  );
-  const { data: agentData } = useDoc<User>(agentDocRef);
+function HistoryTable({
+  transactions,
+  isLoading,
+  searchQuery,
+  onSearchChange,
+  searchPlaceholder
+}: {
+  transactions: (Transaction & { user?: User })[] | null;
+  isLoading: boolean;
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
+  searchPlaceholder: string;
+}) {
 
-  const handleSearch = async () => {
-    if (!firestore || !agentUser || !agentData || searchDigits.length !== 3) {
-        setSearched(true);
-        setSearchResults([]);
-        return;
-    }
-    
-    setIsSearching(true);
-    setSearched(true);
-    setSearchResults([]);
-
-    try {
-        let usersToSearchQuery;
-
-        if (agentData.permissions?.canViewAllUsers) {
-            // Permission to view all users, fetch everyone with role 'user'
-            usersToSearchQuery = query(collection(firestore, 'users'), where('role', '==', 'user'));
-        } else {
-            // Default: fetch only users assigned to this agent
-            usersToSearchQuery = query(collection(firestore, 'users'), where('agentId', '==', agentUser.uid));
-        }
-
-        const usersSnapshot = await getDocs(usersToSearchQuery);
-        const matchingUsers = usersSnapshot.docs
-            .map(d => d.data() as User)
-            .filter(u => u.id.endsWith(searchDigits));
-
-        const results = [];
-        for (const user of matchingUsers) {
-            const transactionsQuery = query(
-                collection(firestore, 'users', user.id, 'wallets', 'main', 'transactions'),
-                orderBy('date', 'desc')
-            );
-            const transactionsSnapshot = await getDocs(transactionsQuery);
-            const transactions = transactionsSnapshot.docs.map(d => d.data() as Transaction);
-            results.push({ user, transactions });
-        }
-        setSearchResults(results);
-
-    } catch (error) {
-        console.error("Error searching user history:", error);
-    } finally {
-        setIsSearching(false);
-    }
-  };
-
-  if (agentData && !agentData.permissions?.canViewUserHistory) {
-    return (
-      <div>
-        <h1 className="text-2xl font-bold">Access Denied</h1>
-        <p className="text-muted-foreground">You do not have permission to view user history.</p>
-      </div>
+  const filteredHistory = React.useMemo(() => {
+    if (!transactions) return [];
+    if (!searchQuery) return transactions;
+    return transactions.filter(tx =>
+        tx.details?.tid?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tx.details?.senderName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tx.details?.senderAccount?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tx.details?.receiverName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tx.details?.receiverAccount?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tx.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tx.user?.email?.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }
+  }, [transactions, searchQuery]);
+
+  return (
+    <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500 mt-4">
+      <Card className="rounded-lg">
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>History</CardTitle>
+              <CardDescription>A log of all processed transactions.</CardDescription>
+            </div>
+            <div className="w-full max-w-sm">
+              <Input
+                placeholder={searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="pl-10"
+                icon={<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />}
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Details</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center">
+                    Loading history...
+                  </TableCell>
+                </TableRow>
+              ) : filteredHistory && filteredHistory.length > 0 ? (
+                filteredHistory.map((tx) => (
+                  <HistoryRow key={tx.id} tx={tx} user={tx.user} />
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center">
+                    No history found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
+export default function AgentHistoryPage() {
+  const firestore = useFirestore();
+  const { user: agentUser } = useUser();
+  const [depositSearchQuery, setDepositSearchQuery] = React.useState('');
+  const [withdrawalSearchQuery, setWithdrawalSearchQuery] = React.useState('');
+
+  const usersQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'users') : null),
+    [firestore]
+  );
+  const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+
+  const depositHistoryQuery = useMemoFirebase(
+    () => (firestore && agentUser ? query(collection(firestore, 'transactions'), where('type', '==', 'deposit'), where('status', 'in', ['completed', 'failed', 'revoked']), orderBy('date', 'desc')) : null),
+    [firestore, agentUser]
+  );
+  const { data: depositHistory, isLoading: isLoadingDepositHistory } = useCollection<Transaction>(depositHistoryQuery);
+  
+  const withdrawalHistoryQuery = useMemoFirebase(
+    () => (firestore && agentUser ? query(collection(firestore, 'transactions'), where('type', '==', 'withdrawal'), where('status', 'in', ['completed', 'failed']), orderBy('date', 'desc')) : null),
+    [firestore, agentUser]
+  );
+  const { data: withdrawalHistory, isLoading: isLoadingWithdrawalHistory } = useCollection<Transaction>(withdrawalHistoryQuery);
+
+  const enrichedDepositHistory = React.useMemo(() => {
+    if (!depositHistory || !users) return null;
+    return depositHistory.map(tx => ({
+      ...tx,
+      user: users.find(u => u.id === tx.details?.userId)
+    }));
+  }, [depositHistory, users]);
+  
+  const enrichedWithdrawalHistory = React.useMemo(() => {
+    if (!withdrawalHistory || !users) return null;
+    return withdrawalHistory.map(tx => ({
+      ...tx,
+      user: users.find(u => u.id === tx.details?.userId)
+    }));
+  }, [withdrawalHistory, users]);
+
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold font-headline">User History Search</h1>
-        <p className="text-muted-foreground">Find a user's transaction history by the last 3 digits of their ID.</p>
+        <h1 className="text-3xl font-bold font-headline">Transaction History</h1>
+        <p className="text-muted-foreground">View all completed, failed, and revoked transactions.</p>
       </div>
+      
+      <Tabs defaultValue="deposits">
+        <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="deposits">Deposit History</TabsTrigger>
+            <TabsTrigger value="withdrawals">Withdrawal History</TabsTrigger>
+        </TabsList>
 
-      <div className="flex gap-2 max-w-sm">
-        <Input
-          placeholder="Enter last 3 digits of User ID"
-          value={searchDigits}
-          onChange={(e) => setSearchDigits(e.target.value)}
-          maxLength={3}
-          className="pl-10"
-          icon={<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />}
-        />
-        <Button onClick={handleSearch} disabled={isSearching || searchDigits.length !== 3}>
-          {isSearching ? 'Searching...' : 'Search'}
-        </Button>
-      </div>
+        <TabsContent value="deposits">
+          <HistoryTable
+            transactions={enrichedDepositHistory}
+            isLoading={isLoadingDepositHistory || isLoadingUsers}
+            searchQuery={depositSearchQuery}
+            onSearchChange={setDepositSearchQuery}
+            searchPlaceholder="Search deposits by user, TID, etc..."
+          />
+        </TabsContent>
 
-      {searched && searchResults.length === 0 && !isSearching && (
-        <p className="text-center text-muted-foreground pt-8">No users found with an ID ending in "{searchDigits}".</p>
-      )}
-
-      <div className="space-y-8">
-        {searchResults.map(({ user, transactions }) => (
-          <div key={user.id} className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-            <Card className="rounded-lg">
-              <CardHeader>
-                <CardTitle>{user.name}</CardTitle>
-                <CardDescription>ID: {user.id}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transactions.length > 0 ? (
-                      transactions.map(tx => <HistoryRow key={tx.id} tx={tx} user={user} />)
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24">No transactions found for this user.</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-        ))}
-      </div>
+        <TabsContent value="withdrawals">
+           <HistoryTable
+            transactions={enrichedWithdrawalHistory}
+            isLoading={isLoadingWithdrawalHistory || isLoadingUsers}
+            searchQuery={withdrawalSearchQuery}
+            onSearchChange={setWithdrawalSearchQuery}
+            searchPlaceholder="Search withdrawals by user, account, etc..."
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

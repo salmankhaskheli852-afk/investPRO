@@ -33,7 +33,7 @@ function AgentNav() {
     if (agentData?.permissions?.canManageWithdrawalRequests) {
       items.push({ href: '/agent/withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine });
     }
-     if (agentData?.permissions?.canViewUserHistory) {
+     if (agentData?.permissions?.canViewUserHistory || agentData?.permissions?.canViewDepositHistory || agentData?.permissions?.canViewWithdrawalHistory) {
       items.push({ href: '/agent/history', label: 'History', icon: History });
     }
     if (agentData?.permissions?.canAccessLiveChat) {
