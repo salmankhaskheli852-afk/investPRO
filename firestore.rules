@@ -104,10 +104,12 @@ service cloud.firestore {
     }
 
     // Regular users can create new transactions.
-    // Listing is now handled by the more specific admin/agent rules above.
+    // Listing of the root transactions collection is only for admins/agents (handled by their broad rules).
     match /transactions/{transactionId} {
       allow create: if isUserAuthenticated();
-      allow read: if isUserAuthenticated(); // Allow users to read individual transactions (e.g. for status check)
+      // Allow user to read their own transaction from the global list for status checks,
+      // but not list the entire collection.
+      allow read: if isUserAuthenticated() && request.auth.uid == get(/databases/$(database)/documents/transactions/$(transactionId)).data.details.userId;
     }
     
     // Allow creation and writing to the referral requests
