@@ -130,6 +130,12 @@ export default function UserDetailsPage() {
   const handleSaveStatChanges = async () => {
     if (!editingStatField || !firestore || !userId || !walletDocRef) return;
 
+    // We only allow editing the wallet balance directly
+    if (editingStatField.field !== 'balance') {
+        toast({ variant: 'default', title: 'Read-only value', description: `${editingStatField.title} is a calculated value and cannot be edited directly.` });
+        return;
+    }
+    
     const numericNewValue = parseFloat(newStatValue);
     if (isNaN(numericNewValue)) {
       toast({ variant: 'destructive', title: 'Invalid value', description: 'Please enter a valid number.' });
@@ -356,6 +362,7 @@ export default function UserDetailsPage() {
           description={`${purchasedPlansCount} active plans`}
           Icon={TrendingUp}
           chartData={[]} chartKey=''
+          onEdit={() => handleEditStatClick('Total Invested', transactionTotals.investment, 'investment')}
         />
          <DashboardStatsCard
           title="Total Deposit"
@@ -363,6 +370,7 @@ export default function UserDetailsPage() {
           description="Funds added"
           Icon={ArrowDownToLine}
           chartData={[]} chartKey=''
+          onEdit={() => handleEditStatClick('Total Deposit', transactionTotals.deposit, 'deposit')}
         />
         <DashboardStatsCard
           title="Total Withdraw"
@@ -370,6 +378,7 @@ export default function UserDetailsPage() {
           description="Funds taken out"
           Icon={ArrowUpFromLine}
           chartData={[]} chartKey=''
+          onEdit={() => handleEditStatClick('Total Withdraw', transactionTotals.withdraw, 'withdraw')}
         />
       </div>
 
@@ -591,5 +600,3 @@ export default function UserDetailsPage() {
     </div>
   );
 }
-
-    
