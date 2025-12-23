@@ -140,8 +140,6 @@ export type AppSettings = {
     verificationPopupTitle?: string;
     verificationPopupMessage?: string;
     verificationDepositAmount?: number;
-    firstDepositBonus?: number;
-    minFirstDepositForBonus?: number;
     shareableLink?: string;
     carouselImages?: string[];
 }
@@ -154,4 +152,5 @@ export const investmentPlans: InvestmentPlan[] = [];
 // This is now seed data for Firestore, not used directly in the app.
 export const planCategories: PlanCategory[] = [];
 
+    
     

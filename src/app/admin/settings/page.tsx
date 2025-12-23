@@ -47,8 +47,6 @@ export default function AppSettingsPage() {
   const [verificationPopupTitle, setVerificationPopupTitle] = React.useState('');
   const [verificationPopupMessage, setVerificationPopupMessage] = React.useState('');
   const [verificationDepositAmount, setVerificationDepositAmount] = React.useState('');
-  const [firstDepositBonus, setFirstDepositBonus] = React.useState('');
-  const [minFirstDepositForBonus, setMinFirstDepositForBonus] = React.useState('');
 
 
   const [isSaving, setIsSaving] = React.useState(false);
@@ -84,8 +82,6 @@ export default function AppSettingsPage() {
       setVerificationPopupTitle(appSettings.verificationPopupTitle || 'Account Verification Required');
       setVerificationPopupMessage(appSettings.verificationPopupMessage || 'To ensure the security of your account and enable all features including withdrawals, please verify your account by making a one-time deposit.');
       setVerificationDepositAmount(String(appSettings.verificationDepositAmount || '5000'));
-      setFirstDepositBonus(String(appSettings.firstDepositBonus || ''));
-      setMinFirstDepositForBonus(String(appSettings.minFirstDepositForBonus || ''));
     }
   }, [appSettings]);
 
@@ -110,8 +106,6 @@ export default function AppSettingsPage() {
         verificationPopupTitle,
         verificationPopupMessage,
         verificationDepositAmount: parseFloat(verificationDepositAmount) || 0,
-        firstDepositBonus: parseFloat(firstDepositBonus) || 0,
-        minFirstDepositForBonus: parseFloat(minFirstDepositForBonus) || 0,
       }, { merge: true });
       toast({
         title: 'Settings Saved',
@@ -321,7 +315,7 @@ export default function AppSettingsPage() {
           <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
             <Card className="rounded-lg">
                 <CardHeader>
-                    <CardTitle>Account Verification & Bonus</CardTitle>
+                    <CardTitle>Account Verification</CardTitle>
                 </CardHeader>
                 <CardContent>
                    <div className="flex flex-col space-y-6">
@@ -368,36 +362,6 @@ export default function AppSettingsPage() {
                             </div>
                           )}
                       </div>
-
-                      <div className="flex flex-col space-y-3 rounded-lg border p-4">
-                          <h4 className="font-medium">First Deposit Bonus</h4>
-                          <p className="text-sm text-muted-foreground">
-                              Reward users for making their first deposit. This is separate from the verification system.
-                          </p>
-                          <div className="space-y-4 pt-4 border-t">
-                               <div className="space-y-2">
-                                <Label htmlFor="min-first-deposit">Minimum Deposit for Bonus (PKR)</Label>
-                                <Input
-                                  id="min-first-deposit"
-                                  type="number"
-                                  placeholder="e.g., 1000"
-                                  value={minFirstDepositForBonus}
-                                  onChange={(e) => setMinFirstDepositForBonus(e.target.value)}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor="first-deposit-bonus">First Deposit Bonus Amount (PKR)</Label>
-                                <Input
-                                  id="first-deposit-bonus"
-                                  type="number"
-                                  placeholder="e.g., 100"
-                                  value={firstDepositBonus}
-                                  onChange={(e) => setFirstDepositBonus(e.target.value)}
-                                />
-                              </div>
-                          </div>
-                      </div>
-
                       <div className="pt-4">
                         <Button onClick={handleSave} disabled={isSaving || isLoading}>
                             {isSaving ? 'Saving...' : 'Save Settings'}
@@ -477,4 +441,5 @@ export default function AppSettingsPage() {
   );
 }
 
+    
     
