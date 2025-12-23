@@ -82,7 +82,7 @@ export type Wallet = {
 export type Transaction = {
   id:string;
   walletId: string;
-  type: 'deposit' | 'withdrawal' | 'investment' | 'income' | 'referral_income' | 'first_deposit_bonus';
+  type: 'deposit' | 'withdrawal' | 'investment' | 'income' | 'referral_income' | 'first_deposit_bonus' | 'gift_bonus';
   amount: number;
   status: 'pending' | 'completed' | 'failed' | 'revoked';
   date: Timestamp;
@@ -132,6 +132,7 @@ export type AppSettings = {
     referralCommissionPercentage?: number;
     nonReferralBonus?: number; // Welcome bonus for users without a referrer
     referralBonus?: number; // Welcome bonus for users with a referrer
+    giftOnDeposit?: number; // Gift on every deposit
     userMaintenanceMode?: boolean;
     userMaintenanceMessage?: string;
     agentMaintenanceMode?: boolean;

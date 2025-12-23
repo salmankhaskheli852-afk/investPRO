@@ -17,6 +17,7 @@ export default function ReferralSettingsPage() {
   const [commissionPercentage, setCommissionPercentage] = React.useState('');
   const [nonReferralBonus, setNonReferralBonus] = React.useState('');
   const [referralBonus, setReferralBonus] = React.useState('');
+  const [giftOnDeposit, setGiftOnDeposit] = React.useState('');
 
   const [isSaving, setIsSaving] = React.useState(false);
   const { toast } = useToast();
@@ -34,6 +35,7 @@ export default function ReferralSettingsPage() {
       setCommissionPercentage(String(appSettings.referralCommissionPercentage || ''));
       setNonReferralBonus(String(appSettings.nonReferralBonus || '200'));
       setReferralBonus(String(appSettings.referralBonus || '411'));
+      setGiftOnDeposit(String(appSettings.giftOnDeposit || '0'));
     }
   }, [appSettings]);
 
@@ -48,6 +50,7 @@ export default function ReferralSettingsPage() {
           referralCommissionPercentage: parseFloat(commissionPercentage) || 0,
           nonReferralBonus: parseFloat(nonReferralBonus) || 0,
           referralBonus: parseFloat(referralBonus) || 0,
+          giftOnDeposit: parseFloat(giftOnDeposit) || 0,
         },
         { merge: true }
       );
@@ -146,6 +149,31 @@ export default function ReferralSettingsPage() {
               />
               <p className="text-xs text-muted-foreground">
                 Amount a new user gets if they sign up using a referral link.
+              </p>
+            </div>
+          </CardContent>
+
+          <Separator className="my-6" />
+
+          <CardHeader>
+            <CardTitle>Gift on Every Deposit</CardTitle>
+            <CardDescription>
+              Set a gift amount that users will receive on every deposit they make.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="gift-on-deposit">Gift Amount (PKR)</Label>
+              <Input
+                id="gift-on-deposit"
+                type="number"
+                placeholder="e.g., 50"
+                value={giftOnDeposit}
+                onChange={(e) => setGiftOnDeposit(e.target.value)}
+                disabled={isLoading}
+              />
+              <p className="text-xs text-muted-foreground">
+                This amount will be added to the user's wallet as a gift on every successful deposit. Set to 0 to disable.
               </p>
             </div>
           </CardContent>
