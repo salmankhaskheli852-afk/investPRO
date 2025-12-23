@@ -314,23 +314,26 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
       </TableCell>
       <TableCell className="font-medium">{tx.amount.toLocaleString()} PKR</TableCell>
       <TableCell>
-        <div className="font-medium flex items-center gap-1">
-          {details.senderName}
-           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(details.senderName, 'Sender name')}>
-            <Copy className="h-3 w-3" />
-          </Button>
+        <div className="flex items-center gap-1">
+            <span className="font-medium">{details.senderName}</span>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(details.senderName, 'Sender name')}>
+                <Copy className="h-3 w-3" />
+            </Button>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-sm text-muted-foreground">{details.senderAccount}</span>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(details.senderAccount, 'Account number')}>
-            <Copy className="h-3 w-3" />
-          </Button>
+            <span className="text-sm text-muted-foreground">{details.senderAccount}</span>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(details.senderAccount, 'Account number')}>
+                <Copy className="h-3 w-3" />
+            </Button>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">TID: {details.tid}</span>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(details.tid, 'TID')}>
-            <Copy className="h-3 w-3" />
-          </Button>
+            <span className="text-xs text-muted-foreground">TID: {details.tid}</span>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(details.tid, 'TID')}>
+                <Copy className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditDialogOpen(true)}>
+                <Edit className="h-3 w-3" />
+            </Button>
         </div>
       </TableCell>
       <TableCell>
