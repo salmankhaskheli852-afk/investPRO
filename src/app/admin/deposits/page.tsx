@@ -18,7 +18,7 @@ import type { User, Transaction, AppSettings, AdminWallet, Wallet } from '@/lib/
 import { collection, query, where, doc, writeBatch, getDoc, serverTimestamp, getDocs, increment, updateDoc, runTransaction, deleteDoc, setDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X, Search, Copy, MoreHorizontal, Eye, Trash2, ShieldX } from 'lucide-react';
+import { Check, X, Search, Copy, MoreHorizontal, Eye, Trash2, ShieldX, Edit } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -40,12 +40,108 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+
+
+function EditSenderDetailsDialog({
+  isOpen,
+  onOpenChange,
+  transaction,
+  onSuccess
+}: {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  transaction: Transaction;
+  onSuccess: () => void;
+}) {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const [isSaving, setIsSaving] = React.useState(false);
+  
+  const [senderName, setSenderName] = React.useState(transaction.details?.senderName || '');
+  const [senderAccount, setSenderAccount] = React.useState(transaction.details?.senderAccount || '');
+  const [tid, setTid] = React.useState(transaction.details?.tid || '');
+
+  const handleSaveChanges = async () => {
+    if (!firestore) return;
+    setIsSaving(true);
+    const globalTransactionRef = doc(firestore, 'transactions', transaction.id);
+
+    try {
+      await updateDoc(globalTransactionRef, {
+        'details.senderName': senderName,
+        'details.senderAccount': senderAccount,
+        'details.tid': tid,
+      });
+
+      // Also update user's transaction if it exists (might not for older data)
+      if (transaction.details?.userId) {
+          const userTransactionRef = doc(firestore, 'users', transaction.details.userId, 'wallets', 'main', 'transactions', transaction.id);
+          await updateDoc(userTransactionRef, {
+            'details.senderName': senderName,
+            'details.senderAccount': senderAccount,
+            'details.tid': tid,
+          }).catch(() => { /* Ignore if it fails, global is more important */});
+      }
+
+      toast({
+        title: 'Details Updated',
+        description: 'The sender details have been successfully updated.',
+      });
+      onSuccess();
+      onOpenChange(false);
+    } catch (e: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error updating details',
+        description: e.message,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Edit Sender Details</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                    <Label htmlFor="sender-name">Sender Name</Label>
+                    <Input id="sender-name" value={senderName} onChange={(e) => setSenderName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="sender-account">Sender Account</Label>
+                    <Input id="sender-account" value={senderAccount} onChange={(e) => setSenderAccount(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="tid">Transaction ID (TID)</Label>
+                    <Input id="tid" value={tid} onChange={(e) => setTid(e.target.value)} />
+                </div>
+            </div>
+            <DialogFooter>
+                <DialogClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button onClick={handleSaveChanges} disabled={isSaving}>
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+  )
+
+}
 
 
 function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; onUpdate: () => void, adminWallets: AdminWallet[] | null }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = React.useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
   const { user: adminUser } = useUser();
   
   const userId = tx.details?.userId;
@@ -199,6 +295,7 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
   const depositToWallet = adminWallets?.find(w => w.id === details.adminWalletId);
 
   return (
+    <>
     <TableRow>
       <TableCell>
         <div className="flex items-center gap-3">
@@ -279,6 +376,10 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
                   </Link>
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Sender Details
+              </DropdownMenuItem>
                <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
@@ -328,6 +429,15 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
         </div>
       </TableCell>
     </TableRow>
+    {isEditDialogOpen && (
+        <EditSenderDetailsDialog
+          isOpen={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          transaction={tx}
+          onSuccess={onUpdate}
+        />
+    )}
+    </>
   );
 }
 
@@ -424,5 +534,7 @@ export default function AdminDepositsPage() {
     </div>
   );
 }
+
+    
 
     
