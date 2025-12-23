@@ -20,10 +20,8 @@ import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@
 import type { User, Transaction } from '@/lib/data';
 import { collection, doc, query, where, collectionGroup } from 'firebase/firestore';
 import { format } from 'date-fns';
-import { useParams } from 'next/navigation';
 
-export default function AgentHistoryPage() {
-  const params = useParams();
+export default function AgentHistoryPage({ params }: { params: { agentId: string } }) {
   const agentId = params.agentId as string;
   const firestore = useFirestore();
   const { user: adminUser } = useUser();
