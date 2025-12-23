@@ -22,7 +22,27 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
     }
     
-    // --- Rules for regular authenticated users (non-admin, non-agent) ---
+    // --- Admin and Agent Rules (MUST BE CHECKED FIRST) ---
+
+    // Grant ADMINS total and complete access to ALL documents in the database.
+    // This rule is broad and should be evaluated before more specific user rules.
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // Grant AGENTS broad access to necessary collections.
+    match /{collection}/{docId} {
+      allow read, write: if isAgent() && 
+                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests'];
+    }
+     match /users/{userId}/{subCollection}/{docId} {
+        allow read, write: if isAgent();
+    }
+     match /users/{userId}/{subCollection}/{docId}/{nestedSubCollection}/{nestedDocId} {
+        allow read, write: if isAgent();
+    }
+    
+    // --- Rules for regular authenticated users ---
 
     function isUserAuthenticated() {
       return request.auth != null;
@@ -45,30 +65,10 @@ service cloud.firestore {
     match /users/{userId}/{document=**} {
       allow read, write: if isOwner(userId);
     }
-    
-    // --- Admin and Agent Rules (Checked AFTER user rules) ---
-
-    // Grant ADMINS total and complete access to ALL documents in the database.
-    match /{document=**} {
-      allow read, write: if isAdmin();
-    }
-
-    // Grant AGENTS broad access to necessary collections.
-    match /{collection}/{docId} {
-      allow read, write, list: if isAgent() && 
-                                 collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests'];
-    }
-     match /users/{userId}/{subCollection}/{docId} {
-        allow read, write, list: if isAgent();
-    }
-     match /users/{userId}/{subCollection}/{docId}/{nestedSubCollection}/{nestedDocId} {
-        allow read, write, list: if isAgent();
-    }
-
 
     // --- General Public/Authenticated Read Rules ---
 
-    // Any user (authenticated or not) can read plans.
+    // Any user can read plans.
     // Authenticated users can update plans (to increment purchase count).
     match /investment_plans/{planId} {
         allow read: if true;
@@ -76,7 +76,7 @@ service cloud.firestore {
         allow create, delete: if isAdmin() || isAgent();
     }
 
-    // Any user (authenticated or not) can view plan categories.
+    // Any user can view plan categories.
     match /plan_categories/{categoryId} {
         allow read: if true;
         allow create, update, delete: if isAdmin() || isAgent();
@@ -103,11 +103,11 @@ service cloud.firestore {
         allow read, write: if isAdmin() || isAgent();
     }
 
-    // Regular users can create new transactions and list them (for duplicate TID check).
-    // Admins/Agents have broader list permissions from their own rules.
+    // Regular users can create new transactions.
+    // Listing is now handled by the more specific admin/agent rules above.
     match /transactions/{transactionId} {
       allow create: if isUserAuthenticated();
-      allow list: if isUserAuthenticated();
+      allow read: if isUserAuthenticated(); // Allow users to read individual transactions (e.g. for status check)
     }
     
     // Allow creation and writing to the referral requests
