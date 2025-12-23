@@ -63,6 +63,14 @@ function EditSenderDetailsDialog({
   const [senderAccount, setSenderAccount] = React.useState(transaction.details?.senderAccount || '');
   const [tid, setTid] = React.useState(transaction.details?.tid || '');
 
+  React.useEffect(() => {
+    if (transaction) {
+      setSenderName(transaction.details?.senderName || '');
+      setSenderAccount(transaction.details?.senderAccount || '');
+      setTid(transaction.details?.tid || '');
+    }
+  }, [transaction])
+
   const handleSaveChanges = async () => {
     if (!firestore) return;
     setIsSaving(true);
@@ -322,8 +330,11 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
             <div className="text-sm text-muted-foreground">{details.senderAccount}</div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <span>TID: {details.tid}</span>
-                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleCopy}>
+                 <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleCopy}>
                     <Copy className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setIsEditDialogOpen(true)}>
+                    <Edit className="h-3 w-3" />
                 </Button>
             </div>
         </div>
@@ -371,10 +382,6 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
                   </Link>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Sender Details
-              </DropdownMenuItem>
                <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
@@ -529,3 +536,5 @@ export default function AdminDepositsPage() {
     </div>
   );
 }
+
+    
