@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React from 'react';
@@ -256,9 +257,30 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
                         });
                     }
                 }
+
+                // 5. Handle First Deposit Bonus
+                if (isFirstDeposit && appSettings?.firstDepositBonus && appSettings.minFirstDepositForBonus) {
+                  if (tx.amount >= appSettings.minFirstDepositForBonus) {
+                      const bonusAmount = appSettings.firstDepositBonus;
+                      transaction.update(walletRef, { balance: increment(bonusAmount) });
+
+                      const bonusTxRef = doc(collection(firestore, 'users', user.id, 'wallets', 'main', 'transactions'));
+                      transaction.set(bonusTxRef, {
+                          id: bonusTxRef.id,
+                          type: 'first_deposit_bonus',
+                          amount: bonusAmount,
+                          status: 'completed',
+                          date: serverTimestamp(),
+                          walletId: 'main',
+                          details: {
+                              reason: `Bonus for first deposit of ${tx.amount} PKR`,
+                          }
+                      });
+                  }
+                }
             }
             
-            // 5. Update transaction status in both locations
+            // 6. Update transaction status in both locations
             transaction.update(globalTransactionRef, { status: newStatus });
             transaction.set(userTransactionRef, { status: newStatus }, { merge: true });
         });

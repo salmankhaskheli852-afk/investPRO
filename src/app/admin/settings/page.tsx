@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React from 'react';
@@ -46,6 +47,9 @@ export default function AppSettingsPage() {
   const [verificationPopupTitle, setVerificationPopupTitle] = React.useState('');
   const [verificationPopupMessage, setVerificationPopupMessage] = React.useState('');
   const [verificationDepositAmount, setVerificationDepositAmount] = React.useState('');
+  const [firstDepositBonus, setFirstDepositBonus] = React.useState('');
+  const [minFirstDepositForBonus, setMinFirstDepositForBonus] = React.useState('');
+
 
   const [isSaving, setIsSaving] = React.useState(false);
   const { toast } = useToast();
@@ -80,6 +84,8 @@ export default function AppSettingsPage() {
       setVerificationPopupTitle(appSettings.verificationPopupTitle || 'Account Verification Required');
       setVerificationPopupMessage(appSettings.verificationPopupMessage || 'To ensure the security of your account and enable all features including withdrawals, please verify your account by making a one-time deposit.');
       setVerificationDepositAmount(String(appSettings.verificationDepositAmount || '5000'));
+      setFirstDepositBonus(String(appSettings.firstDepositBonus || ''));
+      setMinFirstDepositForBonus(String(appSettings.minFirstDepositForBonus || ''));
     }
   }, [appSettings]);
 
@@ -104,6 +110,8 @@ export default function AppSettingsPage() {
         verificationPopupTitle,
         verificationPopupMessage,
         verificationDepositAmount: parseFloat(verificationDepositAmount) || 0,
+        firstDepositBonus: parseFloat(firstDepositBonus) || 0,
+        minFirstDepositForBonus: parseFloat(minFirstDepositForBonus) || 0,
       }, { merge: true });
       toast({
         title: 'Settings Saved',
@@ -313,54 +321,86 @@ export default function AppSettingsPage() {
           <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
             <Card className="rounded-lg">
                 <CardHeader>
-                    <CardTitle>Account Verification System</CardTitle>
+                    <CardTitle>Account Verification & Bonus</CardTitle>
                 </CardHeader>
                 <CardContent>
-                   <div className="flex flex-col space-y-3">
-                      <div className="flex items-center justify-between">
-                          <Label htmlFor="verification-enabled" className="font-medium">Enable Verification System</Label>
-                          <Switch
-                              id="verification-enabled"
-                              checked={isVerificationEnabled}
-                              onCheckedChange={setIsVerificationEnabled}
-                              disabled={isLoading}
-                          />
+                   <div className="flex flex-col space-y-6">
+                      <div className="flex flex-col space-y-3 rounded-lg border p-4">
+                          <div className="flex items-center justify-between">
+                              <Label htmlFor="verification-enabled" className="font-medium">Enable Verification System</Label>
+                              <Switch
+                                  id="verification-enabled"
+                                  checked={isVerificationEnabled}
+                                  onCheckedChange={setIsVerificationEnabled}
+                                  disabled={isLoading}
+                              />
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                              If enabled, new users must make a one-time deposit to verify their account and unlock withdrawals.
+                          </p>
+                          {isVerificationEnabled && (
+                            <div className="space-y-4 pt-4 border-t">
+                              <div className="space-y-2">
+                                <Label htmlFor="verification-title">Popup Title</Label>
+                                <Input
+                                  id="verification-title"
+                                  value={verificationPopupTitle}
+                                  onChange={(e) => setVerificationPopupTitle(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="verification-message">Popup Message</Label>
+                                <Textarea
+                                  id="verification-message"
+                                  value={verificationPopupMessage}
+                                  onChange={(e) => setVerificationPopupMessage(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="verification-amount">Verification Deposit Amount (PKR)</Label>
+                                <Input
+                                  id="verification-amount"
+                                  type="number"
+                                  value={verificationDepositAmount}
+                                  onChange={(e) => setVerificationDepositAmount(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                          )}
                       </div>
-                       <p className="text-sm text-muted-foreground">
-                          If enabled, new users must make a one-time deposit to verify their account and unlock withdrawals.
-                      </p>
-                      {isVerificationEnabled && (
-                        <div className="space-y-4 pt-4 border-t">
-                          <div className="space-y-2">
-                            <Label htmlFor="verification-title">Popup Title</Label>
-                            <Input
-                              id="verification-title"
-                              value={verificationPopupTitle}
-                              onChange={(e) => setVerificationPopupTitle(e.target.value)}
-                            />
+
+                      <div className="flex flex-col space-y-3 rounded-lg border p-4">
+                          <h4 className="font-medium">First Deposit Bonus</h4>
+                          <p className="text-sm text-muted-foreground">
+                              Reward users for making their first deposit. This is separate from the verification system.
+                          </p>
+                          <div className="space-y-4 pt-4 border-t">
+                               <div className="space-y-2">
+                                <Label htmlFor="min-first-deposit">Minimum Deposit for Bonus (PKR)</Label>
+                                <Input
+                                  id="min-first-deposit"
+                                  type="number"
+                                  placeholder="e.g., 1000"
+                                  value={minFirstDepositForBonus}
+                                  onChange={(e) => setMinFirstDepositForBonus(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="first-deposit-bonus">First Deposit Bonus Amount (PKR)</Label>
+                                <Input
+                                  id="first-deposit-bonus"
+                                  type="number"
+                                  placeholder="e.g., 100"
+                                  value={firstDepositBonus}
+                                  onChange={(e) => setFirstDepositBonus(e.target.value)}
+                                />
+                              </div>
                           </div>
-                           <div className="space-y-2">
-                            <Label htmlFor="verification-message">Popup Message</Label>
-                            <Textarea
-                              id="verification-message"
-                              value={verificationPopupMessage}
-                              onChange={(e) => setVerificationPopupMessage(e.target.value)}
-                            />
-                          </div>
-                           <div className="space-y-2">
-                            <Label htmlFor="verification-amount">Verification Deposit Amount (PKR)</Label>
-                            <Input
-                              id="verification-amount"
-                              type="number"
-                              value={verificationDepositAmount}
-                              onChange={(e) => setVerificationDepositAmount(e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      )}
+                      </div>
+
                       <div className="pt-4">
                         <Button onClick={handleSave} disabled={isSaving || isLoading}>
-                            {isSaving ? 'Saving...' : 'Save Verification Settings'}
+                            {isSaving ? 'Saving...' : 'Save Settings'}
                         </Button>
                       </div>
                   </div>

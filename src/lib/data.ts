@@ -82,7 +82,7 @@ export type Wallet = {
 export type Transaction = {
   id:string;
   walletId: string;
-  type: 'deposit' | 'withdrawal' | 'investment' | 'income' | 'referral_income';
+  type: 'deposit' | 'withdrawal' | 'investment' | 'income' | 'referral_income' | 'first_deposit_bonus';
   amount: number;
   status: 'pending' | 'completed' | 'failed' | 'revoked';
   date: Timestamp;
@@ -140,6 +140,8 @@ export type AppSettings = {
     verificationPopupTitle?: string;
     verificationPopupMessage?: string;
     verificationDepositAmount?: number;
+    firstDepositBonus?: number;
+    minFirstDepositForBonus?: number;
     shareableLink?: string;
     carouselImages?: string[];
 }
