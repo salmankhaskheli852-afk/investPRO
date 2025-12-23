@@ -74,8 +74,12 @@ export default function AdminDashboardPage() {
   }, [allUsers]);
 
   const financialTotals = React.useMemo(() => {
-    if (!allTransactions) return { deposit: 0, withdrawal: 0, income: 0 };
-    return allTransactions.reduce((acc, tx) => {
+    if (!allTransactions || !user) return { deposit: 0, withdrawal: 0, income: 0 };
+    
+    // For admin, we show all transactions. If it were an agent, we'd filter here.
+    const relevantTransactions = allTransactions;
+
+    return relevantTransactions.reduce((acc, tx) => {
         if (tx.status === 'completed') {
             if (tx.type === 'deposit') acc.deposit += tx.amount;
             else if (tx.type === 'withdrawal') acc.withdrawal += tx.amount;
@@ -83,7 +87,7 @@ export default function AdminDashboardPage() {
         }
         return acc;
     }, { deposit: 0, withdrawal: 0, income: 0 });
-  }, [allTransactions]);
+  }, [allTransactions, user]);
 
   const isLoading = isLoadingUsers || isLoadingAgents || isLoadingPlans || isLoadingTransactions || isLoadingDeposits || isLoadingWithdrawals;
 
