@@ -164,11 +164,12 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
   );
   const { data: appSettings } = useDoc<AppSettings>(settingsRef);
   
-  const handleCopy = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
+  const handleCopy = () => {
+    const textToCopy = `Name: ${tx.details?.senderName}\nAccount: ${tx.details?.senderAccount}\nTID: ${tx.details?.tid}`;
+    navigator.clipboard.writeText(textToCopy);
     toast({
       title: 'Copied!',
-      description: `${label} has been copied to your clipboard.`,
+      description: `Sender details have been copied to your clipboard.`,
     });
   };
 
@@ -314,26 +315,20 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
       </TableCell>
       <TableCell className="font-medium">{tx.amount.toLocaleString()} PKR</TableCell>
       <TableCell>
-        <div className="flex items-center gap-1">
-            <span className="font-medium">{details.senderName}</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(details.senderName, 'Sender name')}>
-                <Copy className="h-3 w-3" />
-            </Button>
-        </div>
-        <div className="flex items-center gap-1">
-            <span className="text-sm text-muted-foreground">{details.senderAccount}</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(details.senderAccount, 'Account number')}>
-                <Copy className="h-3 w-3" />
-            </Button>
-        </div>
-        <div className="flex items-center gap-1">
-            <span className="text-xs text-muted-foreground">TID: {details.tid}</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(details.tid, 'TID')}>
-                <Copy className="h-3 w-3" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditDialogOpen(true)}>
-                <Edit className="h-3 w-3" />
-            </Button>
+        <div className="flex items-center justify-between gap-2">
+            <div>
+                <div className="font-medium">{details.senderName}</div>
+                <div className="text-sm text-muted-foreground">{details.senderAccount}</div>
+                <div className="text-xs text-muted-foreground">TID: {details.tid}</div>
+            </div>
+            <div className="flex flex-col gap-1">
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopy}>
+                    <Copy className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditDialogOpen(true)}>
+                    <Edit className="h-3 w-3" />
+                </Button>
+            </div>
         </div>
       </TableCell>
       <TableCell>
