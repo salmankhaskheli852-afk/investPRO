@@ -9,9 +9,9 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import type { AdminWallet, AppSettings, Transaction } from '@/lib/data';
-import { collection, doc, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import type { AppSettings } from '@/lib/data';
+import { doc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -31,26 +31,13 @@ export default function DepositPage() {
   
   const [amount, setAmount] = React.useState('');
   
-  // State for the popup form
   const [senderName, setSenderName] = React.useState('');
   const [senderAccount, setSenderAccount] = React.useState('');
   
-  // State to hold the saved details
   const [savedDetails, setSavedDetails] = React.useState<{name: string, account: string} | null>(null);
   
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
 
-  const adminWalletsQuery = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'admin_wallets') : null),
-    [firestore, user]
-  );
-  const { data: adminWallets, isLoading: isLoadingWallets } = useCollection<AdminWallet>(adminWalletsQuery);
-
-  const activeAdminWallets = React.useMemo(() => {
-    return adminWallets?.filter(wallet => wallet.isEnabled) || [];
-  }, [adminWallets]);
-  
   const settingsRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
     [firestore]
@@ -59,12 +46,12 @@ export default function DepositPage() {
   
   const handlePresetAmountClick = (presetAmount: number) => {
     setAmount(String(presetAmount));
-    setSavedDetails(null); // Reset saved details if amount changes
+    setSavedDetails(null);
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAmount(e.target.value);
-    setSavedDetails(null); // Reset saved details if amount changes
+    setSavedDetails(null);
   };
   
   const handleSaveDetails = () => {
@@ -77,12 +64,19 @@ export default function DepositPage() {
     toast({ title: 'Details Saved', description: 'Your sender details have been saved. You can now proceed to pay.' });
   }
 
-  const handlePayNow = async () => {
-    if (!savedDetails) {
-        toast({ variant: 'destructive', title: 'Details not saved', description: 'Please save your details first.' });
+  const handlePayNow = () => {
+    if (!amount || !savedDetails) {
+        toast({ variant: 'destructive', title: 'Information Missing', description: 'Please enter an amount and save your details first.' });
         return;
     }
-    router.push('/user/recharge');
+
+    const queryParams = new URLSearchParams({
+        amount,
+        senderName: savedDetails.name,
+        senderAccount: savedDetails.account,
+    });
+    
+    router.push(`/user/recharge?${queryParams.toString()}`);
   };
 
   const handleYourDetailClick = () => {
@@ -94,7 +88,6 @@ export default function DepositPage() {
       });
       return;
     }
-    // Pre-fill form if details were already saved for this amount
     setSenderName(savedDetails?.name || '');
     setSenderAccount(savedDetails?.account || '');
     setIsDialogOpen(true);
@@ -165,9 +158,8 @@ export default function DepositPage() {
                           size="lg"
                           className="w-full h-12 text-lg rounded-full"
                           onClick={handlePayNow}
-                          disabled={isSubmitting}
                       >
-                         {isSubmitting ? 'Processing...' : 'Pay Now'}
+                         Pay Now
                       </Button>
                   )}
                 </div>
