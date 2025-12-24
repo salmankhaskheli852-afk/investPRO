@@ -133,7 +133,7 @@ export default function UserDashboardPage() {
   }
 
   const showVerifiedBadge = appSettings?.isVerificationBadgeEnabled && userData.isVerified;
-  const effectiveBalance = (walletData?.balance || 0) + dailyIncome;
+  const effectiveBalance = (walletData?.balance || 0);
   
   return (
     <div className="space-y-8">
