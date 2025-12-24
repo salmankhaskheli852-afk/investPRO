@@ -5,7 +5,7 @@ import Image from 'next/image';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import type { InvestmentPlan } from '@/lib/data';
+import type { InvestmentPlan, User } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { CheckCircle, Info, Wallet, Timer, XCircle, PackageX } from 'lucide-react';
+import { CheckCircle, Info, Wallet, Timer, XCircle, PackageX, Repeat } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, arrayUnion, writeBatch, collection, serverTimestamp, Timestamp, increment, runTransaction } from 'firebase/firestore';
 
@@ -28,6 +28,7 @@ interface InvestmentPlanCardProps {
   userWalletBalance?: number;
   showAsPurchased?: boolean;
   showPurchaseButton?: boolean;
+  userData?: User | null;
 }
 
 function CountdownTimer({ endTime }: { endTime: { seconds: number; nanoseconds: number } }) {
@@ -86,23 +87,33 @@ export function InvestmentPlanCard({
   userWalletBalance = 0,
   showAsPurchased = false,
   showPurchaseButton = true,
+  userData = null,
 }: InvestmentPlanCardProps) {
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
   const { user } = useUser();
   const firestore = useFirestore();
 
+  const userPurchaseCount = React.useMemo(() => {
+    if (!userData || !userData.investments) return 0;
+    return userData.investments.filter(inv => inv.planId === plan.id).length;
+  }, [userData, plan.id]);
+
   const canAfford = userWalletBalance >= plan.price;
   const isOfferActive = plan.isOfferEnabled && plan.offerEndTime && plan.offerEndTime.toMillis() > Date.now();
   const isOfferExpired = plan.isOfferEnabled && plan.offerEndTime && plan.offerEndTime.toMillis() <= Date.now();
-  const isSoldOutByLimit = plan.purchaseLimit && (plan.purchaseCount || 0) >= plan.purchaseLimit;
+  const isSoldOutByLimit = plan.purchaseLimit && plan.purchaseLimit > 0 && (plan.purchaseCount || 0) >= plan.purchaseLimit;
   const isSoldOut = plan.isSoldOut || isSoldOutByLimit;
+
+  const hasReachedUserLimit = plan.purchaseLimit && plan.purchaseLimit > 0 && userPurchaseCount >= plan.purchaseLimit;
 
 
   const [progress, setProgress] = React.useState(0);
   React.useEffect(() => {
-    if (isPurchased || isSoldOutByLimit) {
-      const p = (plan.purchaseCount || 0) / (plan.purchaseLimit || 1);
+    if (isSoldOutByLimit) {
+      setProgress(100);
+    } else if (plan.purchaseLimit && plan.purchaseLimit > 0) {
+      const p = (plan.purchaseCount || 0) / plan.purchaseLimit;
       setProgress(Math.min(p * 100, 100));
     } else if (isOfferActive && plan.createdAt && plan.offerEndTime) {
        const now = Timestamp.now().toMillis();
@@ -112,7 +123,7 @@ export function InvestmentPlanCard({
        const elapsed = now - start;
        setProgress(Math.min((elapsed / totalDuration) * 100, 100));
     }
-  }, [isPurchased, isSoldOutByLimit, plan, isOfferActive]);
+  }, [isSoldOutByLimit, plan, isOfferActive]);
 
 
   const handlePurchase = async () => {
@@ -133,13 +144,21 @@ export function InvestmentPlanCard({
         await runTransaction(firestore, async (transaction) => {
             const planDoc = await transaction.get(planRef);
             const walletDoc = await transaction.get(walletRef);
+            const userDoc = await transaction.get(userRef);
 
             if (!planDoc.exists()) throw new Error("Plan does not exist.");
             if (!walletDoc.exists()) throw new Error("User wallet not found.");
+            if (!userDoc.exists()) throw new Error("User not found.");
 
             const currentPlanData = planDoc.data() as InvestmentPlan;
             const currentWalletData = walletDoc.data();
-
+            const currentUserData = userDoc.data() as User;
+            
+            const currentUserPurchaseCount = currentUserData.investments.filter(inv => inv.planId === plan.id).length;
+            if (currentPlanData.purchaseLimit && currentPlanData.purchaseLimit > 0 && currentUserPurchaseCount >= currentPlanData.purchaseLimit) {
+                throw new Error("You have reached the purchase limit for this plan.");
+            }
+            
             if (currentPlanData.isSoldOut || (currentPlanData.purchaseLimit && (currentPlanData.purchaseCount || 0) >= currentPlanData.purchaseLimit)) {
                 throw new Error("This plan is sold out.");
             }
@@ -190,14 +209,22 @@ export function InvestmentPlanCard({
   };
 
   const dailyIncome = plan.price * (plan.dailyIncomePercentage / 100);
-  // const totalIncome = dailyIncome * plan.incomePeriod;
+
+  const getButtonState = () => {
+    if (isSoldOut) return { text: 'Sold Out', disabled: true, icon: PackageX };
+    if (isOfferExpired) return { text: 'Plan Closed', disabled: true, icon: XCircle };
+    if (hasReachedUserLimit) return { text: 'Limit Reached', disabled: true, icon: Repeat };
+    return { text: 'Purchase Plan', disabled: false, icon: null };
+  }
+
+  const buttonState = getButtonState();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Card
         className={cn(
           "w-full rounded-lg shadow-md bg-blue-50 transition-all duration-300 hover:shadow-xl p-2 space-y-1",
-          (isOfferExpired || isSoldOut) && 'opacity-60'
+          buttonState.disabled && 'opacity-60'
         )}
       >
         <h3 className="font-bold text-sm text-foreground px-1">{plan.name}</h3>
@@ -211,6 +238,7 @@ export function InvestmentPlanCard({
               className="object-cover rounded-md"
               data-ai-hint={plan.imageHint}
             />
+             {isOfferActive && plan.offerEndTime && <CountdownTimer endTime={plan.offerEndTime} />}
           </div>
 
           <div className="flex-1 flex flex-col justify-center text-sm space-y-0.5">
@@ -226,24 +254,33 @@ export function InvestmentPlanCard({
               <span className="text-muted-foreground">Income period</span>
               <span className="font-bold text-foreground">{plan.incomePeriod} days</span>
             </div>
+             {plan.purchaseLimit && plan.purchaseLimit > 0 && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Limit</span>
+                  <span className="font-bold text-foreground">{userPurchaseCount} / {plan.purchaseLimit}</span>
+                </div>
+            )}
           </div>
         </div>
         
-        <div className="relative pt-1">
-            <Progress value={progress} className="h-1.5" />
-            <div className="absolute -top-0 right-1 text-[10px] font-bold text-gray-600">
-                {Math.round(progress)}%
+        {(plan.purchaseLimit && plan.purchaseLimit > 0) && (
+            <div className="relative pt-1">
+                <Progress value={progress} className="h-1.5" />
+                <div className="absolute -top-0 right-1 text-[10px] font-bold text-gray-600">
+                    {Math.round(progress)}%
+                </div>
             </div>
-        </div>
+        )}
 
         {showPurchaseButton && (
           <DialogTrigger asChild>
             <Button
-              className="w-full mt-1"
+              className="w-full mt-1 flex items-center gap-2"
               size="sm"
-              disabled={(isPurchased && showAsPurchased) || isOfferExpired || isSoldOut}
+              disabled={buttonState.disabled}
             >
-              {(isPurchased && showAsPurchased) ? 'Purchased' : isSoldOut ? 'Sold Out' : (isOfferExpired ? 'Plan Closed' : 'Purchase Plan')}
+              {buttonState.icon && <buttonState.icon className="w-4 h-4" />}
+              {buttonState.text}
             </Button>
           </DialogTrigger>
         )}
@@ -278,16 +315,16 @@ export function InvestmentPlanCard({
               </span>
             </div>
           </div>
-          {isPurchased && (
-            <p className="text-sm text-center text-amber-600">You have already purchased this plan.</p>
+          {hasReachedUserLimit && (
+            <p className="text-sm text-center text-amber-600">You have already reached the purchase limit for this plan.</p>
           )}
-          {!isPurchased && !canAfford && (
+          {!hasReachedUserLimit && !canAfford && (
             <p className="text-sm text-center text-destructive">You do not have enough funds in your wallet to purchase this plan.</p>
           )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handlePurchase} className="bg-primary hover:bg-primary/90" disabled={!canAfford || isPurchased}>
+          <Button onClick={handlePurchase} className="bg-primary hover:bg-primary/90" disabled={!canAfford || hasReachedUserLimit}>
             Confirm & Invest
           </Button>
         </DialogFooter>

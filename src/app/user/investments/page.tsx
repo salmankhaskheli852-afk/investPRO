@@ -59,8 +59,8 @@ export default function UserInvestmentsPage() {
       </div>
 
       <Tabs defaultValue={planCategories?.[0]?.id || ''} className="w-full">
-        <ScrollArea className="w-full whitespace-nowrap">
-            <TabsList className="inline-flex h-auto">
+        <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
+            <TabsList className="inline-flex h-auto p-1">
               {planCategories?.map(category => (
                 <TabsTrigger key={category.id} value={category.id} className="text-sm">
                   {category.name}
@@ -82,8 +82,7 @@ export default function UserInvestmentsPage() {
                       key={plan.id} 
                       plan={plan} 
                       userWalletBalance={walletData?.balance}
-                      isPurchased={userData?.investments?.some(inv => inv.planId === plan.id)}
-                      showAsPurchased
+                      userData={userData}
                     />
                   ))
                 )}
