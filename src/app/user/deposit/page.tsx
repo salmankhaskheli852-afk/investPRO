@@ -13,6 +13,17 @@ import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@
 import type { AdminWallet, AppSettings, Transaction } from '@/lib/data';
 import { collection, doc, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function DepositPage() {
   const { toast } = useToast();
@@ -23,7 +34,24 @@ export default function DepositPage() {
   const [amount, setAmount] = React.useState('');
   const [selectedMethod, setSelectedMethod] = React.useState<string | null>(null);
 
+  // Step 2 state
+  const [selectedAdminWalletId, setSelectedAdminWalletId] = React.useState<string>('');
+  const [senderName, setSenderName] = React.useState('');
+  const [senderAccount, setSenderAccount] = React.useState('');
+  const [tid, setTid] = React.useState('');
+  
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+
+  const adminWalletsQuery = useMemoFirebase(
+    () => (firestore && user ? collection(firestore, 'admin_wallets') : null),
+    [firestore, user]
+  );
+  const { data: adminWallets, isLoading: isLoadingWallets } = useCollection<AdminWallet>(adminWalletsQuery);
+
+  const activeAdminWallets = React.useMemo(() => {
+    return adminWallets?.filter(wallet => wallet.isEnabled) || [];
+  }, [adminWallets]);
   
   const settingsRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
@@ -36,15 +64,75 @@ export default function DepositPage() {
   };
   
   React.useEffect(() => {
-    // Select the first method by default
     if (appSettings?.rechargeMethods && appSettings.rechargeMethods.length > 0 && !selectedMethod) {
       setSelectedMethod(appSettings.rechargeMethods[0]);
     }
   }, [appSettings, selectedMethod]);
 
-  const handleRecharge = () => {
-    // Navigate to the new blank page without checking for amount or method
-    router.push('/user/recharge');
+  const handleSubmitRequest = async () => {
+    if (!user || !firestore) {
+        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
+        return;
+    }
+    if (!amount || !selectedAdminWalletId || !senderName || !senderAccount || !tid) {
+        toast({ variant: 'destructive', title: 'Missing Information', description: 'Please fill out all fields in the form.' });
+        return;
+    }
+
+    setIsSubmitting(true);
+    try {
+        const numericAmount = parseFloat(amount);
+        const batch = writeBatch(firestore);
+
+        const newTransactionRef = doc(collection(firestore, 'transactions'));
+        const transactionData: Omit<Transaction, 'id'|'date'> & { date: any } = {
+            type: 'deposit',
+            amount: numericAmount,
+            status: 'pending',
+            date: serverTimestamp(),
+            walletId: 'main',
+            details: {
+                userId: user.uid,
+                adminWalletId: selectedAdminWalletId,
+                senderName,
+                senderAccount,
+                tid,
+            },
+        };
+
+        batch.set(newTransactionRef, { ...transactionData, id: newTransactionRef.id });
+
+        const userTransactionRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'), newTransactionRef.id);
+        batch.set(userTransactionRef, { ...transactionData, id: newTransactionRef.id });
+
+        await batch.commit();
+        
+        toast({ title: 'Success!', description: 'Your deposit request has been submitted and is pending review.' });
+        setIsDialogOpen(false);
+        router.push('/user/history');
+
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Submission Failed', description: e.message });
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  const handleNextClick = () => {
+    if (!amount || !selectedMethod) {
+      toast({
+        variant: 'destructive',
+        title: 'Missing Information',
+        description: 'Please enter an amount and select a method.',
+      });
+      return;
+    }
+    // Reset step 2 form when opening
+    setSelectedAdminWalletId('');
+    setSenderName('');
+    setSenderAccount('');
+    setTid('');
+    setIsDialogOpen(true);
   };
 
   return (
@@ -118,18 +206,70 @@ export default function DepositPage() {
                 </div>
 
                 <div className="pt-4">
-                    <Button
-                        size="lg"
-                        className="w-full h-12 text-lg rounded-full"
-                        onClick={handleRecharge}
-                        disabled={isSubmitting}
-                    >
-                        {isSubmitting ? "Processing..." : "Recharge"}
-                    </Button>
+                  <Button
+                      size="lg"
+                      className="w-full h-12 text-lg rounded-full"
+                      onClick={handleNextClick}
+                      disabled={!amount || !selectedMethod}
+                  >
+                      Next
+                  </Button>
                 </div>
             </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Complete Your Deposit</DialogTitle>
+                  <DialogDescription>
+                      After sending <span className="font-bold">{amount} PKR</span> to one of the accounts below, fill in your payment details to submit your request.
+                  </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+                  <div className="space-y-2">
+                      <Label htmlFor="admin-wallet">Select Admin Account</Label>
+                      <Select value={selectedAdminWalletId} onValueChange={setSelectedAdminWalletId}>
+                          <SelectTrigger id="admin-wallet">
+                              <SelectValue placeholder="Select account to deposit to" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {isLoadingWallets ? (
+                                  <SelectItem value="loading" disabled>Loading accounts...</SelectItem>
+                              ) : (
+                                  activeAdminWallets.map(wallet => (
+                                      <SelectItem key={wallet.id} value={wallet.id}>
+                                          {wallet.walletName} - {wallet.name} ({wallet.number})
+                                      </SelectItem>
+                                  ))
+                              )}
+                          </SelectContent>
+                      </Select>
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="sender-name">Your Name (Sender)</Label>
+                      <Input id="sender-name" value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="e.g., John Doe" />
+                  </div>
+                   <div className="space-y-2">
+                      <Label htmlFor="sender-account">Your Account Number (Sender)</Label>
+                      <Input id="sender-account" value={senderAccount} onChange={e => setSenderAccount(e.target.value)} placeholder="e.g., 03001234567" />
+                  </div>
+                   <div className="space-y-2">
+                      <Label htmlFor="tid">Transaction ID (TID)</Label>
+                      <Input id="tid" value={tid} onChange={e => setTid(e.target.value)} placeholder="Enter the transaction ID from your app" />
+                  </div>
+              </div>
+              <DialogFooter>
+                  <DialogClose asChild>
+                      <Button variant="outline">Cancel</Button>
+                  </DialogClose>
+                  <Button onClick={handleSubmitRequest} disabled={isSubmitting}>
+                      {isSubmitting ? "Submitting..." : "Submit Request"}
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </div>
   );
 }
