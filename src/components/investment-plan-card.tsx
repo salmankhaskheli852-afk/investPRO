@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Image from 'next/image';
@@ -191,19 +190,19 @@ export function InvestmentPlanCard({
   };
 
   const dailyIncome = plan.price * (plan.dailyIncomePercentage / 100);
-  const totalIncome = dailyIncome * plan.incomePeriod;
+  // const totalIncome = dailyIncome * plan.incomePeriod;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Card
         className={cn(
-          "w-full rounded-lg shadow-md bg-blue-50 transition-all duration-300 hover:shadow-xl p-4 space-y-3",
+          "w-full rounded-lg shadow-md bg-blue-50 transition-all duration-300 hover:shadow-xl p-3 space-y-2",
           (isOfferExpired || isSoldOut) && 'opacity-60'
         )}
       >
-        <h3 className="font-bold text-base text-foreground mb-1">{plan.name}</h3>
+        <h3 className="font-bold text-base text-foreground">{plan.name}</h3>
 
-        <div className="flex flex-row gap-4">
+        <div className="flex flex-row gap-3">
           <div className="relative w-1/3 aspect-square">
             <Image
               src={plan.imageUrl}
@@ -214,32 +213,26 @@ export function InvestmentPlanCard({
             />
           </div>
 
-          <div className="flex-1 flex flex-col justify-between text-sm">
+          <div className="flex-1 flex flex-col justify-between text-sm space-y-1">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Product price</span>
+              <span className="text-muted-foreground text-xs">Product price</span>
               <span className="font-bold text-foreground">{plan.price.toLocaleString()} Rs</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Daily income</span>
+              <span className="text-muted-foreground text-xs">Daily income</span>
               <span className="font-bold text-foreground">{dailyIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Rs</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Income period</span>
+              <span className="text-muted-foreground text-xs">Income period</span>
               <span className="font-bold text-foreground">{plan.incomePeriod} days</span>
             </div>
-             {/* <div className="flex justify-between">
-              <span className="text-muted-foreground">Total income</span>
-              <span className="font-bold text-green-600">{totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Rs</span>
-            </div> */}
           </div>
         </div>
         
         <div className="relative pt-2">
             <Progress value={progress} className="h-2" />
-            <div className="absolute -top-1.5" style={{ left: `calc(${progress}% - 1.5rem)`}}>
-                <div className="bg-yellow-400 text-black text-xs font-bold px-2 py-0.5 rounded-md">
-                    {Math.round(progress)}%
-                </div>
+            <div className="absolute -top-1 right-0 text-xs font-bold text-gray-600">
+                {Math.round(progress)}%
             </div>
         </div>
 
@@ -247,6 +240,7 @@ export function InvestmentPlanCard({
           <DialogTrigger asChild>
             <Button
               className="w-full mt-2"
+              size="sm"
               disabled={(isPurchased && showAsPurchased) || isOfferExpired || isSoldOut}
             >
               {(isPurchased && showAsPurchased) ? 'Purchased' : isSoldOut ? 'Sold Out' : (isOfferExpired ? 'Plan Closed' : 'Purchase Plan')}
@@ -270,10 +264,6 @@ export function InvestmentPlanCard({
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Plan Cost</span>
               <span className="font-bold text-lg">{plan.price.toLocaleString()} Rs</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Total Potential Income</span>
-              <span className="font-bold text-lg text-green-600">{totalIncome.toLocaleString()} Rs</span>
             </div>
           </div>
           <div className="rounded-lg bg-background/50 p-4 space-y-2">
@@ -305,4 +295,3 @@ export function InvestmentPlanCard({
     </Dialog>
   );
 }
-
