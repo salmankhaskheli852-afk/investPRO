@@ -196,14 +196,14 @@ export function InvestmentPlanCard({
     <Dialog open={open} onOpenChange={setOpen}>
       <Card
         className={cn(
-          "w-full rounded-lg shadow-md bg-blue-50 transition-all duration-300 hover:shadow-xl p-3 space-y-2",
+          "w-full rounded-lg shadow-md bg-blue-50 transition-all duration-300 hover:shadow-xl p-2 space-y-1",
           (isOfferExpired || isSoldOut) && 'opacity-60'
         )}
       >
-        <h3 className="font-bold text-base text-foreground">{plan.name}</h3>
+        <h3 className="font-bold text-sm text-foreground px-1">{plan.name}</h3>
 
         <div className="flex flex-row gap-3">
-          <div className="relative w-1/3 aspect-square">
+          <div className="relative w-1/4 aspect-square">
             <Image
               src={plan.imageUrl}
               alt={plan.name}
@@ -213,25 +213,25 @@ export function InvestmentPlanCard({
             />
           </div>
 
-          <div className="flex-1 flex flex-col justify-between text-sm space-y-1">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground text-xs">Product price</span>
+          <div className="flex-1 flex flex-col justify-center text-sm space-y-0.5">
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Product price</span>
               <span className="font-bold text-foreground">{plan.price.toLocaleString()} Rs</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground text-xs">Daily income</span>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Daily income</span>
               <span className="font-bold text-foreground">{dailyIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Rs</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground text-xs">Income period</span>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Income period</span>
               <span className="font-bold text-foreground">{plan.incomePeriod} days</span>
             </div>
           </div>
         </div>
         
-        <div className="relative pt-2">
-            <Progress value={progress} className="h-2" />
-            <div className="absolute -top-1 right-0 text-xs font-bold text-gray-600">
+        <div className="relative pt-1">
+            <Progress value={progress} className="h-1.5" />
+            <div className="absolute -top-0 right-1 text-[10px] font-bold text-gray-600">
                 {Math.round(progress)}%
             </div>
         </div>
@@ -239,7 +239,7 @@ export function InvestmentPlanCard({
         {showPurchaseButton && (
           <DialogTrigger asChild>
             <Button
-              className="w-full mt-2"
+              className="w-full mt-1"
               size="sm"
               disabled={(isPurchased && showAsPurchased) || isOfferExpired || isSoldOut}
             >
@@ -295,5 +295,3 @@ export function InvestmentPlanCard({
     </Dialog>
   );
 }
-
-    
