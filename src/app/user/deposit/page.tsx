@@ -195,20 +195,6 @@ export default function DepositPage() {
                   </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-                  
-                  <div className="space-y-4 rounded-lg border p-4">
-                    <h3 className="font-medium text-center">Admin Accounts</h3>
-                    {isLoadingWallets ? <p>Loading accounts...</p> : 
-                      activeAdminWallets.map(wallet => (
-                        <div key={wallet.id} className="text-sm rounded-md bg-muted/50 p-3">
-                            <p className="font-bold">{wallet.walletName}</p>
-                            <p>Name: {wallet.name}</p>
-                            <p>Number: {wallet.number}</p>
-                        </div>
-                      ))
-                    }
-                  </div>
-
                   <div className="space-y-2">
                       <Label htmlFor="sender-name">Your Name (Sender)</Label>
                       <Input id="sender-name" value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="e.g., John Doe" />
