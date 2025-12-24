@@ -74,56 +74,15 @@ export default function DepositPage() {
     }
     setSavedDetails({ name: senderName, account: senderAccount });
     setIsDialogOpen(false);
-    toast({ title: 'Details Saved', description: 'Your sender details have been saved. You can now submit your request.' });
+    toast({ title: 'Details Saved', description: 'Your sender details have been saved. You can now proceed to pay.' });
   }
 
-  const handleSubmitRequest = async () => {
-    if (!user || !firestore) {
-        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
+  const handlePayNow = async () => {
+    if (!savedDetails) {
+        toast({ variant: 'destructive', title: 'Details not saved', description: 'Please save your details first.' });
         return;
     }
-    if (!amount || !savedDetails) {
-        toast({ variant: 'destructive', title: 'Missing Information', description: 'Please enter an amount and save your details first.' });
-        return;
-    }
-
-    setIsSubmitting(true);
-    try {
-        const numericAmount = parseFloat(amount);
-        const batch = writeBatch(firestore);
-
-        const newTransactionRef = doc(collection(firestore, 'transactions'));
-        const transactionData: Omit<Transaction, 'id'|'date'> & { date: any } = {
-            type: 'deposit',
-            amount: numericAmount,
-            status: 'pending',
-            date: serverTimestamp(),
-            walletId: 'main',
-            details: {
-                userId: user.uid,
-                senderName: savedDetails.name,
-                senderAccount: savedDetails.account,
-            },
-        };
-
-        batch.set(newTransactionRef, { ...transactionData, id: newTransactionRef.id });
-
-        const userTransactionRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'), newTransactionRef.id);
-        batch.set(userTransactionRef, { ...transactionData, id: newTransactionRef.id });
-
-        await batch.commit();
-        
-        toast({ title: 'Success!', description: 'Your deposit request has been submitted and is pending review.' });
-        // Reset state after successful submission
-        setAmount('');
-        setSavedDetails(null);
-        router.push('/user/history');
-
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Submission Failed', description: e.message });
-    } finally {
-        setIsSubmitting(false);
-    }
+    router.push('/user/recharge');
   };
 
   const handleYourDetailClick = () => {
@@ -205,10 +164,10 @@ export default function DepositPage() {
                       <Button
                           size="lg"
                           className="w-full h-12 text-lg rounded-full"
-                          onClick={handleSubmitRequest}
+                          onClick={handlePayNow}
                           disabled={isSubmitting}
                       >
-                         {isSubmitting ? 'Submitting...' : 'Submit Request'}
+                         {isSubmitting ? 'Processing...' : 'Pay Now'}
                       </Button>
                   )}
                 </div>
