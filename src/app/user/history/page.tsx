@@ -36,6 +36,9 @@ function TransactionRow({ tx }: { tx: Transaction }) {
       if(tx.type === 'referral_income' && tx.details?.reason) {
           return tx.details.reason;
       }
+      if(tx.type === 'withdrawal' && tx.status === 'failed' && tx.details?.failureReason) {
+        return `Withdrawal Failed: ${tx.details.failureReason}`;
+      }
       return typeText;
   }
 
@@ -114,3 +117,5 @@ export default function UserHistoryPage() {
     </div>
   );
 }
+
+    

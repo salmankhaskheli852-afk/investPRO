@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import type { User, Transaction, Wallet } from '@/lib/data';
-import { collection, query, where, doc, writeBatch, getDoc, increment, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, getDoc, increment, deleteDoc, updateDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Search, MoreHorizontal, Eye, Trash2, ShieldX } from 'lucide-react';
@@ -39,12 +39,79 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
+
+function MarkAsFakeDialog({
+    isOpen,
+    onOpenChange,
+    onSubmit
+}: {
+    isOpen: boolean,
+    onOpenChange: (open: boolean) => void,
+    onSubmit: (reason: string) => void
+}) {
+    const [reason, setReason] = React.useState('');
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+    const handleSubmit = async () => {
+        if (!reason) {
+            alert("Please provide a reason.");
+            return;
+        }
+        setIsSubmitting(true);
+        await onSubmit(reason);
+        setIsSubmitting(false);
+        onOpenChange(false);
+    }
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Mark as Fake Request</DialogTitle>
+                    <DialogDescription>
+                        Please provide a reason for marking this withdrawal as fake. This reason will be saved and may be visible to the user.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-2">
+                    <Label htmlFor="fake-reason">Reason</Label>
+                    <Textarea
+                        id="fake-reason"
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        placeholder="e.g., Invalid account details, suspicious activity..."
+                    />
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="outline">Cancel</Button>
+                    </DialogClose>
+                    <Button onClick={handleSubmit} disabled={isSubmitting}>
+                        {isSubmitting ? 'Submitting...' : 'Confirm'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 
 function WithdrawalRequestRow({ tx, onUpdate }: { tx: Transaction; onUpdate: () => void }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = React.useState(false);
+  const [isFakeDialogOpen, setIsFakeDialogOpen] = React.useState(false);
   
   const userId = tx.details?.userId;
   const userDocRef = useMemoFirebase(
@@ -59,7 +126,7 @@ function WithdrawalRequestRow({ tx, onUpdate }: { tx: Transaction; onUpdate: () 
   );
   const { data: wallet, isLoading: isLoadingWallet } = useDoc<Wallet>(walletDocRef);
 
-  const handleUpdateStatus = async (newStatus: 'completed' | 'failed') => {
+  const handleUpdateStatus = async (newStatus: 'completed' | 'failed', reason?: string) => {
     if (!firestore || !user) return;
     setIsProcessing(true);
     
@@ -74,8 +141,13 @@ function WithdrawalRequestRow({ tx, onUpdate }: { tx: Transaction; onUpdate: () 
         batch.update(walletRef, { balance: increment(tx.amount) });
       }
 
-      batch.update(globalTransactionRef, { status: newStatus });
-      batch.update(userTransactionRef, { status: newStatus });
+      const updateData: { status: 'completed' | 'failed', details?: any } = { status: newStatus };
+      if (reason) {
+          updateData.details = { ...tx.details, failureReason: reason };
+      }
+
+      batch.update(globalTransactionRef, updateData);
+      batch.update(userTransactionRef, updateData);
 
       await batch.commit();
 
@@ -123,6 +195,7 @@ function WithdrawalRequestRow({ tx, onUpdate }: { tx: Transaction; onUpdate: () 
   const details = tx.details || {};
 
   return (
+    <>
     <TableRow>
       <TableCell>
         <div className="flex items-center gap-3">
@@ -152,78 +225,80 @@ function WithdrawalRequestRow({ tx, onUpdate }: { tx: Transaction; onUpdate: () 
         {tx.date ? format(tx.date.toDate(), 'PPp') : 'N/A'}
       </TableCell>
       <TableCell className="text-right">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" disabled={isProcessing}>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-             {userId && (
-              <DropdownMenuItem asChild>
-                <Link href={`/admin/users/${userId}`}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  View User Details
-                </Link>
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              className="text-green-600 focus:text-green-700"
-              onClick={() => handleUpdateStatus('completed')}
+        <div className="flex items-center justify-end gap-2">
+            <Button
+                size="sm"
+                variant="outline"
+                className="bg-green-500/10 text-green-700 hover:bg-green-500/20"
+                onClick={() => handleUpdateStatus('completed')}
+                disabled={isProcessing}
             >
-              <Check className="mr-2 h-4 w-4" />
-              Approve
-            </DropdownMenuItem>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
-                  <ShieldX className="mr-2 h-4 w-4" />
-                  Mark as Fake
-                </div>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Mark as Fake?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will mark the request as 'failed' and refund the amount to the user. Are you sure?
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleUpdateStatus('failed')}>
-                    Confirm
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </div>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete this request?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone and will permanently delete the request. The user's balance will not be refunded.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDelete}>
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </DropdownMenuContent>
-        </DropdownMenu>
+                <Check className="mr-2 h-4 w-4" /> Approve
+            </Button>
+            <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => handleUpdateStatus('failed')}
+                disabled={isProcessing}
+            >
+                <X className="mr-2 h-4 w-4" /> Reject
+            </Button>
+
+            <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" disabled={isProcessing}>
+                <MoreHorizontal className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>More Actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {userId && (
+                <DropdownMenuItem asChild>
+                    <Link href={`/admin/users/${userId}`}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    View User Details
+                    </Link>
+                </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onSelect={() => setIsFakeDialogOpen(true)} className="text-destructive focus:text-destructive">
+                    <ShieldX className="mr-2 h-4 w-4" />
+                    Mark as Fake
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <div className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                        </div>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this request?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone and will permanently delete the request. The user's balance will not be refunded.
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDelete}>
+                            Delete
+                        </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
       </TableCell>
     </TableRow>
+    <MarkAsFakeDialog 
+        isOpen={isFakeDialogOpen}
+        onOpenChange={setIsFakeDialogOpen}
+        onSubmit={(reason) => handleUpdateStatus('failed', reason)}
+    />
+    </>
   );
 }
 
@@ -308,3 +383,5 @@ export default function AdminWithdrawalsPage() {
     </div>
   );
 }
+
+    
