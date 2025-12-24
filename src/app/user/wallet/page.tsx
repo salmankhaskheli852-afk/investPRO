@@ -26,7 +26,7 @@ import {
   DialogClose
 } from '@/components/ui/dialog';
 import type { Wallet, Transaction, AppSettings, User, WithdrawalMethod } from '@/lib/data';
-import { ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { ArrowUpFromLine } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -49,6 +49,7 @@ export default function UserWalletPage() {
   const [withdrawBankName, setWithdrawBankName] = React.useState('');
 
   const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = React.useState(false);
+  const [isProcessing, setIsProcessing] = React.useState(false);
 
   const [showInsufficientFunds, setShowInsufficientFunds] = React.useState(false);
   const [showEmptyFields, setShowEmptyFields] = React.useState(false);
@@ -86,16 +87,20 @@ export default function UserWalletPage() {
   const isWithdrawalDisabled = appSettings?.isVerificationEnabled && !userData?.isVerified;
   
   const handleWithdrawalSubmit = async () => {
+    setIsProcessing(true);
     if (isWithdrawalDisabled) {
        toast({ variant: 'destructive', title: 'Action Denied', description: 'Your account must be verified to make withdrawals.' });
+       setIsProcessing(false);
        return;
     }
     if (!user || !firestore || !walletData) {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
+      setIsProcessing(false);
       return;
     }
     if (!withdrawAmount || !withdrawMethod || !withdrawHolderName || !withdrawAccountNumber || (withdrawMethod === 'Bank Transfer' && !withdrawBankName)) {
       setShowEmptyFields(true);
+      setIsProcessing(false);
       return;
     }
 
@@ -103,15 +108,18 @@ export default function UserWalletPage() {
 
     if (appSettings?.minWithdrawal && amountToWithdraw < appSettings.minWithdrawal) {
       toast({ variant: 'destructive', title: 'Withdrawal amount too low', description: `Minimum withdrawal is ${appSettings.minWithdrawal} PKR.` });
+      setIsProcessing(false);
       return;
     }
     if (appSettings?.maxWithdrawal && amountToWithdraw > appSettings.maxWithdrawal) {
       toast({ variant: 'destructive', title: 'Withdrawal amount too high', description: `Maximum withdrawal is ${appSettings.maxWithdrawal} PKR.` });
+      setIsProcessing(false);
       return;
     }
 
     if (amountToWithdraw > (walletData.balance || 0)) {
         setShowInsufficientFunds(true);
+        setIsProcessing(false);
         return;
     }
 
@@ -142,7 +150,7 @@ export default function UserWalletPage() {
                     receiverAccount: withdrawAccountNumber,
                     bankName: withdrawMethod === 'Bank Transfer' ? withdrawBankName : undefined,
                     userId: user.uid,
-                    userName: user.displayName,
+                    userName: userData?.name,
                     userEmail: user.email,
                 }
             };
@@ -165,6 +173,8 @@ export default function UserWalletPage() {
         setIsWithdrawDialogOpen(false);
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Error', description: e.message || "Failed to submit withdrawal request." });
+    } finally {
+        setIsProcessing(false);
     }
   };
 
@@ -308,7 +318,9 @@ export default function UserWalletPage() {
 
                           <DialogFooter>
                             <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                            <Button type="submit" className="bg-primary hover:bg-primary/90" onClick={handleWithdrawalSubmit}>Submit Request</Button>
+                            <Button type="submit" className="bg-primary hover:bg-primary/90" onClick={handleWithdrawalSubmit} disabled={isProcessing}>
+                                {isProcessing ? 'Submitting...' : 'Submit Request'}
+                            </Button>
                           </DialogFooter>
                       </DialogContent>
                   </Dialog>
