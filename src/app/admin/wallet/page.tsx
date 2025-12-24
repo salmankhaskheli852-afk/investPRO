@@ -17,11 +17,10 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { AdminWallet, WithdrawalMethod } from '@/lib/data';
-import { collection, doc, addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -61,7 +60,6 @@ export default function AdminWalletPage() {
   const [newWalletName, setNewWalletName] = React.useState('');
   const [newAccountName, setNewAccountName] = React.useState('');
   const [newWalletAddress, setNewWalletAddress] = React.useState('');
-  const [newIsBank, setNewIsBank] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isSavingMethods, setIsSavingMethods] = React.useState(false);
 
@@ -70,7 +68,6 @@ export default function AdminWalletPage() {
   const [editWalletName, setEditWalletName] = React.useState('');
   const [editAccountName, setEditAccountName] = React.useState('');
   const [editWalletAddress, setEditWalletAddress] = React.useState('');
-  const [editIsBank, setEditIsBank] = React.useState(false);
 
   // State for withdrawal method toggles
   const [methodsState, setMethodsState] = React.useState<Record<string, boolean>>({
@@ -160,7 +157,6 @@ export default function AdminWalletPage() {
         walletName: newWalletName,
         name: newAccountName,
         number: newWalletAddress,
-        isBank: newIsBank,
         isEnabled: true,
       });
 
@@ -173,7 +169,6 @@ export default function AdminWalletPage() {
       setNewWalletName('');
       setNewAccountName('');
       setNewWalletAddress('');
-      setNewIsBank(false);
     } catch (e: any) {
       toast({
         variant: 'destructive',
@@ -190,7 +185,6 @@ export default function AdminWalletPage() {
     setEditWalletName(wallet.walletName);
     setEditAccountName(wallet.name);
     setEditWalletAddress(wallet.number);
-    setEditIsBank(wallet.isBank || false);
     setIsEditAccountDialogOpen(true);
   };
 
@@ -206,7 +200,6 @@ export default function AdminWalletPage() {
             walletName: editWalletName,
             name: editAccountName,
             number: editWalletAddress,
-            isBank: editIsBank
         });
         toast({ title: 'Account Updated', description: 'The account details have been saved.' });
         setIsEditAccountDialogOpen(false);
@@ -347,10 +340,6 @@ export default function AdminWalletPage() {
                   <Label htmlFor="new-wallet-address">Address/Number</Label>
                   <Input id="new-wallet-address" value={newWalletAddress} onChange={e => setNewWalletAddress(e.target.value)} placeholder="Account number or phone number" />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="is-bank" checked={newIsBank} onCheckedChange={checked => setNewIsBank(Boolean(checked))} />
-                  <Label htmlFor="is-bank">This is a bank account</Label>
-                </div>
               </div>
               <DialogFooter>
                 <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
@@ -441,10 +430,6 @@ export default function AdminWalletPage() {
                   <Label htmlFor="edit-wallet-address">Address/Number</Label>
                   <Input id="edit-wallet-address" value={editWalletAddress} onChange={e => setEditWalletAddress(e.target.value)} placeholder="Account number or phone number" />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="edit-is-bank" checked={editIsBank} onCheckedChange={checked => setEditIsBank(Boolean(checked))} />
-                  <Label htmlFor="edit-is-bank">This is a bank account</Label>
-                </div>
               </div>
               <DialogFooter>
                 <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
@@ -459,3 +444,5 @@ export default function AdminWalletPage() {
     </div>
   );
 }
+
+    

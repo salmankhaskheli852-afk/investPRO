@@ -85,15 +85,31 @@ export type Transaction = {
   amount: number;
   status: 'pending' | 'completed' | 'failed' | 'revoked';
   date: Timestamp;
-  details?: any;
+  details?: {
+    userId?: string;
+    userName?: string;
+    userEmail?: string;
+    adminWalletId?: string;
+    adminWalletName?: string;
+    senderName?: string;
+    senderAccount?: string;
+    tid?: string;
+    planId?: string;
+    planName?: string;
+    method?: string;
+    receiverName?: string;
+    receiverAccount?: string;
+    bankName?: string;
+    reason?: string;
+    [key: string]: any;
+  };
 };
 
 export type AdminWallet = {
     id: string;
-    walletName: string;
-    name: string;
-    number: string;
-    isBank?: boolean;
+    walletName: string; // e.g., Easypaisa, JazzCash, Bank
+    name: string; // e.g., John Doe, Meezan Bank
+    number: string; // e.g., 03001234567, PK1234...
     isEnabled: boolean;
 }
 
@@ -155,5 +171,4 @@ export const investmentPlans: InvestmentPlan[] = [];
 // This is now seed data for Firestore, not used directly in the app.
 export const planCategories: PlanCategory[] = [];
 
-    
     
