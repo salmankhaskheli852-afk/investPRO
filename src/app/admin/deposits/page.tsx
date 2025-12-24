@@ -525,7 +525,7 @@ export default function AdminDepositsPage() {
                   <TableHead>User</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Sender Details</TableHead>
-                  <TableHead>Deposit To</TableHead>
+                  <TableHead>Deposit To Detail</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
