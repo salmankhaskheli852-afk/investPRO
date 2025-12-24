@@ -32,12 +32,10 @@ export default function DepositPage() {
   const router = useRouter();
   
   const [amount, setAmount] = React.useState('');
-  const [selectedMethod, setSelectedMethod] = React.useState<string | null>(null);
-
+  
   // Step 2 state
   const [senderName, setSenderName] = React.useState('');
   const [senderAccount, setSenderAccount] = React.useState('');
-  const [tid, setTid] = React.useState('');
   
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -62,18 +60,12 @@ export default function DepositPage() {
     setAmount(String(presetAmount));
   };
   
-  React.useEffect(() => {
-    if (appSettings?.rechargeMethods && appSettings.rechargeMethods.length > 0 && !selectedMethod) {
-      setSelectedMethod(appSettings.rechargeMethods[0]);
-    }
-  }, [appSettings, selectedMethod]);
-
   const handleSubmitRequest = async () => {
     if (!user || !firestore) {
         toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
         return;
     }
-    if (!amount || !senderName || !senderAccount || !tid) {
+    if (!amount || !senderName || !senderAccount) {
         toast({ variant: 'destructive', title: 'Missing Information', description: 'Please fill out all fields in the form.' });
         return;
     }
@@ -94,7 +86,6 @@ export default function DepositPage() {
                 userId: user.uid,
                 senderName,
                 senderAccount,
-                tid,
             },
         };
 
@@ -128,7 +119,6 @@ export default function DepositPage() {
     // Reset step 2 form when opening
     setSenderName('');
     setSenderAccount('');
-    setTid('');
     setIsDialogOpen(true);
   };
 
@@ -182,26 +172,6 @@ export default function DepositPage() {
                     )}
                 </div>
 
-                 <div className="space-y-4">
-                    <h3 className="text-sm font-medium text-muted-foreground">Recharge Method</h3>
-                    {isLoadingSettings ? (
-                        <p>Loading methods...</p>
-                    ) : (
-                        <div className="space-y-3">
-                           {appSettings?.rechargeMethods?.map(method => (
-                                <Button 
-                                    key={method}
-                                    variant={selectedMethod === method ? 'default' : 'outline'}
-                                    className="w-full justify-center text-base"
-                                    onClick={() => setSelectedMethod(method)}
-                                >
-                                    {method}
-                                </Button>
-                           ))}
-                        </div>
-                    )}
-                </div>
-
                 <div className="pt-4">
                   <Button
                       size="lg"
@@ -225,6 +195,20 @@ export default function DepositPage() {
                   </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+                  
+                  <div className="space-y-4 rounded-lg border p-4">
+                    <h3 className="font-medium text-center">Admin Accounts</h3>
+                    {isLoadingWallets ? <p>Loading accounts...</p> : 
+                      activeAdminWallets.map(wallet => (
+                        <div key={wallet.id} className="text-sm rounded-md bg-muted/50 p-3">
+                            <p className="font-bold">{wallet.walletName}</p>
+                            <p>Name: {wallet.name}</p>
+                            <p>Number: {wallet.number}</p>
+                        </div>
+                      ))
+                    }
+                  </div>
+
                   <div className="space-y-2">
                       <Label htmlFor="sender-name">Your Name (Sender)</Label>
                       <Input id="sender-name" value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="e.g., John Doe" />
@@ -232,10 +216,6 @@ export default function DepositPage() {
                    <div className="space-y-2">
                       <Label htmlFor="sender-account">Your Account Number (Sender)</Label>
                       <Input id="sender-account" value={senderAccount} onChange={e => setSenderAccount(e.target.value)} placeholder="e.g., 03001234567" />
-                  </div>
-                   <div className="space-y-2">
-                      <Label htmlFor="tid">Transaction ID (TID)</Label>
-                      <Input id="tid" value={tid} onChange={e => setTid(e.target.value)} placeholder="Enter the transaction ID from your app" />
                   </div>
               </div>
               <DialogFooter>
