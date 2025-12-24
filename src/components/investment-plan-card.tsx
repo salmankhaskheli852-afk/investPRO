@@ -261,9 +261,9 @@ export function InvestmentPlanCard({
 
 
   return (
-    <div className={cn("rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500 transition-all duration-300 hover:shadow-xl", (isOfferExpired || isSoldOut) && 'opacity-60')}>
-      <Card className={cn("w-full overflow-hidden flex flex-row h-full rounded-lg")}>
-        <div className="relative w-1/2 flex-shrink-0">
+    <div className={cn("rounded-lg transition-all duration-300 hover:shadow-xl bg-card", (isOfferExpired || isSoldOut) && 'opacity-60')}>
+      <Card className={cn("w-full overflow-hidden flex flex-row h-full rounded-lg border-none shadow-none bg-transparent")}>
+        <div className="relative w-1/3 flex-shrink-0">
           {isOfferActive && plan.offerEndTime && <CountdownTimer endTime={plan.offerEndTime} />}
           <Image
             src={plan.imageUrl}
@@ -297,7 +297,7 @@ export function InvestmentPlanCard({
               </div>
           )}
         </div>
-        <CardContent className="p-4 flex flex-col flex-1 w-1/2">
+        <CardContent className="p-4 flex flex-col flex-1 w-2/3">
           <h3 className="font-headline font-bold text-base text-foreground mb-1">{plan.name}</h3>
           
           <div className="flex-1 space-y-3">
@@ -307,16 +307,16 @@ export function InvestmentPlanCard({
               </div>
               <div className="grid grid-cols-2 gap-x-2 gap-y-1">
                   <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground">Daily income</span> 
-                      <span className="font-medium text-foreground text-sm">{dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
+                      <span className="text-xs text-muted-foreground font-bold">Daily income</span> 
+                      <span className="font-bold text-foreground text-sm">{dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
                   </div>
                   <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground">Period</span> 
-                      <span className="font-medium text-foreground text-sm">{plan.incomePeriod} days</span>
+                      <span className="text-xs text-muted-foreground font-bold">Period</span> 
+                      <span className="font-bold text-foreground text-sm">{plan.incomePeriod} days</span>
                   </div>
                    <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground">Total income</span> 
-                      <span className="font-medium text-foreground text-sm">{totalIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
+                      <span className="text-xs text-muted-foreground font-bold">Total income</span> 
+                      <span className="font-bold text-foreground text-sm">{totalIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
                   </div>
               </div>
           </div>
