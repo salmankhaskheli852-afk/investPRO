@@ -261,7 +261,7 @@ export function InvestmentPlanCard({
 
 
   return (
-    <Card className={cn("w-full flex flex-row h-full rounded-lg border-none shadow-md bg-card transition-all duration-300 hover:shadow-xl overflow-hidden", (isOfferExpired || isSoldOut) && 'opacity-60')}>
+    <Card className={cn("w-full flex flex-row h-full rounded-lg overflow-hidden shadow-md bg-card transition-all duration-300 hover:shadow-xl", (isOfferExpired || isSoldOut) && 'opacity-60')}>
       <div className="relative w-1/3 flex-shrink-0">
         {isOfferActive && plan.offerEndTime && <CountdownTimer endTime={plan.offerEndTime} />}
         <Image
@@ -299,7 +299,7 @@ export function InvestmentPlanCard({
       <CardContent className="p-4 flex flex-col flex-1 w-2/3">
         <h3 className="font-headline font-bold text-base text-foreground mb-1">{plan.name}</h3>
         
-        <div className="flex-1 space-y-3">
+        <div className="flex-1 space-y-2">
             <div className="flex flex-col">
                 <span className="text-xs text-muted-foreground">Product price</span> 
                 <span className="font-bold text-base text-foreground">{plan.price.toLocaleString()} Rs</span>
