@@ -7,21 +7,19 @@ import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebas
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import type { AdminWallet, Transaction } from '@/lib/data';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Banknote, Landmark, Copy, ChevronRight, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Banknote, Landmark, Copy, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const RechargePageComponent = () => {
     const searchParams = useSearchParams();
@@ -39,8 +37,8 @@ const RechargePageComponent = () => {
     const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(false);
 
     const adminWalletsQuery = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'admin_wallets') : null),
-        [firestore]
+      () => (firestore ? collection(firestore, 'admin_wallets') : null),
+      [firestore]
     );
     const { data: adminWallets, isLoading: isLoadingWallets } = useCollection<AdminWallet>(adminWalletsQuery);
 
@@ -53,12 +51,10 @@ const RechargePageComponent = () => {
         
         if (amountParam) {
             setAmount(amountParam);
-            // Generate a unique order number
             const timestamp = Date.now();
             const randomSuffix = Math.floor(Math.random() * 10000);
             setOrderNo(`S${timestamp}${randomSuffix}`);
         } else {
-            // Redirect if amount is missing
             router.push('/user/deposit');
         }
         if (senderNameParam) setSenderName(senderNameParam);
@@ -73,6 +69,11 @@ const RechargePageComponent = () => {
             description: `${label} has been copied to your clipboard.`,
         });
     };
+    
+    const handleChannelChange = (walletId: string) => {
+        const wallet = activeAdminWallets?.find(w => w.id === walletId);
+        setSelectedChannel(wallet || null);
+    }
 
     const handleSubmitDeposit = async () => {
         if (!user || !firestore) return;
@@ -83,12 +84,11 @@ const RechargePageComponent = () => {
 
         setIsSubmitting(true);
         const amountToDeposit = parseFloat(amount);
-        const tid = `TID-${orderNo}`; // Create a TID from order number
+        const tid = `TID-${orderNo}`;
 
         try {
             const batch = writeBatch(firestore);
 
-            // 1. Create transaction in global collection
             const globalTransactionRef = doc(collection(firestore, 'transactions'));
             const transactionData: Omit<Transaction, 'id'| 'date'> & { date: any } = {
                 type: 'deposit',
@@ -98,18 +98,17 @@ const RechargePageComponent = () => {
                 walletId: 'main',
                 details: {
                     userId: user.uid,
-                    userName: senderName, // Using sender name provided
+                    userName: senderName,
                     userEmail: user.email,
                     adminWalletId: selectedChannel.id,
                     adminWalletName: selectedChannel.name,
                     senderName: senderName,
                     senderAccount: senderAccount,
-                    tid: tid, // Using the generated TID
+                    tid: tid,
                 }
             };
             batch.set(globalTransactionRef, { ...transactionData, id: globalTransactionRef.id });
 
-            // 2. Create transaction in user's subcollection
             const userTransactionRef = doc(collection(firestore, `users/${user.uid}/wallets/main/transactions`), globalTransactionRef.id);
             batch.set(userTransactionRef, { ...transactionData, id: globalTransactionRef.id });
 
@@ -123,13 +122,6 @@ const RechargePageComponent = () => {
         }
     };
     
-    const getChannelIcon = (channelName: string) => {
-        if (channelName.toLowerCase().includes('easypaisa')) return '/easypaisa-icon.png';
-        if (channelName.toLowerCase().includes('jazzcash')) return '/jazzcash-icon.png';
-        if (channelName.toLowerCase().includes('bank')) return <Landmark className="h-8 w-8 text-primary" />;
-        return <Banknote className="h-8 w-8 text-primary" />;
-    };
-
     return (
         <>
         <AlertDialog open={isPaymentConfirmed}>
@@ -162,9 +154,6 @@ const RechargePageComponent = () => {
                     </Button>
                    <h1 className="text-xl font-bold text-foreground">Confirm Payment</h1>
                 </div>
-                <div className="text-lg font-mono font-bold text-primary">
-                    {/* Optional Timer */}
-                </div>
             </div>
 
             <div className="flex-grow p-4 space-y-6">
@@ -175,41 +164,40 @@ const RechargePageComponent = () => {
 
                 <div className="space-y-3">
                     <h3 className="text-md font-semibold text-muted-foreground">Payment channel (ادائیگی کا چینل)</h3>
-                    <div className="space-y-3">
-                       {activeAdminWallets?.map(wallet => (
-                            <div key={wallet.id} className="p-3 rounded-lg border bg-background cursor-pointer" onClick={() => setSelectedChannel(wallet)}>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        {typeof getChannelIcon(wallet.walletName) === 'string' ? (
-                                            <Image src={getChannelIcon(wallet.walletName) as string} alt={wallet.walletName} width={32} height={32} />
-                                        ) : (
-                                            getChannelIcon(wallet.walletName)
-                                        )}
-                                        <span className="font-bold text-lg">{wallet.walletName}</span>
-                                    </div>
-                                    <ChevronRight className="h-6 w-6 text-muted-foreground" />
+                    
+                    <Select onValueChange={handleChannelChange}>
+                      <SelectTrigger className="w-full h-12 text-base">
+                        <SelectValue placeholder="Select a payment channel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {isLoadingWallets ? (
+                          <SelectItem value="loading" disabled>Loading...</SelectItem>
+                        ) : (
+                          activeAdminWallets?.map(wallet => (
+                            <SelectItem key={wallet.id} value={wallet.id}>{wallet.walletName}</SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+
+                    {selectedChannel && (
+                        <div className="mt-4 pt-4 border-t space-y-2 text-sm bg-background p-4 rounded-lg">
+                            <div className="flex justify-between items-center">
+                                <span className="text-muted-foreground">Account Name</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-semibold">{selectedChannel.name}</span>
+                                    <Copy className="h-4 w-4 text-muted-foreground cursor-pointer" onClick={() => handleCopy(selectedChannel.name, 'Account Name')} />
                                 </div>
-                                {selectedChannel?.id === wallet.id && (
-                                    <div className="mt-4 pt-4 border-t space-y-2 text-sm">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-muted-foreground">Account Name</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-semibold">{wallet.name}</span>
-                                                <Copy className="h-4 w-4 text-muted-foreground cursor-pointer" onClick={() => handleCopy(wallet.name, 'Account Name')} />
-                                            </div>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-muted-foreground">Account Number</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-semibold">{wallet.number}</span>
-                                                <Copy className="h-4 w-4 text-muted-foreground cursor-pointer" onClick={() => handleCopy(wallet.number, 'Account Number')} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
-                       ))}
-                    </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-muted-foreground">Account Number</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-semibold">{selectedChannel.number}</span>
+                                    <Copy className="h-4 w-4 text-muted-foreground cursor-pointer" onClick={() => handleCopy(selectedChannel.number, 'Account Number')} />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-2 text-xs text-muted-foreground bg-background/50 p-4 rounded-lg">
