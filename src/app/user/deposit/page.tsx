@@ -12,11 +12,13 @@ import Link from 'next/link';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { AdminWallet, AppSettings, Transaction } from '@/lib/data';
 import { collection, doc, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 
 export default function DepositPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
+  const router = useRouter();
   
   const [amount, setAmount] = React.useState('');
   const [selectedMethod, setSelectedMethod] = React.useState<string | null>(null);
@@ -45,8 +47,8 @@ export default function DepositPage() {
         toast({ variant: 'destructive', title: 'Missing Information', description: 'Please enter an amount and select a method.' });
         return;
     }
-    toast({ title: 'Recharge Initiated', description: `Recharging ${amount} Rs via ${selectedMethod}` });
-    // In a real scenario, you would redirect to a payment gateway here.
+    // Navigate to the new blank page
+    router.push('/user/recharge');
   };
 
   return (
@@ -124,7 +126,7 @@ export default function DepositPage() {
                         size="lg"
                         className="w-full h-12 text-lg rounded-full"
                         onClick={handleRecharge}
-                        disabled={isSubmitting || !amount || !selectedMethod}
+                        disabled={isSubmitting || !amount}
                     >
                         {isSubmitting ? "Processing..." : "Recharge"}
                     </Button>
