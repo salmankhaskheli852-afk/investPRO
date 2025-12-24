@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 
 export type PlanCategory = {
@@ -144,6 +143,8 @@ export type AppSettings = {
     carouselImages?: string[];
     minFirstDepositForBonus?: number;
     firstDepositBonus?: number;
+    rechargePresetAmounts?: number[];
+    rechargeMethods?: string[];
 }
 
 

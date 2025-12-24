@@ -9,14 +9,36 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-
-const presetAmounts = [2960, 8690, 18900, 40500, 98900];
-const rechargeMethods = ['BitPay'];
+import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import type { AppSettings } from '@/lib/data';
+import { doc } from 'firebase/firestore';
 
 export default function DepositPage() {
   const { toast } = useToast();
-  const [amount, setAmount] = React.useState('2960');
-  const [selectedMethod, setSelectedMethod] = React.useState('BitPay');
+  const firestore = useFirestore();
+  const { user } = useUser();
+
+  const [amount, setAmount] = React.useState('');
+  const [selectedMethod, setSelectedMethod] = React.useState('');
+
+  const settingsRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore]
+  );
+  const { data: appSettings, isLoading } = useDoc<AppSettings>(settingsRef);
+
+  const presetAmounts = appSettings?.rechargePresetAmounts || [];
+  const rechargeMethods = appSettings?.rechargeMethods || [];
+  
+  React.useEffect(() => {
+    if (!amount && presetAmounts.length > 0) {
+      setAmount(String(presetAmounts[0]));
+    }
+    if (!selectedMethod && rechargeMethods.length > 0) {
+      setSelectedMethod(rechargeMethods[0]);
+    }
+  }, [presetAmounts, rechargeMethods, amount, selectedMethod]);
+
 
   const handleAmountClick = (value: number) => {
     setAmount(String(value));
@@ -60,34 +82,38 @@ export default function DepositPage() {
 
                 <div className="space-y-4">
                     <h3 className="font-medium text-muted-foreground">Choose Amount</h3>
-                    <div className="grid grid-cols-3 gap-3">
-                        {presetAmounts.map((preset) => (
-                            <Button 
-                                key={preset}
-                                variant={String(preset) === amount ? 'default' : 'outline'}
-                                className={cn("h-11 text-base", String(preset) !== amount && "bg-white border-primary/30 text-primary hover:bg-primary/10 hover:text-primary")}
-                                onClick={() => handleAmountClick(preset)}
-                            >
-                                {preset.toLocaleString()} Rs
-                            </Button>
-                        ))}
-                    </div>
+                    {isLoading ? <p>Loading options...</p> : (
+                      <div className="grid grid-cols-3 gap-3">
+                          {presetAmounts.map((preset) => (
+                              <Button 
+                                  key={preset}
+                                  variant={String(preset) === amount ? 'default' : 'outline'}
+                                  className={cn("h-11 text-base", String(preset) !== amount && "bg-white border-primary/30 text-primary hover:bg-primary/10 hover:text-primary")}
+                                  onClick={() => handleAmountClick(preset)}
+                              >
+                                  {preset.toLocaleString()} Rs
+                              </Button>
+                          ))}
+                      </div>
+                    )}
                 </div>
 
                  <div className="space-y-4">
                     <h3 className="font-medium text-muted-foreground">Recharge Method</h3>
-                    <div className="grid grid-cols-1 gap-3">
-                       {rechargeMethods.map((method) => (
-                            <Button
-                                key={method}
-                                variant={selectedMethod === method ? 'default' : 'outline'}
-                                className={cn("h-14 text-lg", selectedMethod !== method && "bg-white border-primary/30 text-primary hover:bg-primary/10 hover:text-primary")}
-                                onClick={() => setSelectedMethod(method)}
-                            >
-                                {method}
-                            </Button>
-                       ))}
-                    </div>
+                     {isLoading ? <p>Loading methods...</p> : (
+                        <div className="grid grid-cols-1 gap-3">
+                           {rechargeMethods.map((method) => (
+                                <Button
+                                    key={method}
+                                    variant={selectedMethod === method ? 'default' : 'outline'}
+                                    className={cn("h-14 text-lg", selectedMethod !== method && "bg-white border-primary/30 text-primary hover:bg-primary/10 hover:text-primary")}
+                                    onClick={() => setSelectedMethod(method)}
+                                >
+                                    {method}
+                                </Button>
+                           ))}
+                        </div>
+                     )}
                 </div>
 
                 <div className="pt-4">
