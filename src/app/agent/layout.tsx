@@ -50,9 +50,10 @@ export default function AgentLayout({
   children: React.ReactNode;
 }>) {
   const firestore = useFirestore();
+  const { user } = useUser();
   const settingsRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
-    [firestore]
+    () => (firestore && user ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore, user]
   );
   const { data: appSettings, isLoading } = useDoc<AppSettings>(settingsRef);
 

@@ -26,14 +26,14 @@ export default function UserInvestmentsPage() {
   const { data: walletData } = useDoc<Wallet>(walletRef);
 
   const plansQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'investment_plans'), orderBy('createdAt', 'desc')) : null,
-    [firestore]
+    () => firestore && user ? query(collection(firestore, 'investment_plans'), orderBy('createdAt', 'desc')) : null,
+    [firestore, user]
   );
   const { data: investmentPlans, isLoading: isLoadingPlans } = useCollection<InvestmentPlan>(plansQuery);
 
   const categoriesQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'plan_categories'), orderBy('createdAt', 'asc')) : null,
-    [firestore]
+    () => firestore && user ? query(collection(firestore, 'plan_categories'), orderBy('createdAt', 'asc')) : null,
+    [firestore, user]
   );
   const { data: planCategories, isLoading: isLoadingCategories } = useCollection<PlanCategory>(categoriesQuery);
 

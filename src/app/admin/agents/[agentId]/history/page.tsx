@@ -27,8 +27,8 @@ export default function AgentHistoryPage({ params }: { params: { agentId: string
   const { user: adminUser } = useUser();
 
   const agentDocRef = useMemoFirebase(
-      () => firestore && agentId ? doc(firestore, 'users', agentId) : null,
-      [firestore, agentId]
+      () => firestore && agentId && adminUser ? doc(firestore, 'users', agentId) : null,
+      [firestore, agentId, adminUser]
   );
   const { data: agent, isLoading: isLoadingAgent } = useDoc<User>(agentDocRef);
 

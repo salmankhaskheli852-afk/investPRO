@@ -57,9 +57,10 @@ function UserRow({
   onDeleteUser: (user: User) => void;
 }) {
   const firestore = useFirestore();
+  const { user: adminUser } = useUser();
   const walletsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'users', user.id, 'wallets')) : null,
-    [firestore, user.id]
+    () => firestore && adminUser ? query(collection(firestore, 'users', user.id, 'wallets')) : null,
+    [firestore, user.id, adminUser]
   );
   const { data: wallets, isLoading } = useCollection<Wallet>(walletsQuery);
 
@@ -357,5 +358,3 @@ export default function AdminUsersPage() {
     </>
   );
 }
-
-    

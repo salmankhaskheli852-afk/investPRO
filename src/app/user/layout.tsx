@@ -21,8 +21,8 @@ export default function UserLayout({
   const firestore = useFirestore();
 
   const settingsRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
-    [firestore]
+    () => (firestore && user ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore, user]
   );
   const { data: appSettings, isLoading: isLoadingSettings } = useDoc<AppSettings>(settingsRef);
   
@@ -67,5 +67,3 @@ export default function UserLayout({
     </div>
   );
 }
-
-    

@@ -11,7 +11,7 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { AppSettings } from '@/lib/data';
 import { doc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -19,11 +19,12 @@ import { useRouter } from 'next/navigation';
 export function VerificationPopup() {
   const [isOpen, setIsOpen] = React.useState(true);
   const firestore = useFirestore();
+  const { user } = useUser();
   const router = useRouter();
 
   const settingsRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
-    [firestore]
+    () => (firestore && user ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore, user]
   );
   const { data: appSettings } = useDoc<AppSettings>(settingsRef);
 
@@ -62,5 +63,3 @@ export function VerificationPopup() {
     </AlertDialog>
   );
 }
-
-    

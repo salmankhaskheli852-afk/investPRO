@@ -101,8 +101,8 @@ export default function AdminAgentsPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const agentsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'users'), where('role', '==', 'agent')) : null,
-    [firestore]
+    () => firestore && user ? query(collection(firestore, 'users'), where('role', '==', 'agent')) : null,
+    [firestore, user]
   );
   const { data: agents, isLoading: isLoadingAgents } = useCollection<User>(agentsQuery);
 

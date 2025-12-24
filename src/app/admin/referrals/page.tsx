@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -6,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import type { AppSettings } from '@/lib/data';
 import { Separator } from '@/components/ui/separator';
@@ -23,10 +24,11 @@ export default function ReferralSettingsPage() {
   const [isSaving, setIsSaving] = React.useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const settingsRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
-    [firestore]
+    () => (firestore && user ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore, user]
   );
   const { data: appSettings, isLoading } = useDoc<AppSettings>(settingsRef);
 

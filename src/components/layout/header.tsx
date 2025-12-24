@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -33,8 +34,8 @@ export function Header() {
   const { toast } = useToast();
 
   const settingsRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
-    [firestore]
+    () => (firestore && user ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore, user]
   );
   const { data: appSettings, isLoading: isLoadingSettings } = useDoc<AppSettings>(settingsRef);
   

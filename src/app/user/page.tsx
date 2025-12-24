@@ -46,8 +46,8 @@ export default function UserHomePage() {
   )
 
   const settingsRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
-    [firestore]
+    () => (firestore && user ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore, user]
   );
   const { data: appSettings } = useDoc<AppSettings>(settingsRef);
 

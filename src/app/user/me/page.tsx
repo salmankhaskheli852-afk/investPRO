@@ -48,14 +48,14 @@ export default function UserDashboardPage() {
   const { data: transactions, isLoading: isLoadingTransactions } = useCollection<Transaction>(transactionsQuery);
 
   const plansQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'investment_plans') : null,
-    [firestore]
+    () => firestore && user ? collection(firestore, 'investment_plans') : null,
+    [firestore, user]
   );
   const { data: allPlans } = useCollection<InvestmentPlan>(plansQuery);
   
   const settingsRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
-    [firestore]
+    () => (firestore && user ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore, user]
   );
   const { data: appSettings, isLoading: isLoadingSettings } = useDoc<AppSettings>(settingsRef);
 

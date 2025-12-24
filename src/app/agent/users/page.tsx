@@ -30,17 +30,18 @@ import Link from 'next/link';
 
 function ManagedUserRow({ user }: { user: User }) {
     const firestore = useFirestore();
+    const { user: agentUser } = useUser();
 
     const walletQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'users', user.id, 'wallets'), where('userId', '==', user.id)) : null,
-        [firestore, user.id]
+        () => firestore && agentUser ? query(collection(firestore, 'users', user.id, 'wallets'), where('userId', '==', user.id)) : null,
+        [firestore, user.id, agentUser]
     );
     const { data: wallets, isLoading: isLoadingWallet } = useCollection<Wallet>(walletQuery);
     const wallet = wallets?.[0];
 
     const plansQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'investment_plans') : null,
-        [firestore]
+        () => firestore && agentUser ? collection(firestore, 'investment_plans') : null,
+        [firestore, agentUser]
     );
     const { data: allPlans, isLoading: isLoadingPlans } = useCollection<InvestmentPlan>(plansQuery);
     
@@ -105,7 +106,7 @@ export default function AgentUsersPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const agentDocRef = useMemoFirebase(
-      () => agentUser ? doc(firestore, 'users', agentUser.uid) : null,
+      () => agentUser && firestore ? doc(firestore, 'users', agentUser.uid) : null,
       [firestore, agentUser]
   );
   const { data: agentData, isLoading: isLoadingAgent } = useDoc<User>(agentDocRef);

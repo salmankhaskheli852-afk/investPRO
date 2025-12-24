@@ -26,15 +26,15 @@ export default function AgentDashboardPage() {
   const { data: managedUsers, isLoading: isLoadingUsers } = useCollection<User>(managedUsersQuery);
 
   const investmentPlansQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'investment_plans') : null,
-    [firestore]
+    () => firestore && agentUser ? collection(firestore, 'investment_plans') : null,
+    [firestore, agentUser]
   );
   const { data: investmentPlans } = useCollection<InvestmentPlan>(investmentPlansQuery);
 
   // Get transactions for managed users.
   const userActivitiesQuery = useMemoFirebase(
       () => {
-          if (!firestore || !managedUsers) return null;
+          if (!firestore || !managedUsers || !agentUser) return null;
           const userIds = managedUsers.map(u => u.id);
           // IMPORTANT: Check if userIds is empty. An 'in' query with an empty array is invalid.
           if (userIds.length === 0) return null;
@@ -45,7 +45,7 @@ export default function AgentDashboardPage() {
               limit(5)
           );
       },
-      [firestore, managedUsers]
+      [firestore, managedUsers, agentUser]
   );
   const { data: userActivities, isLoading: isLoadingActivities } = useCollection<Transaction>(userActivitiesQuery);
 

@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -107,9 +107,10 @@ function PasswordRequestRow({ request, onUpdate }: { request: PasswordResetReque
 
 export default function AdminPasswordRequestsPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const requestsQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'password_reset_requests'), where('status', '==', 'pending')) : null),
-    [firestore]
+    () => (firestore && user ? query(collection(firestore, 'password_reset_requests'), where('status', '==', 'pending')) : null),
+    [firestore, user]
   );
   const { data: requests, isLoading, forceRefetch } = useCollection<PasswordResetRequest>(requestsQuery);
 

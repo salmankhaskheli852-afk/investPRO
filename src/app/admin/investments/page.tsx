@@ -35,7 +35,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { InvestmentPlan } from '@/lib/data';
 import { collection, addDoc, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -405,6 +405,7 @@ const CategoryFormDialog = ({
 export default function AdminInvestmentsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { user } = useUser();
 
   const [isPlanFormOpen, setIsPlanFormOpen] = React.useState(false);
   const [editingPlan, setEditingPlan] = React.useState<InvestmentPlan | null>(null);
@@ -413,14 +414,14 @@ export default function AdminInvestmentsPage() {
   const [editingCategory, setEditingCategory] = React.useState<PlanCategory | null>(null);
 
   const plansQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'investment_plans'), orderBy('createdAt', 'desc')) : null,
-    [firestore]
+    () => firestore && user ? query(collection(firestore, 'investment_plans'), orderBy('createdAt', 'desc')) : null,
+    [firestore, user]
   );
   const { data: investmentPlans, isLoading: isLoadingPlans, forceRefetch: refetchPlans } = useCollection<InvestmentPlan>(plansQuery);
 
   const categoriesQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'plan_categories'), orderBy('createdAt', 'asc')) : null,
-    [firestore]
+    () => firestore && user ? query(collection(firestore, 'plan_categories'), orderBy('createdAt', 'asc')) : null,
+    [firestore, user]
   );
   const { data: planCategories, isLoading: isLoadingCategories, forceRefetch: refetchCategories } = useCollection<PlanCategory>(categoriesQuery);
   

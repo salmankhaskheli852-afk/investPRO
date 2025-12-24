@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { Button } from './ui/button';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { AppSettings } from '@/lib/data';
 import { doc } from 'firebase/firestore';
 import { MessageSquare, Users, Download } from 'lucide-react';
@@ -25,11 +25,12 @@ interface BeforeInstallPromptEvent extends Event {
 
 export function WhatsAppWidget() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const [installPrompt, setInstallPrompt] = React.useState<BeforeInstallPromptEvent | null>(null);
 
   const appSettingsRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'app_config', 'app_settings') : null),
-    [firestore]
+    () => (firestore && user ? doc(firestore, 'app_config', 'app_settings') : null),
+    [firestore, user]
   );
   const { data: appSettings, isLoading } = useDoc<AppSettings>(appSettingsRef);
 
@@ -142,5 +143,3 @@ export function WhatsAppWidget() {
     </TooltipProvider>
   );
 }
-
-    
