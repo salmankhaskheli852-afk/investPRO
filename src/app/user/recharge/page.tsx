@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const RechargePageComponent = () => {
     const searchParams = useSearchParams();
@@ -92,6 +93,21 @@ const RechargePageComponent = () => {
                 <div className="text-center space-y-2">
                     <p className="text-5xl font-bold text-foreground">Rs. {parseFloat(amount).toLocaleString()}</p>
                 </div>
+                
+                <Card className="rounded-2xl shadow-lg border-none bg-card/80">
+                    <CardHeader>
+                        <CardTitle>Instructions (ہدایات)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                        <p><b>Step 1:</b> The amount you need to pay is shown above.</p>
+                        <p><b>Step 2:</b> Select the payment channel (like Easypaisa or JazzCash) from the dropdown menu.</p>
+                        <p><b>Step 3:</b> Click the 'payment' button at the bottom to go to the final step, where you will see the account details for payment.</p>
+                        <hr className="my-2"/>
+                        <p className="font-arabic"><b>مرحلہ 1:</b> جو رقم آپ نے ادا کرنی ہے وہ اوپر دکھائی گئی ہے۔</p>
+                        <p className="font-arabic"><b>مرحلہ 2:</b> ڈراپ ڈاؤن مینو سے ادائیگی کا چینل (جیسے ایزی پیسہ یا جاز کیش) منتخب کریں۔</p>
+                        <p className="font-arabic"><b>مرحلہ 3:</b> آخری مرحلے پر جانے کے لیے نیچے 'payment' بٹن پر کلک کریں، جہاں آپ کو ادائیگی کے لیے اکاؤنٹ کی تفصیلات نظر آئیں گی۔</p>
+                    </CardContent>
+                </Card>
 
                 <div className="space-y-3">
                     <h3 className="text-md font-semibold text-muted-foreground">Payment channel (ادائیگی کا چینل)</h3>
