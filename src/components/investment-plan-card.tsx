@@ -261,69 +261,67 @@ export function InvestmentPlanCard({
 
 
   return (
-    <div className={cn("rounded-lg overflow-hidden transition-all duration-300 hover:shadow-xl bg-card", (isOfferExpired || isSoldOut) && 'opacity-60')}>
-      <Card className={cn("w-full flex flex-row h-full rounded-lg border-none shadow-none bg-transparent")}>
-        <div className="relative w-1/3 flex-shrink-0">
-          {isOfferActive && plan.offerEndTime && <CountdownTimer endTime={plan.offerEndTime} />}
-          <Image
-            src={plan.imageUrl}
-            alt={plan.name}
-            fill
-            className="object-cover"
-            data-ai-hint={plan.imageHint}
-          />
-          {isPurchased && showAsPurchased && (
-              <div className="absolute top-2 right-2 bg-primary/80 backdrop-blur-sm text-primary-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                  <CheckCircle className="w-3 h-3" />
-                  <span className="text-xs">Purchased</span>
-              </div>
-          )}
-          {isPurchased && !showAsPurchased && (
-            <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-              <CheckCircle className="w-3 h-3" />
-              <span>Active</span>
+    <Card className={cn("w-full flex flex-row h-full rounded-lg border-none shadow-md bg-card transition-all duration-300 hover:shadow-xl overflow-hidden", (isOfferExpired || isSoldOut) && 'opacity-60')}>
+      <div className="relative w-1/3 flex-shrink-0">
+        {isOfferActive && plan.offerEndTime && <CountdownTimer endTime={plan.offerEndTime} />}
+        <Image
+          src={plan.imageUrl}
+          alt={plan.name}
+          fill
+          className="object-cover"
+          data-ai-hint={plan.imageHint}
+        />
+        {isPurchased && showAsPurchased && (
+            <div className="absolute top-2 right-2 bg-primary/80 backdrop-blur-sm text-primary-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                <span className="text-xs">Purchased</span>
             </div>
-          )}
-          {isOfferExpired && !isSoldOut && (
-              <div className="absolute top-2 left-2 bg-destructive/80 backdrop-blur-sm text-destructive-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                  <XCircle className="w-3 h-3" />
-                  <span>Closed</span>
-              </div>
-          )}
-          {isSoldOut && (
-              <div className="absolute top-2 left-2 bg-slate-500/80 backdrop-blur-sm text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                  <PackageX className="w-3 h-3" />
-                  <span>Sold Out</span>
-              </div>
-          )}
-        </div>
-        <CardContent className="p-4 flex flex-col flex-1 w-2/3">
-          <h3 className="font-headline font-bold text-base text-foreground mb-1">{plan.name}</h3>
-          
-          <div className="flex-1 space-y-3">
-              <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">Product price</span> 
-                  <span className="font-bold text-base text-foreground">{plan.price.toLocaleString()} Rs</span>
-              </div>
-              <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-                  <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground font-bold">Daily income</span> 
-                      <span className="font-bold text-foreground text-sm">{dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
-                  </div>
-                  <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground font-bold">Period</span> 
-                      <span className="font-bold text-foreground text-sm">{plan.incomePeriod} days</span>
-                  </div>
-                   <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground font-bold">Total income</span> 
-                      <span className="font-bold text-foreground text-sm">{totalIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
-                  </div>
-              </div>
+        )}
+        {isPurchased && !showAsPurchased && (
+          <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+            <CheckCircle className="w-3 h-3" />
+            <span>Active</span>
           </div>
-          
-          {renderPurchaseButton()}
-        </CardContent>
-      </Card>
-    </div>
+        )}
+        {isOfferExpired && !isSoldOut && (
+            <div className="absolute top-2 left-2 bg-destructive/80 backdrop-blur-sm text-destructive-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <XCircle className="w-3 h-3" />
+                <span>Closed</span>
+            </div>
+        )}
+        {isSoldOut && (
+            <div className="absolute top-2 left-2 bg-slate-500/80 backdrop-blur-sm text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <PackageX className="w-3 h-3" />
+                <span>Sold Out</span>
+            </div>
+        )}
+      </div>
+      <CardContent className="p-4 flex flex-col flex-1 w-2/3">
+        <h3 className="font-headline font-bold text-base text-foreground mb-1">{plan.name}</h3>
+        
+        <div className="flex-1 space-y-3">
+            <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground">Product price</span> 
+                <span className="font-bold text-base text-foreground">{plan.price.toLocaleString()} Rs</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground font-bold">Daily income</span> 
+                    <span className="font-bold text-foreground text-sm">{dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground font-bold">Period</span> 
+                    <span className="font-bold text-foreground text-sm">{plan.incomePeriod} days</span>
+                </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground font-bold">Total income</span> 
+                    <span className="font-bold text-foreground text-sm">{totalIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
+                </div>
+            </div>
+        </div>
+        
+        {renderPurchaseButton()}
+      </CardContent>
+    </Card>
   );
 }
