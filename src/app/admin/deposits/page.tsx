@@ -61,13 +61,11 @@ function EditSenderDetailsDialog({
   
   const [senderName, setSenderName] = React.useState(transaction.details?.senderName || '');
   const [senderAccount, setSenderAccount] = React.useState(transaction.details?.senderAccount || '');
-  const [tid, setTid] = React.useState(transaction.details?.tid || '');
-
+  
   React.useEffect(() => {
     if (transaction) {
       setSenderName(transaction.details?.senderName || '');
       setSenderAccount(transaction.details?.senderAccount || '');
-      setTid(transaction.details?.tid || '');
     }
   }, [transaction])
 
@@ -80,7 +78,6 @@ function EditSenderDetailsDialog({
       await updateDoc(globalTransactionRef, {
         'details.senderName': senderName,
         'details.senderAccount': senderAccount,
-        'details.tid': tid,
       });
 
       // Also update user's transaction if it exists (might not for older data)
@@ -89,7 +86,6 @@ function EditSenderDetailsDialog({
           await updateDoc(userTransactionRef, {
             'details.senderName': senderName,
             'details.senderAccount': senderAccount,
-            'details.tid': tid,
           }).catch(() => { /* Ignore if it fails, global is more important */});
       }
 
@@ -124,10 +120,6 @@ function EditSenderDetailsDialog({
                 <div className="space-y-2">
                     <Label htmlFor="sender-account">Sender Account</Label>
                     <Input id="sender-account" value={senderAccount} onChange={(e) => setSenderAccount(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="tid">Transaction ID (TID)</Label>
-                    <Input id="tid" value={tid} onChange={(e) => setTid(e.target.value)} />
                 </div>
             </div>
             <DialogFooter>
@@ -172,19 +164,8 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
   );
   const { data: appSettings } = useDoc<AppSettings>(settingsRef);
   
-  const handleCopy = () => {
-    const tidToCopy = tx.details?.tid || '';
-    if (tidToCopy) {
-      navigator.clipboard.writeText(tidToCopy);
-      toast({
-        title: 'TID Copied!',
-        description: 'Transaction ID has been copied to your clipboard.',
-      });
-    }
-  };
-
   const handleUpdateStatus = async (newStatus: 'completed' | 'failed') => {
-    if (!firestore || !user || !adminUser || !tx.details?.tid) return;
+    if (!firestore || !user || !adminUser ) return;
     setIsProcessing(true);
 
     const globalTransactionRef = doc(firestore, 'transactions', tx.id);
@@ -194,18 +175,6 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
 
     try {
         await runTransaction(firestore, async (transaction) => {
-            // --- PRE-CHECKS ---
-            if (newStatus === 'completed') {
-                const completedTxQuery = query(
-                    collection(firestore, 'transactions'), 
-                    where('details.tid', '==', tx.details.tid),
-                    where('status', '==', 'completed')
-                );
-                const completedTxSnapshot = await getDocs(completedTxQuery);
-                if (!completedTxSnapshot.empty) {
-                    throw new Error("This Transaction ID has already been processed.");
-                }
-            }
             
             // --- DATA FETCHING (within transaction) ---
             const userDoc = await transaction.get(userRef);
@@ -349,10 +318,6 @@ function DepositRequestRow({ tx, onUpdate, adminWallets }: { tx: Transaction; on
             <div className="font-medium">{details.senderName}</div>
             <div className="text-sm text-muted-foreground">{details.senderAccount}</div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <span>TID: {details.tid}</span>
-                 <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleCopy}>
-                    <Copy className="h-3 w-3" />
-                </Button>
                 <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setIsEditDialogOpen(true)}>
                     <Edit className="h-3 w-3" />
                 </Button>
@@ -509,7 +474,7 @@ export default function AdminDepositsPage() {
                   </div>
                     <div className="w-full max-w-sm">
                       <Input
-                          placeholder="Search by TID..."
+                          placeholder="Search..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="pl-10"
@@ -556,3 +521,5 @@ export default function AdminDepositsPage() {
     </div>
   );
 }
+
+    

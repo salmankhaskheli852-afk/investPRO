@@ -41,7 +41,7 @@ function DepositRequestRow({ tx, adminWallets, onUpdate }: { tx: Transaction; ad
   const { data: wallet, isLoading: isLoadingWallet } = useDoc<Wallet>(walletDocRef);
 
   const handleUpdateStatus = async (newStatus: 'completed' | 'failed') => {
-    if (!firestore || !user || !agentUser || !tx.details?.tid) return;
+    if (!firestore || !user || !agentUser) return;
     setIsProcessing(true);
 
     const globalTransactionRef = doc(firestore, 'transactions', tx.id);
@@ -51,19 +51,6 @@ function DepositRequestRow({ tx, adminWallets, onUpdate }: { tx: Transaction; ad
     try {
         await runTransaction(firestore, async (transaction) => {
             
-            // Check for duplicate TID before proceeding
-            if (newStatus === 'completed') {
-                const completedTxQuery = query(
-                    collection(firestore, 'transactions'),
-                    where('details.tid', '==', tx.details.tid),
-                    where('status', '==', 'completed')
-                );
-                const completedTxSnapshot = await transaction.get(completedTxQuery);
-                if (!completedTxSnapshot.empty) {
-                    throw new Error("This Transaction ID has already been processed.");
-                }
-            }
-
             const walletDoc = await transaction.get(walletRef);
             if (!walletDoc.exists()) {
                 throw new Error("Wallet not found!");
@@ -123,7 +110,6 @@ function DepositRequestRow({ tx, adminWallets, onUpdate }: { tx: Transaction; ad
       <TableCell>
         <div className="font-medium">{details.senderName}</div>
         <div className="text-sm text-muted-foreground">{details.senderAccount}</div>
-        <div className="text-xs text-muted-foreground">TID: {details.tid}</div>
       </TableCell>
       <TableCell>
         <div className="font-medium">{adminWallet?.walletName || 'N/A'}</div>
@@ -192,7 +178,8 @@ export default function AgentDepositsPage() {
     if (!depositRequests) return [];
     if (!searchQuery) return depositRequests;
     return depositRequests.filter(tx => 
-        tx.details?.tid?.toLowerCase().includes(searchQuery.toLowerCase())
+        tx.details?.senderName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tx.details?.senderAccount?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [depositRequests, searchQuery]);
 
@@ -222,7 +209,7 @@ export default function AgentDepositsPage() {
               <CardDescription>Review the following deposit requests.</CardDescription>
               <div className="w-full max-w-sm">
                   <Input
-                      placeholder="Search by TID..."
+                      placeholder="Search..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10"
@@ -269,3 +256,5 @@ export default function AgentDepositsPage() {
     </div>
   );
 }
+
+    
