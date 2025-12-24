@@ -138,21 +138,27 @@ export default function UserWalletPage() {
             }
 
             const newTransactionRef = doc(collection(firestore, 'transactions'));
+            
+            const details: Transaction['details'] = {
+                method: withdrawMethod,
+                receiverName: withdrawHolderName,
+                receiverAccount: withdrawAccountNumber,
+                userId: user.uid,
+                userName: userData?.name,
+                userEmail: user.email,
+            };
+
+            if (withdrawMethod === 'Bank Transfer') {
+                details.bankName = withdrawBankName;
+            }
+
             const transactionData: Omit<Transaction, 'id' | 'date'> & { date: any } = {
                 type: 'withdrawal',
                 amount: amountToWithdraw,
                 status: 'pending',
                 date: serverTimestamp(),
                 walletId: 'main',
-                details: {
-                    method: withdrawMethod,
-                    receiverName: withdrawHolderName,
-                    receiverAccount: withdrawAccountNumber,
-                    bankName: withdrawMethod === 'Bank Transfer' ? withdrawBankName : undefined,
-                    userId: user.uid,
-                    userName: userData?.name,
-                    userEmail: user.email,
-                }
+                details: details
             };
             transaction.set(newTransactionRef, { ...transactionData, id: newTransactionRef.id });
 
