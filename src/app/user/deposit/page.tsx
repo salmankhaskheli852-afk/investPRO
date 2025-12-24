@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { AdminWallet, AppSettings, Transaction } from '@/lib/data';
@@ -20,10 +20,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogClose,
 } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DialogClose } from '@radix-ui/react-dialog';
 
 export default function DepositPage() {
   const { toast } = useToast();
@@ -39,6 +37,7 @@ export default function DepositPage() {
   
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const [isSaved, setIsSaved] = React.useState(false);
 
   const adminWalletsQuery = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'admin_wallets') : null),
@@ -58,6 +57,12 @@ export default function DepositPage() {
   
   const handlePresetAmountClick = (presetAmount: number) => {
     setAmount(String(presetAmount));
+    setIsSaved(false); // Reset save state if amount changes
+  };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAmount(e.target.value);
+    setIsSaved(false); // Reset save state if amount changes
   };
   
   const handleSubmitRequest = async () => {
@@ -98,7 +103,9 @@ export default function DepositPage() {
         
         toast({ title: 'Success!', description: 'Your deposit request has been submitted and is pending review.' });
         setIsDialogOpen(false);
-        router.push('/user/history');
+        setIsSaved(true); // Set saved state to true
+        // No longer redirecting automatically
+        // router.push('/user/history');
 
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Submission Failed', description: e.message });
@@ -108,6 +115,12 @@ export default function DepositPage() {
   };
 
   const handleNextClick = () => {
+    if (isSaved) {
+        // If already saved, maybe go to history or show a toast
+        router.push('/user/history');
+        toast({ title: 'Request Already Submitted', description: 'Redirecting to history page.' });
+        return;
+    }
     if (!amount) {
       toast({
         variant: 'destructive',
@@ -146,7 +159,7 @@ export default function DepositPage() {
                             id="amount"
                             type="number"
                             value={amount}
-                            onChange={e => setAmount(e.target.value)}
+                            onChange={handleAmountChange}
                             placeholder="0"
                             className="h-14 w-full border-b-2 border-primary bg-transparent pl-12 text-2xl font-bold focus:outline-none"
                         />
@@ -179,7 +192,7 @@ export default function DepositPage() {
                       onClick={handleNextClick}
                       disabled={!amount}
                   >
-                      Next
+                      {isSaved ? 'Saved' : 'Next'}
                   </Button>
                 </div>
             </CardContent>
@@ -195,6 +208,7 @@ export default function DepositPage() {
                   </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+
                   <div className="space-y-2">
                       <Label htmlFor="sender-name">Your Name (Sender)</Label>
                       <Input id="sender-name" value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="e.g., John Doe" />
@@ -209,7 +223,7 @@ export default function DepositPage() {
                       <Button variant="outline">Cancel</Button>
                   </DialogClose>
                   <Button onClick={handleSubmitRequest} disabled={isSubmitting}>
-                      {isSubmitting ? "Submitting..." : "Submit Request"}
+                      {isSubmitting ? "Saving..." : "Save"}
                   </Button>
               </DialogFooter>
           </DialogContent>
