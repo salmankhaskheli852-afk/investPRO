@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -106,7 +106,23 @@ export default function DepositPage() {
         </div>
       </div>
       
-      <div className="p-4">
+      <div className="p-4 space-y-6">
+
+        <Card className="rounded-2xl shadow-lg border-none bg-card/80">
+            <CardHeader>
+                <CardTitle>Instructions (ہدایات)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+                <p><b>Step 1:</b> Enter the amount you wish to deposit or select a preset amount.</p>
+                <p><b>Step 2:</b> Click the 'Your Detail' button to enter and save the name and account number from which you will be sending the payment.</p>
+                <p><b>Step 3:</b> After saving your details, a 'Pay Now' button will appear. Click it to proceed to the next step.</p>
+                <hr className="my-2"/>
+                <p className="font-arabic"><b>مرحلہ 1:</b> وہ رقم درج کریں جو آپ جمع کرنا چاہتے ہیں یا دی گئی رقم منتخب کریں۔</p>
+                <p className="font-arabic"><b>مرحلہ 2:</b> 'Your Detail' بٹن پر کلک کریں اور وہ نام اور اکاؤنٹ نمبر درج کریں جہاں سے آپ ادائیگی بھیجیں گے۔</p>
+                <p className="font-arabic"><b>مرحلہ 3:</b> اپنی تفصیلات محفوظ کرنے کے بعد، 'Pay Now' کا بٹن ظاہر ہوگا۔ اگلے مرحلے پر جانے کے لیے اسے کلک کریں۔</p>
+            </CardContent>
+        </Card>
+
         <Card className="rounded-2xl shadow-lg border-none bg-card/80">
             <CardContent className="p-6 space-y-6">
                 <div className="space-y-2">
@@ -172,7 +188,7 @@ export default function DepositPage() {
               <DialogHeader>
                   <DialogTitle>Your Payment Details</DialogTitle>
                   <DialogDescription>
-                      Enter the details of the account from which you sent the payment.
+                      Enter the details of the account from which you will send the payment.
                   </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">

@@ -150,10 +150,17 @@ const ConfirmPageComponent = () => {
                 <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 space-y-2">
                     <div className="flex items-center gap-2 font-bold">
                         <AlertTriangle className="h-5 w-5" />
-                        <span>Warning (وارننگ)</span>
+                        <span>Important Instructions (اہم ہدایات)</span>
                     </div>
-                    <p className="text-sm">Please pay with the same wallet and fill in the correct TID to avoid failure.</p>
-                    <p className="text-sm font-arabic">براه کرم اسی بٹوے سے ادائیگی کریں اور ناکامی سے بچنے کے لیے درست TID بھریں۔</p>
+                    <p className="text-sm">Step 1: Copy the account number below and send the exact amount from your payment app (e.g., Easypaisa, JazzCash).</p>
+                    <p className="text-sm">Step 2: After a successful payment, copy the Transaction ID (TID) from your payment app.</p>
+                    <p className="text-sm">Step 3: Paste the TID into the field below and click 'Confirm' to submit your request.</p>
+                    <p className="text-sm">Warning: Do not use the same TID twice. Ensure the payment is made from the account details you provided earlier to avoid failure.</p>
+                    <hr className="my-2 border-red-200"/>
+                    <p className="text-sm font-arabic">مرحلہ 1: نیچے دیا گیا اکاؤنٹ نمبر کاپی کریں اور اپنی ادائیگی ایپ (جیسے ایزی پیسہ، جاز کیش) سے درست رقم بھیجیں۔</p>
+                    <p className="text-sm font-arabic">مرحلہ 2: کامیاب ادائیگی کے بعد، اپنی ادائیگی ایپ سے ٹرانزیکشن آئی ڈی (TID) کاپی کریں۔</p>
+                    <p className="text-sm font-arabic">مرحلہ 3: نیچے دیئے گئے فیلڈ میں TID پیسٹ کریں اور اپنی درخواست جمع کروانے کے لیے 'Confirm' پر کلک کریں۔</p>
+                    <p className="text-sm font-arabic">انتباہ: ایک ہی TID کو دو بار استعمال نہ کریں۔ ناکامی سے بچنے کے لیے یقینی بنائیں کہ ادائیگی آپ کی فراہم کردہ اکاؤنٹ کی تفصیلات سے کی گئی ہے۔</p>
                 </div>
 
                 <div className="p-4 bg-gray-50 rounded-lg space-y-3">
@@ -173,6 +180,13 @@ const ConfirmPageComponent = () => {
                                 <div className="flex items-center gap-2">
                                     <span className="font-bold text-blue-600">{selectedChannel.number}</span>
                                     <Copy className="h-5 w-5 text-gray-500 cursor-pointer" onClick={() => handleCopy(selectedChannel.number, 'Account Number')} />
+                                </div>
+                            </div>
+                             <div className="flex justify-between items-center">
+                                <span className="font-medium text-gray-600">Name (نام)</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-gray-900">{selectedChannel.name}</span>
+                                    <Copy className="h-5 w-5 text-gray-500 cursor-pointer" onClick={() => handleCopy(selectedChannel.name, 'Account Name')} />
                                 </div>
                             </div>
                             <div className="flex justify-between items-center">
