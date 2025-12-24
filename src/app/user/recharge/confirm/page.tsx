@@ -4,7 +4,7 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, writeBatch, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import type { AdminWallet, Transaction } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Copy, CheckCircle, AlertTriangle } from 'lucide-react';
@@ -37,7 +37,6 @@ const ConfirmPageComponent = () => {
     // This page's state
     const [tid, setTid] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(false);
 
     // Fetching selected admin wallet
     const channelDocRef = useMemoFirebase(
@@ -85,6 +84,24 @@ const ConfirmPageComponent = () => {
         const amountToDeposit = parseFloat(amount);
 
         try {
+            // Check for duplicate TID
+            const duplicateCheckQuery = query(
+                collection(firestore, 'transactions'),
+                where('details.tid', '==', tid),
+                where('status', '==', 'completed')
+            );
+            const duplicateSnapshot = await getDocs(duplicateCheckQuery);
+            if (!duplicateSnapshot.empty) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Duplicate Transaction',
+                    description: 'This Transaction ID has already been processed. Please check your deposit history or contact support.'
+                });
+                setIsSubmitting(false);
+                return;
+            }
+
+
             const batch = writeBatch(firestore);
             const globalTransactionRef = doc(collection(firestore, 'transactions'));
             
@@ -111,36 +128,19 @@ const ConfirmPageComponent = () => {
             batch.set(userTransactionRef, { ...transactionData, id: globalTransactionRef.id });
 
             await batch.commit();
-            setIsPaymentConfirmed(true);
+            toast({
+                title: 'Request Submitted!',
+                description: 'Your deposit request has been submitted successfully.'
+            });
+            router.push('/user/history');
 
         } catch (e: any) {
             toast({ variant: 'destructive', title: 'Submission Failed', description: e.message });
-        } finally {
             setIsSubmitting(false);
         }
     };
     
     return (
-        <>
-        <AlertDialog open={isPaymentConfirmed}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <div className="flex justify-center">
-                        <CheckCircle className="h-16 w-16 text-green-500" />
-                    </div>
-                    <AlertDialogTitle className="text-center">Request Submitted!</AlertDialogTitle>
-                    <AlertDialogDescription className="text-center">
-                        Your deposit request has been submitted. It will be reviewed by our team shortly. You can check the status in your history.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogAction onClick={() => router.push('/user/history')} className="w-full">
-                        Go to History
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-
         <div className="bg-white -m-4 sm:-m-6 lg:-m-8 min-h-screen flex flex-col">
              <header className="sticky top-0 z-10 h-20 w-full bg-blue-900 text-white flex items-center justify-center text-center">
                 <span className="font-bold text-2xl tracking-widest">SAFE + FAST</span>
@@ -207,7 +207,6 @@ const ConfirmPageComponent = () => {
                 </div>
             </main>
         </div>
-        </>
     );
 };
 
@@ -219,4 +218,3 @@ export default function ConfirmRechargePage() {
         </Suspense>
     );
 }
-
