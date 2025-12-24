@@ -43,11 +43,7 @@ export default function DepositPage() {
   }, [appSettings, selectedMethod]);
 
   const handleRecharge = () => {
-    if (!amount || !selectedMethod) {
-        toast({ variant: 'destructive', title: 'Missing Information', description: 'Please enter an amount and select a method.' });
-        return;
-    }
-    // Navigate to the new blank page
+    // Navigate to the new blank page without checking for amount or method
     router.push('/user/recharge');
   };
 
@@ -126,7 +122,7 @@ export default function DepositPage() {
                         size="lg"
                         className="w-full h-12 text-lg rounded-full"
                         onClick={handleRecharge}
-                        disabled={isSubmitting || !amount}
+                        disabled={isSubmitting}
                     >
                         {isSubmitting ? "Processing..." : "Recharge"}
                     </Button>
