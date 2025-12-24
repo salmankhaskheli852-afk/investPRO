@@ -35,7 +35,6 @@ export default function DepositPage() {
   const [selectedMethod, setSelectedMethod] = React.useState<string | null>(null);
 
   // Step 2 state
-  const [selectedAdminWalletId, setSelectedAdminWalletId] = React.useState<string>('');
   const [senderName, setSenderName] = React.useState('');
   const [senderAccount, setSenderAccount] = React.useState('');
   const [tid, setTid] = React.useState('');
@@ -74,7 +73,7 @@ export default function DepositPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
         return;
     }
-    if (!amount || !selectedAdminWalletId || !senderName || !senderAccount || !tid) {
+    if (!amount || !senderName || !senderAccount || !tid) {
         toast({ variant: 'destructive', title: 'Missing Information', description: 'Please fill out all fields in the form.' });
         return;
     }
@@ -93,7 +92,6 @@ export default function DepositPage() {
             walletId: 'main',
             details: {
                 userId: user.uid,
-                adminWalletId: selectedAdminWalletId,
                 senderName,
                 senderAccount,
                 tid,
@@ -119,16 +117,15 @@ export default function DepositPage() {
   };
 
   const handleNextClick = () => {
-    if (!amount || !selectedMethod) {
+    if (!amount) {
       toast({
         variant: 'destructive',
         title: 'Missing Information',
-        description: 'Please enter an amount and select a method.',
+        description: 'Please enter an amount.',
       });
       return;
     }
     // Reset step 2 form when opening
-    setSelectedAdminWalletId('');
     setSenderName('');
     setSenderAccount('');
     setTid('');
@@ -210,7 +207,7 @@ export default function DepositPage() {
                       size="lg"
                       className="w-full h-12 text-lg rounded-full"
                       onClick={handleNextClick}
-                      disabled={!amount || !selectedMethod}
+                      disabled={!amount}
                   >
                       Next
                   </Button>
@@ -224,29 +221,10 @@ export default function DepositPage() {
               <DialogHeader>
                   <DialogTitle>Complete Your Deposit</DialogTitle>
                   <DialogDescription>
-                      After sending <span className="font-bold">{amount} PKR</span> to one of the accounts below, fill in your payment details to submit your request.
+                      After sending <span className="font-bold">{amount} PKR</span> to an admin account, fill in your payment details to submit your request.
                   </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-                  <div className="space-y-2">
-                      <Label htmlFor="admin-wallet">Select Admin Account</Label>
-                      <Select value={selectedAdminWalletId} onValueChange={setSelectedAdminWalletId}>
-                          <SelectTrigger id="admin-wallet">
-                              <SelectValue placeholder="Select account to deposit to" />
-                          </SelectTrigger>
-                          <SelectContent>
-                              {isLoadingWallets ? (
-                                  <SelectItem value="loading" disabled>Loading accounts...</SelectItem>
-                              ) : (
-                                  activeAdminWallets.map(wallet => (
-                                      <SelectItem key={wallet.id} value={wallet.id}>
-                                          {wallet.walletName} - {wallet.name} ({wallet.number})
-                                      </SelectItem>
-                                  ))
-                              )}
-                          </SelectContent>
-                      </Select>
-                  </div>
                   <div className="space-y-2">
                       <Label htmlFor="sender-name">Your Name (Sender)</Label>
                       <Input id="sender-name" value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="e.g., John Doe" />
