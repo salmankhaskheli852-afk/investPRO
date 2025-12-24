@@ -295,3 +295,5 @@ export function InvestmentPlanCard({
     </Dialog>
   );
 }
+
+    
