@@ -133,6 +133,7 @@ export default function UserDashboardPage() {
   }
 
   const showVerifiedBadge = appSettings?.isVerificationBadgeEnabled && userData.isVerified;
+  const effectiveBalance = (walletData?.balance || 0) + dailyIncome;
   
   return (
     <div className="space-y-8">
@@ -166,17 +167,13 @@ export default function UserDashboardPage() {
                 <div className="flex flex-col items-center text-center space-y-2 mb-6">
                     <p className="text-sm text-gray-400">Total Wallet Balance</p>
                     <p className="text-5xl font-bold tracking-tighter">
-                        PKR {(walletData?.balance || 0).toLocaleString()}
+                        PKR {effectiveBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}
                     </p>
                 </div>
                 
                 <Separator className="bg-white/10" />
 
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-6 text-sm">
-                    <div className="flex justify-between">
-                        <span className="text-gray-400">Daily Income</span>
-                        <span className="font-medium text-green-400">{(dailyIncome).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                    </div>
                     <div className="flex justify-between">
                         <span className="text-gray-400">Total Invested</span>
                         <span className="font-medium">{transactionTotals.investment.toLocaleString()}</span>
