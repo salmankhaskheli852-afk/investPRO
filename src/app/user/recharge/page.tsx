@@ -3,7 +3,7 @@
 
 import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useCollection, useFirestore, useUser } from '@/firebase';
+import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import type { AdminWallet, Transaction } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -38,7 +38,12 @@ const RechargePageComponent = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(false);
 
-    const { data: adminWallets, isLoading: isLoadingWallets } = useCollection<AdminWallet>('admin_wallets');
+    const adminWalletsQuery = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'admin_wallets') : null),
+        [firestore]
+    );
+    const { data: adminWallets, isLoading: isLoadingWallets } = useCollection<AdminWallet>(adminWalletsQuery);
+
     const activeAdminWallets = React.useMemo(() => adminWallets?.filter(w => w.isEnabled), [adminWallets]);
 
     useEffect(() => {
