@@ -31,13 +31,15 @@ export default function DepositPage() {
   
   const [amount, setAmount] = React.useState('');
   
-  // Step 2 state
+  // State for the popup form
   const [senderName, setSenderName] = React.useState('');
   const [senderAccount, setSenderAccount] = React.useState('');
   
+  // State to hold the saved details
+  const [savedDetails, setSavedDetails] = React.useState<{name: string, account: string} | null>(null);
+  
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [isSaved, setIsSaved] = React.useState(false);
 
   const adminWalletsQuery = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'admin_wallets') : null),
@@ -57,21 +59,31 @@ export default function DepositPage() {
   
   const handlePresetAmountClick = (presetAmount: number) => {
     setAmount(String(presetAmount));
-    setIsSaved(false); // Reset save state if amount changes
+    setSavedDetails(null); // Reset saved details if amount changes
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAmount(e.target.value);
-    setIsSaved(false); // Reset save state if amount changes
+    setSavedDetails(null); // Reset saved details if amount changes
   };
   
+  const handleSaveDetails = () => {
+     if (!senderName || !senderAccount) {
+        toast({ variant: 'destructive', title: 'Missing Information', description: 'Please fill out all fields.' });
+        return;
+    }
+    setSavedDetails({ name: senderName, account: senderAccount });
+    setIsDialogOpen(false);
+    toast({ title: 'Details Saved', description: 'Your sender details have been saved. You can now submit your request.' });
+  }
+
   const handleSubmitRequest = async () => {
     if (!user || !firestore) {
         toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
         return;
     }
-    if (!amount || !senderName || !senderAccount) {
-        toast({ variant: 'destructive', title: 'Missing Information', description: 'Please fill out all fields in the form.' });
+    if (!amount || !savedDetails) {
+        toast({ variant: 'destructive', title: 'Missing Information', description: 'Please enter an amount and save your details first.' });
         return;
     }
 
@@ -89,8 +101,8 @@ export default function DepositPage() {
             walletId: 'main',
             details: {
                 userId: user.uid,
-                senderName,
-                senderAccount,
+                senderName: savedDetails.name,
+                senderAccount: savedDetails.account,
             },
         };
 
@@ -102,10 +114,10 @@ export default function DepositPage() {
         await batch.commit();
         
         toast({ title: 'Success!', description: 'Your deposit request has been submitted and is pending review.' });
-        setIsDialogOpen(false);
-        setIsSaved(true); // Set saved state to true
-        // No longer redirecting automatically
-        // router.push('/user/history');
+        // Reset state after successful submission
+        setAmount('');
+        setSavedDetails(null);
+        router.push('/user/history');
 
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Submission Failed', description: e.message });
@@ -114,24 +126,18 @@ export default function DepositPage() {
     }
   };
 
-  const handleNextClick = () => {
-    if (isSaved) {
-        // If already saved, maybe go to history or show a toast
-        router.push('/user/history');
-        toast({ title: 'Request Already Submitted', description: 'Redirecting to history page.' });
-        return;
-    }
+  const handleYourDetailClick = () => {
     if (!amount) {
       toast({
         variant: 'destructive',
         title: 'Missing Information',
-        description: 'Please enter an amount.',
+        description: 'Please enter an amount first.',
       });
       return;
     }
-    // Reset step 2 form when opening
-    setSenderName('');
-    setSenderAccount('');
+    // Pre-fill form if details were already saved for this amount
+    setSenderName(savedDetails?.name || '');
+    setSenderAccount(savedDetails?.account || '');
     setIsDialogOpen(true);
   };
 
@@ -185,15 +191,26 @@ export default function DepositPage() {
                     )}
                 </div>
 
-                <div className="pt-4">
+                <div className="pt-4 space-y-4">
                   <Button
                       size="lg"
                       className="w-full h-12 text-lg rounded-full"
-                      onClick={handleNextClick}
+                      onClick={handleYourDetailClick}
                       disabled={!amount}
                   >
-                      {isSaved ? 'Saved' : 'Next'}
+                      Your Detail
                   </Button>
+                  
+                  {savedDetails && (
+                      <Button
+                          size="lg"
+                          className="w-full h-12 text-lg rounded-full"
+                          onClick={handleSubmitRequest}
+                          disabled={isSubmitting}
+                      >
+                         {isSubmitting ? 'Submitting...' : 'Submit Request'}
+                      </Button>
+                  )}
                 </div>
             </CardContent>
         </Card>
@@ -202,9 +219,9 @@ export default function DepositPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
               <DialogHeader>
-                  <DialogTitle>Complete Your Deposit</DialogTitle>
+                  <DialogTitle>Your Payment Details</DialogTitle>
                   <DialogDescription>
-                      After sending <span className="font-bold">{amount} PKR</span> to an admin account, fill in your payment details to submit your request.
+                      Enter the details of the account from which you sent the payment.
                   </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
@@ -222,8 +239,8 @@ export default function DepositPage() {
                   <DialogClose asChild>
                       <Button variant="outline">Cancel</Button>
                   </DialogClose>
-                  <Button onClick={handleSubmitRequest} disabled={isSubmitting}>
-                      {isSubmitting ? "Saving..." : "Save"}
+                  <Button onClick={handleSaveDetails}>
+                      Save Details
                   </Button>
               </DialogFooter>
           </DialogContent>
