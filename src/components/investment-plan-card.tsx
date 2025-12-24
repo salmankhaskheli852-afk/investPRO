@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Image from 'next/image';
@@ -32,6 +33,7 @@ interface InvestmentPlanCardProps {
 
 function CountdownTimer({ endTime }: { endTime: { seconds: number; nanoseconds: number } }) {
   const [timeLeft, setTimeLeft] = React.useState({
+    days: '00',
     hours: '00',
     minutes: '00',
     seconds: '00',
@@ -45,16 +47,17 @@ function CountdownTimer({ endTime }: { endTime: { seconds: number; nanoseconds: 
 
       if (difference <= 0) {
         clearInterval(interval);
-        setTimeLeft({ hours: '00', minutes: '00', seconds: '00' });
-        // Optional: Trigger a refetch or state update to mark the plan as expired globally
+        setTimeLeft({ days: '00', hours: '00', minutes: '00', seconds: '00' });
         return;
       }
 
-      const hours = Math.floor((difference / (1000 * 60 * 60)));
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
       const minutes = Math.floor((difference / 1000 / 60) % 60);
       const seconds = Math.floor((difference / 1000) % 60);
 
       setTimeLeft({
+        days: String(days).padStart(2, '0'),
         hours: String(hours).padStart(2, '0'),
         minutes: String(minutes).padStart(2, '0'),
         seconds: String(seconds).padStart(2, '0'),
@@ -68,11 +71,15 @@ function CountdownTimer({ endTime }: { endTime: { seconds: number; nanoseconds: 
     <div className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm text-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1.5 z-10">
       <Timer className="w-4 h-4 text-primary" />
       <div className="flex items-center gap-0.5 font-mono text-sm font-bold">
-          <span>{timeLeft.hours}</span>:<span>{timeLeft.minutes}</span>:<span>{timeLeft.seconds}</span>
+        <span>{timeLeft.days}</span>d:
+        <span>{timeLeft.hours}</span>h:
+        <span>{timeLeft.minutes}</span>m:
+        <span>{timeLeft.seconds}</span>s
       </div>
     </div>
   );
 }
+
 
 export function InvestmentPlanCard({
   plan,
@@ -93,14 +100,21 @@ export function InvestmentPlanCard({
   const isSoldOut = plan.isSoldOut || isSoldOutByLimit;
 
 
-  // Simulate plan progress
   const [progress, setProgress] = React.useState(0);
   React.useEffect(() => {
-    if (isPurchased) {
-      // Simulate progress over the income period.
-      setProgress(Math.floor(Math.random() * 60) + 10);
+    if (isPurchased || isSoldOutByLimit) {
+      const p = (plan.purchaseCount || 0) / (plan.purchaseLimit || 1);
+      setProgress(Math.min(p * 100, 100));
+    } else if (isOfferActive && plan.createdAt && plan.offerEndTime) {
+       const now = Timestamp.now().toMillis();
+       const start = plan.createdAt.toMillis();
+       const end = plan.offerEndTime.toMillis();
+       const totalDuration = end - start;
+       const elapsed = now - start;
+       setProgress(Math.min((elapsed / totalDuration) * 100, 100));
     }
-  }, [isPurchased]);
+  }, [isPurchased, isSoldOutByLimit, plan, isOfferActive]);
+
 
   const handlePurchase = async () => {
     if (!user || !firestore) {
@@ -179,152 +193,116 @@ export function InvestmentPlanCard({
   const dailyIncome = plan.price * (plan.dailyIncomePercentage / 100);
   const totalIncome = dailyIncome * plan.incomePeriod;
 
-  const renderPurchaseButton = () => {
-    if (isPurchased && !showAsPurchased) {
-        return (
-            <div>
-                <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>{plan.incomePeriod - Math.floor(plan.incomePeriod * (progress/100))} days left</span>
-                    <span>{progress}%</span>
-                </div>
-                <Progress value={progress} className="h-2" />
-            </div>
-        );
-    }
-
-    if (!showPurchaseButton) {
-      return null;
-    }
-
-    return (
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button 
-            size="lg" 
-            className="w-full bg-primary hover:bg-primary/90 mt-auto"
-            disabled={(isPurchased && showAsPurchased) || isOfferExpired || isSoldOut}
-          >
-            {isPurchased && showAsPurchased ? 'Purchased' : isSoldOut ? 'Sold Out' : (isOfferExpired ? 'Plan Closed' : 'Purchase Plan')}
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Info className="text-primary" />
-              Confirm Purchase
-            </DialogTitle>
-            <DialogDescription>
-              Review the details before confirming your investment in the <span className="font-bold text-foreground">{plan.name}</span>.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="rounded-lg bg-background/50 p-4 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Plan Cost</span>
-                <span className="font-bold text-lg">{plan.price.toLocaleString()} Rs</span>
-              </div>
-               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Total Potential Income</span>
-                <span className="font-bold text-lg text-green-600">{totalIncome.toLocaleString()} Rs</span>
-              </div>
-            </div>
-
-            <div className="rounded-lg bg-background/50 p-4 space-y-2">
-              <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground flex items-center gap-2"><Wallet className="w-4 h-4" /> Wallet Balance</span>
-                  <span>{userWalletBalance?.toLocaleString() || 0} Rs</span>
-              </div>
-               <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">Remaining Balance</span>
-                  <span className={cn("font-medium", !canAfford && "text-destructive")}>
-                    {(userWalletBalance - plan.price).toLocaleString()} Rs
-                  </span>
-              </div>
-            </div>
-            {isPurchased && (
-                <p className="text-sm text-center text-amber-600">You have already purchased this plan.</p>
-            )}
-            {!isPurchased && !canAfford && (
-                <p className="text-sm text-center text-destructive">You do not have enough funds in your wallet to purchase this plan.</p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handlePurchase} className="bg-primary hover:bg-primary/90" disabled={!canAfford || isPurchased}>
-              Confirm & Invest
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-
   return (
-    <Card className={cn(
-        "w-full h-full rounded-lg overflow-hidden shadow-md bg-card transition-all duration-300 hover:shadow-xl grid grid-cols-3",
-        (isOfferExpired || isSoldOut) && 'opacity-60'
-    )}>
-      <div className="relative col-span-1">
-        {isOfferActive && plan.offerEndTime && <CountdownTimer endTime={plan.offerEndTime} />}
-        <Image
-          src={plan.imageUrl}
-          alt={plan.name}
-          fill
-          className="object-cover"
-          data-ai-hint={plan.imageHint}
-        />
-        {isPurchased && showAsPurchased && (
-            <div className="absolute top-2 right-2 bg-primary/80 backdrop-blur-sm text-primary-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" />
-                <span className="text-xs">Purchased</span>
-            </div>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Card
+        className={cn(
+          "w-full rounded-lg shadow-md bg-blue-50 transition-all duration-300 hover:shadow-xl p-4 space-y-3",
+          (isOfferExpired || isSoldOut) && 'opacity-60'
         )}
-        {isPurchased && !showAsPurchased && (
-          <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-            <CheckCircle className="w-3 h-3" />
-            <span>Active</span>
+      >
+        <h3 className="font-bold text-base text-foreground mb-1">{plan.name}</h3>
+
+        <div className="flex flex-row gap-4">
+          <div className="relative w-1/3 aspect-square">
+            <Image
+              src={plan.imageUrl}
+              alt={plan.name}
+              fill
+              className="object-cover rounded-md"
+              data-ai-hint={plan.imageHint}
+            />
           </div>
-        )}
-        {isOfferExpired && !isSoldOut && (
-            <div className="absolute top-2 left-2 bg-destructive/80 backdrop-blur-sm text-destructive-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                <XCircle className="w-3 h-3" />
-                <span>Closed</span>
+
+          <div className="flex-1 flex flex-col justify-between text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Product price</span>
+              <span className="font-bold text-foreground">{plan.price.toLocaleString()} Rs</span>
             </div>
-        )}
-        {isSoldOut && (
-            <div className="absolute top-2 left-2 bg-slate-500/80 backdrop-blur-sm text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                <PackageX className="w-3 h-3" />
-                <span>Sold Out</span>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Daily income</span>
+              <span className="font-bold text-foreground">{dailyIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Rs</span>
             </div>
-        )}
-      </div>
-      <div className="col-span-2 p-4 flex flex-col">
-        <h3 className="font-headline font-bold text-base text-foreground mb-1">{plan.name}</h3>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Income period</span>
+              <span className="font-bold text-foreground">{plan.incomePeriod} days</span>
+            </div>
+             {/* <div className="flex justify-between">
+              <span className="text-muted-foreground">Total income</span>
+              <span className="font-bold text-green-600">{totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Rs</span>
+            </div> */}
+          </div>
+        </div>
         
-        <div className="flex-1 space-y-2">
-            <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">Product price</span> 
-                <span className="font-bold text-base text-foreground">{plan.price.toLocaleString()} Rs</span>
-            </div>
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-                <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground font-bold">Daily income</span> 
-                    <span className="font-bold text-foreground text-sm">{dailyIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
-                </div>
-                <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground font-bold">Period</span> 
-                    <span className="font-bold text-foreground text-sm">{plan.incomePeriod} days</span>
-                </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground font-bold">Total income</span> 
-                    <span className="font-bold text-foreground text-sm">{totalIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Rs</span>
+        <div className="relative pt-2">
+            <Progress value={progress} className="h-2" />
+            <div className="absolute -top-1.5" style={{ left: `calc(${progress}% - 1.5rem)`}}>
+                <div className="bg-yellow-400 text-black text-xs font-bold px-2 py-0.5 rounded-md">
+                    {Math.round(progress)}%
                 </div>
             </div>
         </div>
-        
-        {renderPurchaseButton()}
-      </div>
-    </Card>
+
+        {showPurchaseButton && (
+          <DialogTrigger asChild>
+            <Button
+              className="w-full mt-2"
+              disabled={(isPurchased && showAsPurchased) || isOfferExpired || isSoldOut}
+            >
+              {(isPurchased && showAsPurchased) ? 'Purchased' : isSoldOut ? 'Sold Out' : (isOfferExpired ? 'Plan Closed' : 'Purchase Plan')}
+            </Button>
+          </DialogTrigger>
+        )}
+      </Card>
+      
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Info className="text-primary" />
+            Confirm Purchase
+          </DialogTitle>
+          <DialogDescription>
+            Review the details before confirming your investment in the <span className="font-bold text-foreground">{plan.name}</span>.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="rounded-lg bg-background/50 p-4 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Plan Cost</span>
+              <span className="font-bold text-lg">{plan.price.toLocaleString()} Rs</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Total Potential Income</span>
+              <span className="font-bold text-lg text-green-600">{totalIncome.toLocaleString()} Rs</span>
+            </div>
+          </div>
+          <div className="rounded-lg bg-background/50 p-4 space-y-2">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground flex items-center gap-2"><Wallet className="w-4 h-4" /> Wallet Balance</span>
+              <span>{userWalletBalance?.toLocaleString() || 0} Rs</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">Remaining Balance</span>
+              <span className={cn("font-medium", !canAfford && "text-destructive")}>
+                {(userWalletBalance - plan.price).toLocaleString()} Rs
+              </span>
+            </div>
+          </div>
+          {isPurchased && (
+            <p className="text-sm text-center text-amber-600">You have already purchased this plan.</p>
+          )}
+          {!isPurchased && !canAfford && (
+            <p className="text-sm text-center text-destructive">You do not have enough funds in your wallet to purchase this plan.</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={handlePurchase} className="bg-primary hover:bg-primary/90" disabled={!canAfford || isPurchased}>
+            Confirm & Invest
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
+
