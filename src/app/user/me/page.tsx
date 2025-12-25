@@ -61,7 +61,7 @@ export default function UserDashboardPage() {
   
   // --- Daily Income Calculation Logic ---
   React.useEffect(() => {
-    if (!user || !userData || !allPlans) return;
+    if (!user || !userData || !allPlans || !firestore) return;
     
     const calculateAndDistributeIncome = async () => {
       try {
@@ -165,9 +165,14 @@ export default function UserDashboardPage() {
       }
     };
     
-    // Only run if there are active investments
+    // Only run if there are active investments and it's been some time since the last check
     if (userData.investments.some(inv => inv.isActive)) {
-        calculateAndDistributeIncome();
+        const lastCheck = userData.lastIncomeCheck?.toDate() ?? new Date(0);
+        const now = new Date();
+        // Check every 5 minutes to avoid excessive runs
+        if (now.getTime() - lastCheck.getTime() > 5 * 60 * 1000) {
+            calculateAndDistributeIncome();
+        }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, userData, allPlans, firestore]); // This effect should run when user data or plans load
@@ -217,12 +222,6 @@ export default function UserDashboardPage() {
         return allPlans.find(plan => plan.id === investment.planId);
       }).filter((plan): plan is InvestmentPlan => !!plan);
   }, [userData, allPlans]);
-
-  const dailyIncome = React.useMemo(() => {
-    return activeInvestments.reduce((total, plan) => {
-        return total + (plan.price * (plan.dailyIncomePercentage / 100));
-    }, 0);
-  }, [activeInvestments]);
 
   // Sample data for the background chart
   const chartData = [
