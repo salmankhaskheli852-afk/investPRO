@@ -4,7 +4,7 @@
 import React from 'react';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, useAuth } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { collection, doc, orderBy, query, Timestamp } from 'firebase/firestore';
+import { collection, doc, orderBy, query, Timestamp, writeBatch, increment, serverTimestamp, runTransaction } from 'firebase/firestore';
 import type { InvestmentPlan, User, Wallet, Transaction, UserInvestment, AppSettings } from '@/lib/data';
 import { DollarSign, TrendingUp, ArrowDownToLine, ArrowUpFromLine, LogOut, Wallet as WalletIcon, GitBranch, Copy, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,6 +58,120 @@ export default function UserDashboardPage() {
     [firestore, user]
   );
   const { data: appSettings, isLoading: isLoadingSettings } = useDoc<AppSettings>(settingsRef);
+  
+  // --- Daily Income Calculation Logic ---
+  React.useEffect(() => {
+    if (!user || !userData || !allPlans) return;
+    
+    const calculateAndDistributeIncome = async () => {
+      try {
+        await runTransaction(firestore, async (transaction) => {
+          const now = Timestamp.now();
+          const userRef = doc(firestore, 'users', user.uid);
+          const walletRef = doc(firestore, 'users', user.uid, 'wallets', 'main');
+
+          const userDoc = await transaction.get(userRef);
+          if (!userDoc.exists()) throw new Error("User not found for income calculation.");
+          const currentUserData = userDoc.data() as User;
+          
+          let totalIncomeToDistribute = 0;
+          const updatedInvestments: UserInvestment[] = [];
+          
+          for (const investment of currentUserData.investments) {
+            if (!investment.isActive) {
+                updatedInvestments.push(investment);
+                continue;
+            }
+
+            const plan = allPlans.find(p => p.id === investment.planId);
+            if (!plan) {
+                updatedInvestments.push(investment); // Keep it even if plan is deleted
+                continue;
+            }
+
+            const purchaseDate = investment.purchaseDate.toDate();
+            const planEndDate = new Date(purchaseDate.getTime());
+            planEndDate.setDate(planEndDate.getDate() + plan.incomePeriod);
+
+            if (now.toDate() < purchaseDate) { // Should not happen, but for safety
+                updatedInvestments.push(investment);
+                continue;
+            }
+
+            const lastPayoutDate = investment.lastPayout ? investment.lastPayout.toDate() : purchaseDate;
+            let currentPayoutDate = new Date(lastPayoutDate.getTime());
+            let daysToPay = 0;
+
+            // Calculate how many 24-hour cycles have passed
+            while (true) {
+                const nextPayoutTime = new Date(currentPayoutDate.getTime());
+                nextPayoutTime.setDate(nextPayoutTime.getDate() + 1);
+
+                if (nextPayoutTime <= now.toDate() && nextPayoutTime <= planEndDate) {
+                    daysToPay++;
+                    currentPayoutDate = nextPayoutTime;
+                } else {
+                    break;
+                }
+            }
+
+            if (daysToPay > 0) {
+              const dailyIncome = plan.price * (plan.dailyIncomePercentage / 100);
+              const incomeForThisPlan = dailyIncome * daysToPay;
+              totalIncomeToDistribute += incomeForThisPlan;
+
+              const newTotalPayout = (investment.totalPayout || 0) + incomeForThisPlan;
+
+              // Log transaction for this plan's income
+              const incomeTxRef = doc(collection(firestore, `users/${user.uid}/wallets/main/transactions`));
+              transaction.set(incomeTxRef, {
+                id: incomeTxRef.id,
+                type: 'income',
+                amount: incomeForThisPlan,
+                status: 'completed',
+                date: serverTimestamp(),
+                walletId: 'main',
+                details: { planId: plan.id, planName: plan.name, days: daysToPay }
+              });
+
+              const isPlanComplete = now.toDate() >= planEndDate;
+
+              updatedInvestments.push({
+                  ...investment,
+                  lastPayout: Timestamp.fromDate(currentPayoutDate),
+                  totalPayout: newTotalPayout,
+                  isActive: !isPlanComplete, // Deactivate if plan period is over
+              });
+            } else {
+              // If no days to pay, check if the plan has expired anyway
+              const isPlanComplete = now.toDate() >= planEndDate;
+              if (isPlanComplete && investment.isActive) {
+                  updatedInvestments.push({ ...investment, isActive: false });
+              } else {
+                  updatedInvestments.push(investment);
+              }
+            }
+          }
+          
+          // Batch the final updates
+          if (totalIncomeToDistribute > 0) {
+            transaction.update(walletRef, { balance: increment(totalIncomeToDistribute) });
+          }
+          transaction.update(userRef, { investments: updatedInvestments, lastIncomeCheck: now });
+        });
+      } catch (error) {
+        console.error("Failed to distribute daily income: ", error);
+        // We don't toast here to not bother the user with background errors.
+      }
+    };
+    
+    // Only run if there are active investments
+    if (userData.investments.some(inv => inv.isActive)) {
+        calculateAndDistributeIncome();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, userData, allPlans, firestore]); // This effect should run when user data or plans load
+
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -97,10 +211,11 @@ export default function UserDashboardPage() {
   const activeInvestments = React.useMemo(() => {
     if (!userData?.investments || !allPlans) return [];
     
-    // This is a simplified view. Real active status might depend on purchaseDate + incomePeriod.
-    return userData.investments.map(investment => {
-      return allPlans.find(plan => plan.id === investment.planId);
-    }).filter((plan): plan is InvestmentPlan => !!plan);
+    return userData.investments
+      .filter(inv => inv.isActive)
+      .map(investment => {
+        return allPlans.find(plan => plan.id === investment.planId);
+      }).filter((plan): plan is InvestmentPlan => !!plan);
   }, [userData, allPlans]);
 
   const dailyIncome = React.useMemo(() => {

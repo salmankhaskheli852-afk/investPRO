@@ -39,6 +39,9 @@ export type AgentPermissions = {
 export type UserInvestment = {
     planId: string;
     purchaseDate: Timestamp;
+    lastPayout?: Timestamp;
+    totalPayout?: number;
+    isActive: boolean;
 }
 
 export type User = {
@@ -60,6 +63,7 @@ export type User = {
   isVerified?: boolean;
   totalDeposit?: number;
   dailyCheckIn?: Timestamp;
+  lastIncomeCheck?: Timestamp; // New field to track last income distribution
 };
 
 export type PasswordResetRequest = {

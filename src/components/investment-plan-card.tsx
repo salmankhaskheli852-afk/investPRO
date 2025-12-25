@@ -5,7 +5,7 @@ import Image from 'next/image';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import type { InvestmentPlan, User } from '@/lib/data';
+import type { InvestmentPlan, User, UserInvestment } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -168,11 +168,16 @@ export function InvestmentPlanCard({
 
             transaction.update(planRef, { purchaseCount: increment(1) });
             
+            const newInvestment: UserInvestment = {
+              planId: plan.id,
+              purchaseDate: Timestamp.now(),
+              lastPayout: Timestamp.now(), // Set initial payout to now
+              totalPayout: 0,
+              isActive: true,
+            };
+
             transaction.update(userRef, {
-                investments: arrayUnion({
-                    planId: plan.id,
-                    purchaseDate: Timestamp.now()
-                })
+                investments: arrayUnion(newInvestment)
             });
 
             // Deduct price from balance

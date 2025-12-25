@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, increment } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, increment, Timestamp } from 'firebase/firestore';
 import type { User as AppUser, Wallet, AppSettings } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -243,6 +243,7 @@ function LoginPageContent() {
         totalDeposit: 0,
         referralId: user.uid,
         referrerId: finalReferrerUid,
+        lastIncomeCheck: Timestamp.now(), // Initialize last income check
       };
       
       const newWallet: Wallet = {
