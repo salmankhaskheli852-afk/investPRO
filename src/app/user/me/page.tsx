@@ -175,6 +175,10 @@ export default function UserDashboardPage() {
 
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-6 text-sm">
                     <div className="flex justify-between">
+                        <span className="text-gray-400">Total Income</span>
+                        <span className="font-medium">{transactionTotals.income.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
                         <span className="text-gray-400">Total Invested</span>
                         <span className="font-medium">{transactionTotals.investment.toLocaleString()}</span>
                     </div>
