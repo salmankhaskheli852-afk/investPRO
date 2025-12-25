@@ -21,8 +21,7 @@ import type { User, Transaction } from '@/lib/data';
 import { collection, doc, query, where, collectionGroup } from 'firebase/firestore';
 import { format, subDays } from 'date-fns';
 
-export default function AgentHistoryPage({ params }: { params: { agentId: string } }) {
-  const agentId = params.agentId as string;
+export default function AgentHistoryPage({ params: { agentId } }: { params: { agentId: string } }) {
   const firestore = useFirestore();
   const { user: adminUser } = useUser();
 
