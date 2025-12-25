@@ -217,10 +217,7 @@ export default function UserDashboardPage() {
     if (!userData?.investments || !allPlans) return [];
     
     return userData.investments
-      .filter(inv => inv.isActive)
-      .map(investment => {
-        return allPlans.find(plan => plan.id === investment.planId);
-      }).filter((plan): plan is InvestmentPlan => !!plan);
+      .filter(inv => inv.isActive);
   }, [userData, allPlans]);
 
   // Sample data for the background chart
@@ -348,9 +345,19 @@ export default function UserDashboardPage() {
             <div>
               {activeInvestments.length > 0 ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  {activeInvestments.map((plan, index) => (
-                    <InvestmentPlanCard key={`${plan.id}-${index}`} plan={plan} isPurchased={true} showPurchaseButton={false} />
-                  ))}
+                  {activeInvestments.map((investment, index) => {
+                    const plan = allPlans?.find(p => p.id === investment.planId);
+                    if (!plan) return null;
+                    return (
+                        <InvestmentPlanCard 
+                            key={`${plan.id}-${index}`} 
+                            plan={plan} 
+                            isPurchased={true} 
+                            showPurchaseButton={false} 
+                            purchaseDate={investment.purchaseDate}
+                        />
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-12">

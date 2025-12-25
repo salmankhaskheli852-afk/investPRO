@@ -18,9 +18,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { CheckCircle, Info, Wallet, Timer, XCircle, PackageX, Repeat } from 'lucide-react';
+import { CheckCircle, Info, Wallet, Timer, XCircle, PackageX, Repeat, CalendarCheck, CalendarX } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, arrayUnion, writeBatch, collection, serverTimestamp, Timestamp, increment, runTransaction } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 interface InvestmentPlanCardProps {
   plan: InvestmentPlan;
@@ -29,6 +30,7 @@ interface InvestmentPlanCardProps {
   showAsPurchased?: boolean;
   showPurchaseButton?: boolean;
   userData?: User | null;
+  purchaseDate?: Timestamp;
 }
 
 function CountdownTimer({ endTime }: { endTime: { seconds: number; nanoseconds: number } }) {
@@ -88,6 +90,7 @@ export function InvestmentPlanCard({
   showAsPurchased = false,
   showPurchaseButton = true,
   userData = null,
+  purchaseDate,
 }: InvestmentPlanCardProps) {
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
@@ -214,6 +217,13 @@ export function InvestmentPlanCard({
   };
 
   const dailyIncome = plan.price * (plan.dailyIncomePercentage / 100);
+  
+  let expiryDate = null;
+  if(purchaseDate) {
+    const date = purchaseDate.toDate();
+    date.setDate(date.getDate() + plan.incomePeriod);
+    expiryDate = date;
+  }
 
   const getButtonState = () => {
     if (isSoldOut) return { text: 'Sold Out', disabled: true, icon: PackageX };
@@ -259,16 +269,28 @@ export function InvestmentPlanCard({
               <span className="text-muted-foreground">Income period</span>
               <span className="font-bold text-foreground">{plan.incomePeriod} days</span>
             </div>
-             {plan.purchaseLimit && plan.purchaseLimit > 0 && (
+             {plan.purchaseLimit && plan.purchaseLimit > 0 && !isPurchased && (
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Limit</span>
                   <span className="font-bold text-foreground">{userPurchaseCount} / {plan.purchaseLimit}</span>
                 </div>
             )}
+             {isPurchased && purchaseDate && expiryDate && (
+                <>
+                    <div className="flex justify-between text-xs pt-1">
+                        <span className="text-muted-foreground flex items-center gap-1"><CalendarCheck className="w-3 h-3" /> Purchased</span>
+                        <span className="font-medium text-foreground">{format(purchaseDate.toDate(), 'dd MMM, yy')}</span>
+                    </div>
+                     <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground flex items-center gap-1"><CalendarX className="w-3 h-3" /> Expires</span>
+                        <span className="font-medium text-foreground">{format(expiryDate, 'dd MMM, yy')}</span>
+                    </div>
+                </>
+             )}
           </div>
         </div>
         
-        {(plan.purchaseLimit && plan.purchaseLimit > 0) && (
+        {(plan.purchaseLimit && plan.purchaseLimit > 0) && !isPurchased && (
             <div className="relative pt-1">
                 <Progress value={progress} className="h-1.5" />
                 <div className="absolute -top-0 right-1 text-[10px] font-bold text-gray-600">
