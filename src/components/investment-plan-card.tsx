@@ -203,7 +203,7 @@ export function InvestmentPlanCard({
 
         toast({
             title: 'Purchase Successful!',
-            description: `You have successfully invested in the ${plan.name}.`,
+            description: `You have successfully invested in the ${"\'" + plan.name + "\'"}.`,
         });
         setOpen(false);
 
@@ -268,6 +268,10 @@ export function InvestmentPlanCard({
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Income period</span>
               <span className="font-bold text-foreground">{plan.incomePeriod} days</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Total income</span>
+              <span className="font-bold text-foreground">{plan.totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Rs</span>
             </div>
              {plan.purchaseLimit && plan.purchaseLimit > 0 && !isPurchased && (
                 <div className="flex justify-between text-xs">
