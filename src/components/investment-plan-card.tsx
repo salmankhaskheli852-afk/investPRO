@@ -203,7 +203,7 @@ export function InvestmentPlanCard({
 
         toast({
             title: 'Purchase Successful!',
-            description: `You have successfully invested in the ${"\'" + plan.name + "\'"}.`,
+            description: `You have successfully invested in the ${"'" + plan.name + "'"}.`,
         });
         setOpen(false);
 
@@ -283,11 +283,11 @@ export function InvestmentPlanCard({
                 <>
                     <div className="flex justify-between text-xs pt-1">
                         <span className="text-muted-foreground flex items-center gap-1"><CalendarCheck className="w-3 h-3" /> Purchased</span>
-                        <span className="font-medium text-foreground">{format(purchaseDate.toDate(), 'dd MMM, yy')}</span>
+                        <span className="font-medium text-foreground">{format(purchaseDate.toDate(), 'dd MMM, yy, p')}</span>
                     </div>
                      <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground flex items-center gap-1"><CalendarX className="w-3 h-3" /> Expires</span>
-                        <span className="font-medium text-foreground">{format(expiryDate, 'dd MMM, yy')}</span>
+                        <span className="font-medium text-foreground">{format(expiryDate, 'dd MMM, yy, p')}</span>
                     </div>
                 </>
              )}
