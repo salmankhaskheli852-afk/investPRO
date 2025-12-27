@@ -60,7 +60,7 @@ export default function UserInvestmentsPage() {
 
       <Tabs defaultValue={planCategories?.[0]?.id || ''} className="w-full">
         <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
-            <TabsList className="inline-flex h-auto p-1">
+            <TabsList className="h-auto p-1">
               {planCategories?.map(category => (
                 <TabsTrigger key={category.id} value={category.id} className="text-sm">
                   {category.name}
