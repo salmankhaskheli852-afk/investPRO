@@ -537,6 +537,19 @@ export default function AdminInvestmentsPage() {
     }
   };
 
+  const handleAddNewPlanClick = () => {
+    if (!planCategories || planCategories.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'No Categories Found',
+        description: 'Please add a category first before adding a new plan.',
+      });
+      return;
+    }
+    setEditingPlan(null);
+    setIsPlanFormOpen(true);
+  };
+
   const sortedPlans = React.useMemo(() => {
     if (!investmentPlans) return [];
     
@@ -568,7 +581,7 @@ export default function AdminInvestmentsPage() {
             <h1 className="text-3xl font-bold font-headline">Manage Investments</h1>
             <p className="text-muted-foreground">Add, edit, or remove investment plans and categories.</p>
           </div>
-          <Button className="bg-accent hover:bg-accent/90" onClick={() => { setEditingPlan(null); setIsPlanFormOpen(true); }}>
+          <Button className="bg-accent hover:bg-accent/90" onClick={handleAddNewPlanClick}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Add New Plan
           </Button>
