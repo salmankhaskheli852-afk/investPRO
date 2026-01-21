@@ -3,19 +3,34 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+
+    function isAdmin() {
+      return request.auth != null && 
+             (
+                request.auth.token.email == 'salmankhaskheli885@gmail.com' ||
+                exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
+             );
+    }
+
+    function isAgent() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
+    }
+
     // Allow read access to everyone for all files.
     match /{allPaths=**} {
       allow read: if true;
     }
 
-    // Allow write access for authenticated users to carousel images.
+    // Allow write access for admins or agents to carousel images.
     match /carousel_images/{allPaths=**} {
-      allow write: if request.auth != null;
+      allow write: if isAdmin() || isAgent();
     }
 
-    // Allow write access for authenticated users to investment plan images.
+    // Allow write access for admins or agents to investment plan images.
     match /investment_plan_images/{allPaths=**} {
-      allow write: if request.auth != null;
+      allow write: if isAdmin() || isAgent();
     }
   }
 }
