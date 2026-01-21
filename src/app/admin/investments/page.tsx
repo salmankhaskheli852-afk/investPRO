@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -50,10 +49,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { Progress } from '@/components/ui/progress';
-import Image from 'next/image';
-
 
 const PlanFormDialog = ({
     isOpen,
@@ -69,7 +64,6 @@ const PlanFormDialog = ({
     planCategories: PlanCategory[];
 }) => {
     const firestore = useFirestore();
-    const app = useFirebaseApp();
     const { toast } = useToast();
 
     const [name, setName] = React.useState('');
@@ -77,10 +71,8 @@ const PlanFormDialog = ({
     const [price, setPrice] = React.useState(1000);
     const [dailyPercentage, setDailyPercentage] = React.useState(5);
     const [period, setPeriod] = React.useState(60);
-    
-    const [imageFile, setImageFile] = React.useState<File | null>(null);
-    const [imagePreview, setImagePreview] = React.useState<string | null>(null);
-    const [uploadProgress, setUploadProgress] = React.useState<number | null>(null);
+    const [imageUrl, setImageUrl] = React.useState('https://picsum.photos/seed/105/600/400');
+    const [imageHint, setImageHint] = React.useState('investment growth');
 
     const [purchaseLimit, setPurchaseLimit] = React.useState(0);
     const [isSoldOut, setIsSoldOut] = React.useState(false);
@@ -103,12 +95,11 @@ const PlanFormDialog = ({
             setPrice(planToEdit.price);
             setDailyPercentage(planToEdit.dailyIncomePercentage);
             setPeriod(planToEdit.incomePeriod);
+            setImageUrl(planToEdit.imageUrl);
+            setImageHint(planToEdit.imageHint || '');
             setOfferEnabled(planToEdit.isOfferEnabled || false);
             setPurchaseLimit(planToEdit.purchaseLimit || 0);
             setIsSoldOut(planToEdit.isSoldOut || false);
-            setImagePreview(planToEdit.imageUrl);
-            setImageFile(null);
-            setUploadProgress(null);
             setOfferDays(1);
             setOfferHours(0);
             setOfferMinutes(0);
@@ -124,6 +115,8 @@ const PlanFormDialog = ({
         setPrice(1000);
         setDailyPercentage(5);
         setPeriod(60);
+        setImageUrl('https://picsum.photos/seed/105/600/400');
+        setImageHint('investment growth');
         setOfferEnabled(false);
         setOfferDays(1);
         setOfferHours(0);
@@ -131,31 +124,11 @@ const PlanFormDialog = ({
         setOfferSeconds(0);
         setPurchaseLimit(0);
         setIsSoldOut(false);
-        setImageFile(null);
-        setImagePreview(null);
-        setUploadProgress(null);
-    };
-
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0] || null;
-        if (file) {
-            if (file.size > 5 * 1024 * 1024) { // 5MB limit
-                toast({
-                    variant: "destructive",
-                    title: "File too large",
-                    description: "Please select an image smaller than 5MB.",
-                });
-                return;
-            }
-            setImageFile(file);
-            const previewUrl = URL.createObjectURL(file);
-            setImagePreview(previewUrl);
-        }
     };
 
     const handleSavePlan = async () => {
-        if (!firestore || !app) return;
-        if (!name || !categoryId || !price || !dailyPercentage || !period) {
+        if (!firestore) return;
+        if (!name || !categoryId || !price || !dailyPercentage || !period || !imageUrl) {
             toast({
                 variant: 'destructive',
                 title: 'Missing Fields',
@@ -164,48 +137,10 @@ const PlanFormDialog = ({
             return;
         }
 
-        if (!isEditMode && !imageFile) {
-            toast({
-                variant: 'destructive',
-                title: 'Image Required',
-                description: 'Please upload an image for the new plan.',
-            });
-            return;
-        }
-
         setIsSaving(true);
-        setUploadProgress(0);
-
         try {
             const dailyIncome = price * (dailyPercentage / 100);
             const totalIncome = dailyIncome * period;
-
-            let finalImageUrl = planToEdit?.imageUrl || '';
-
-            const planRefId = isEditMode ? planToEdit!.id : doc(collection(firestore, 'investment_plans')).id;
-            
-            if (imageFile) {
-                const storage = getStorage(app);
-                const storageRef = ref(storage, `investment_plan_images/${planRefId}/${imageFile.name}`);
-                const uploadTask = uploadBytesResumable(storageRef, imageFile);
-
-                finalImageUrl = await new Promise<string>((resolve, reject) => {
-                    uploadTask.on('state_changed',
-                        (snapshot) => {
-                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                            setUploadProgress(progress);
-                        },
-                        (error) => {
-                            console.error("Upload failed:", error);
-                            reject(new Error("Image upload failed. Please try again. Check storage rules."));
-                        },
-                        async () => {
-                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                            resolve(downloadURL);
-                        }
-                    );
-                });
-            }
 
             let offerEndTime: Timestamp | null = null;
             if (offerEnabled) {
@@ -225,9 +160,9 @@ const PlanFormDialog = ({
                 price,
                 dailyIncomePercentage: dailyPercentage,
                 incomePeriod: period,
-                imageUrl: finalImageUrl,
-                imageHint: '',
-                totalIncome: totalIncome,
+                imageUrl,
+                imageHint,
+                totalIncome,
                 isOfferEnabled: offerEnabled,
                 purchaseLimit: purchaseLimit,
                 isSoldOut: isSoldOut,
@@ -241,7 +176,7 @@ const PlanFormDialog = ({
                     description: `${name} has been successfully updated.`,
                 });
             } else {
-                 const newDocRef = doc(firestore, 'investment_plans', planRefId);
+                 const newDocRef = doc(collection(firestore, 'investment_plans'));
                  await setDoc(newDocRef, { 
                      ...planData, 
                      id: newDocRef.id,
@@ -270,7 +205,6 @@ const PlanFormDialog = ({
             });
         } finally {
             setIsSaving(false);
-            setUploadProgress(null);
         }
     };
 
@@ -301,26 +235,14 @@ const PlanFormDialog = ({
                             </SelectContent>
                         </Select>
                     </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="image-file">Plan Image</Label>
-                        <Input id="image-file" type="file" accept="image/png, image/jpeg, image/webp" onChange={handleImageChange} />
+                    <div className="space-y-2">
+                        <Label htmlFor="image">Image URL</Label>
+                        <Input id="image" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
                     </div>
-
-                    {imagePreview && (
-                        <div className="space-y-2">
-                            <Label>Image Preview</Label>
-                            <div className="relative aspect-video w-full overflow-hidden rounded-md border">
-                                <Image src={imagePreview} alt="Plan preview" fill className="object-cover" />
-                            </div>
-                        </div>
-                    )}
-
-                    {uploadProgress !== null && (
-                        <div className="space-y-2">
-                            <Label>Upload Progress</Label>
-                            <Progress value={uploadProgress} />
-                        </div>
-                    )}
+                    <div className="space-y-2">
+                        <Label htmlFor="image-hint">Image Hint</Label>
+                        <Input id="image-hint" value={imageHint} onChange={(e) => setImageHint(e.target.value)} />
+                    </div>
                     <div className="space-y-2">
                         <Label htmlFor="price">Product Price (Rs)</Label>
                         <Input id="price" type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} />
@@ -399,7 +321,7 @@ const PlanFormDialog = ({
                         <Button variant="outline">Cancel</Button>
                     </DialogClose>
                     <Button type="submit" onClick={handleSavePlan} disabled={isSaving}>
-                        {isSaving ? (uploadProgress !== null ? `Uploading: ${Math.round(uploadProgress)}%` : 'Saving...') : 'Save Changes'}
+                        {isSaving ? 'Saving...' : 'Save Changes'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -712,4 +634,3 @@ export default function AdminInvestmentsPage() {
     </>
   );
 }
-
