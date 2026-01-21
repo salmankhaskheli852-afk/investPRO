@@ -154,7 +154,7 @@ const PlanFormDialog = ({
     };
 
     const handleSavePlan = async () => {
-        if (!firestore) return;
+        if (!firestore || !app) return;
         if (!name || !categoryId || !price || !dailyPercentage || !period) {
             toast({
                 variant: 'destructive',
@@ -197,7 +197,7 @@ const PlanFormDialog = ({
                         },
                         (error) => {
                             console.error("Upload failed:", error);
-                            reject(new Error("Image upload failed. Please try again."));
+                            reject(new Error("Image upload failed. Please try again. Check storage rules."));
                         },
                         async () => {
                             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
@@ -399,7 +399,7 @@ const PlanFormDialog = ({
                         <Button variant="outline">Cancel</Button>
                     </DialogClose>
                     <Button type="submit" onClick={handleSavePlan} disabled={isSaving}>
-                        {isSaving ? 'Saving...' : 'Save changes'}
+                        {isSaving ? (uploadProgress !== null ? `Uploading: ${Math.round(uploadProgress)}%` : 'Saving...') : 'Save Changes'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -700,4 +700,3 @@ export default function AdminInvestmentsPage() {
   );
 }
 
-    
