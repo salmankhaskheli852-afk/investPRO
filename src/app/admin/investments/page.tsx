@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { PlanCategory } from '@/lib/data';
-import { Edit, PlusCircle, Trash2, Timer, Link as LinkIcon, Image as ImageIcon, Upload, Check, X, FileUp } from 'lucide-react';
+import { Edit, PlusCircle, Trash2, Link as LinkIcon, Image as ImageIcon, Upload, Check, X, FileUp } from 'lucide-react';
 import {
   Select,
   SelectContent,
