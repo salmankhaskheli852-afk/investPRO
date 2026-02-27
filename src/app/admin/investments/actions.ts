@@ -7,6 +7,7 @@ import path from 'path';
 /**
  * Scans the public directory and its 'plan' subfolder for images.
  * Returns an array of image objects with URLs relative to the root.
+ * This is designed to work both locally and in production.
  */
 export async function getPublicImages() {
   const publicDir = path.join(process.cwd(), 'public');
@@ -43,16 +44,17 @@ export async function getPublicImages() {
           allImages.push({
             id: `plan-${file}`,
             url: `/plan/${file}`,
-            name: name, // Clean name without path
+            name: name,
             isStatic: true,
           });
         }
       });
     }
 
-    return allImages;
+    // Filter out duplicates by URL just in case
+    return allImages.filter((v, i, a) => a.findIndex(t => t.url === v.url) === i);
   } catch (error) {
-    console.error('Error reading directories:', error);
+    console.error('Error scanning public directories:', error);
     return [];
   }
 }

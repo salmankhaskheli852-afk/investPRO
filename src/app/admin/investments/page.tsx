@@ -14,11 +14,9 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -119,11 +117,8 @@ const PlanFormDialog = ({
         }));
         
         const dbImgs = dbLibraryImages || [];
-        // Combine everything: File System + Database + Placeholders
-        // We filter out duplicates by URL
         const all = [...fsImages, ...dbImgs, ...staticImgs];
-        const unique = all.filter((v, i, a) => a.findIndex(t => t.url === v.url) === i);
-        return unique;
+        return all.filter((v, i, a) => a.findIndex(t => t.url === v.url) === i);
     }, [dbLibraryImages, fsImages]);
 
     const isEditMode = planToEdit !== null;
@@ -173,7 +168,7 @@ const PlanFormDialog = ({
         if (!firestore) return;
         try {
             await deleteDoc(doc(firestore, 'image_library', id));
-            toast({ title: 'Deleted', description: 'Image removed from database library.' });
+            toast({ title: 'Deleted', description: 'Image removed from library.' });
         } catch (err: any) {
             toast({ variant: 'destructive', title: 'Error', description: err.message });
         }
@@ -193,7 +188,7 @@ const PlanFormDialog = ({
                 toast({
                     variant: 'destructive',
                     title: 'Missing Fields',
-                    description: 'Please fill all fields and select a file from library.',
+                    description: 'Please fill all fields and select an image.',
                 });
                 setIsSaving(false);
                 return;
@@ -269,7 +264,7 @@ const PlanFormDialog = ({
 
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <Label>Plan Image (Library & Folder)</Label>
+                            <Label>Plan Image (Library & Project Files)</Label>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={scanFolders} disabled={isScanning}>
                                 <RefreshCw className={cn("h-4 w-4", isScanning && "animate-spin")} />
                             </Button>
@@ -282,7 +277,7 @@ const PlanFormDialog = ({
                         {imageMode === 'library' && (
                             <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 border rounded-md">
                                 {mergedLibrary.length === 0 ? (
-                                    <p className="col-span-2 text-center text-xs text-muted-foreground py-4">No images found in project folders.</p>
+                                    <p className="col-span-2 text-center text-xs text-muted-foreground py-4">No images found. Copy images to public/plan folder.</p>
                                 ) : mergedLibrary.map(img => (
                                     <div 
                                         key={img.id}
@@ -358,7 +353,7 @@ const PlanFormDialog = ({
                 </div>
                 <DialogFooter>
                     <Button onClick={handleSavePlan} disabled={isSaving} className="w-full sm:w-auto">
-                        {isSaving ? 'Saving Plan...' : 'Save Plan'}
+                        {isSaving ? 'Saving...' : 'Save Plan'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -474,7 +469,7 @@ export default function AdminInvestmentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold font-headline">Investment Management</h1>
-          <p className="text-muted-foreground">Manage your plans and import assets directly from public/plan.</p>
+          <p className="text-muted-foreground">Manage your plans and assets directly from the project folders.</p>
         </div>
         <Button className="bg-accent hover:bg-accent/90" onClick={handleAddNewPlanClick}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add New Plan
@@ -484,7 +479,7 @@ export default function AdminInvestmentsPage() {
       <div className="grid gap-8 md:grid-cols-3">
         <div className="md:col-span-2">
           <Card>
-            <CardHeader><CardTitle>Active Investment Plans</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Investment Plans</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 pt-4">
                 {isLoadingPlans ? <p>Loading plans...</p> : investmentPlans?.map((plan) => (
