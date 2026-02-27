@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import {
@@ -16,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import type { User } from '@/lib/data';
@@ -36,9 +37,29 @@ export function EditUserRoleDialog({ user, isOpen, onOpenChange }: EditUserRoleD
   const handleRoleChange = async () => {
     if (!firestore) return;
     setIsSaving(true);
-    const userRef = doc(firestore, 'users', user.id);
+    
     try {
-      await updateDoc(userRef, { role: selectedRole });
+      const batch = writeBatch(firestore);
+      const userRef = doc(firestore, 'users', user.id);
+      const adminRoleRef = doc(firestore, 'roles_admin', user.id);
+
+      // 1. Update the role in the user profile
+      batch.update(userRef, { role: selectedRole });
+
+      // 2. Add or remove from roles_admin collection to sync security permissions
+      if (selectedRole === 'admin') {
+        batch.set(adminRoleRef, { 
+            id: user.id, 
+            email: user.email, 
+            grantedAt: serverTimestamp() 
+        });
+      } else {
+        // If they are no longer an admin, remove the admin flag document
+        batch.delete(adminRoleRef);
+      }
+
+      await batch.commit();
+
       toast({
         title: 'Role Updated',
         description: `${user.name}'s role has been changed to ${selectedRole}.`,
