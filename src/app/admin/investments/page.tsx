@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { PlanCategory } from '@/lib/data';
-import { Edit, PlusCircle, Trash2, Timer, Link as LinkIcon, Image as ImageIcon, Upload, Check } from 'lucide-react';
+import { Edit, PlusCircle, Trash2, Timer, Link as LinkIcon, Image as ImageIcon, Upload, Check, X } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -37,7 +37,7 @@ import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { InvestmentPlan } from '@/lib/data';
 import { collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, query, orderBy } from 'firebase/firestore';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -60,6 +60,7 @@ interface LibraryImage {
     id: string;
     url: string;
     name: string;
+    storagePath?: string;
     createdAt: any;
 }
 
@@ -119,13 +120,15 @@ const PlanFormDialog = ({
             id: img.id,
             url: img.imageUrl,
             name: img.id.replace(/-/g, ' '),
-            isStatic: true
+            isStatic: true,
+            storagePath: undefined
         }));
         const dynamicImgs = dbLibraryImages?.map(img => ({
             id: img.id,
             url: img.url,
             name: img.name,
-            isStatic: false
+            isStatic: false,
+            storagePath: img.storagePath
         })) || [];
         return [...dynamicImgs, ...staticImgs];
     }, [dbLibraryImages]);
@@ -158,7 +161,7 @@ const PlanFormDialog = ({
         } else {
             resetForm();
         }
-    }, [planToEdit, mergedLibrary.length]); // mergedLibrary.length to trigger when images load
+    }, [planToEdit, mergedLibrary.length]);
 
     const resetForm = () => {
         setName('New Plan');
@@ -189,6 +192,30 @@ const PlanFormDialog = ({
         }
     };
 
+    const handleDeleteLibraryImage = async (e: React.MouseEvent, img: any) => {
+        e.stopPropagation();
+        if (!firestore) return;
+
+        try {
+            // 1. Delete from Firestore
+            await deleteDoc(doc(firestore, 'image_library', img.id));
+
+            // 2. Delete from Storage if path exists
+            if (img.storagePath) {
+                const storage = getStorage();
+                const storageRef = ref(storage, img.storagePath);
+                await deleteObject(storageRef).catch(err => console.warn("Storage delete failed or file not found:", err));
+            }
+
+            toast({ title: 'Image removed from library' });
+            if (selectedLibraryId === img.id) {
+                setSelectedLibraryId('');
+            }
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Delete failed', description: err.message });
+        }
+    }
+
     const handleSavePlan = async () => {
         if (!firestore) return;
         setIsSaving(true);
@@ -199,7 +226,8 @@ const PlanFormDialog = ({
             // Handle Upload Mode
             if (imageMode === 'upload' && selectedFile) {
                 const storage = getStorage();
-                const storageRef = ref(storage, `investment_plan_images/${Date.now()}_${selectedFile.name}`);
+                const storagePath = `investment_plan_images/${Date.now()}_${selectedFile.name}`;
+                const storageRef = ref(storage, storagePath);
                 const uploadTask = uploadBytesResumable(storageRef, selectedFile);
 
                 const uploadPromise = new Promise<string>((resolve, reject) => {
@@ -217,13 +245,14 @@ const PlanFormDialog = ({
                 });
                 finalImageUrl = await uploadPromise;
 
-                // AUTOMATICALLY SAVE TO LIBRARY
+                // SAVE TO LIBRARY
                 const libraryRef = doc(collection(firestore, 'image_library'));
                 const fileName = selectedFile.name.split('.').slice(0, -1).join('.').replace(/[_-]/g, ' ');
                 await setDoc(libraryRef, {
                     id: libraryRef.id,
                     url: finalImageUrl,
                     name: fileName,
+                    storagePath: storagePath,
                     createdAt: serverTimestamp()
                 });
             } else if (imageMode === 'library') {
@@ -342,7 +371,7 @@ const PlanFormDialog = ({
                                 {mergedLibrary.map(img => (
                                     <div 
                                         key={img.id}
-                                        className={cn("relative cursor-pointer group rounded-md border-2", selectedLibraryId === img.id ? "border-primary" : "border-transparent")}
+                                        className={cn("relative cursor-pointer group rounded-md border-2 overflow-hidden", selectedLibraryId === img.id ? "border-primary" : "border-transparent")}
                                         onClick={() => setSelectedLibraryId(img.id)}
                                     >
                                         <div className="relative aspect-video w-full overflow-hidden rounded-sm">
@@ -351,6 +380,16 @@ const PlanFormDialog = ({
                                         <div className="p-1 text-[10px] uppercase font-bold text-center truncate">
                                             {img.name}
                                         </div>
+                                        {!img.isStatic && (
+                                            <Button 
+                                                variant="destructive" 
+                                                size="icon" 
+                                                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                                onClick={(e) => handleDeleteLibraryImage(e, img)}
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -484,10 +523,16 @@ export default function AdminInvestmentsPage() {
   const [isCategoryFormOpen, setIsCategoryFormOpen] = React.useState(false);
   const [editingCategory, setEditingCategory] = React.useState<PlanCategory | null>(null);
 
-  const plansQuery = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'investment_plans'), orderBy('createdAt', 'desc')) : null, [firestore, user]);
+  const plansQuery = useMemoFirebase(
+    () => firestore && user ? query(collection(firestore, 'investment_plans'), orderBy('createdAt', 'desc')) : null, 
+    [firestore, user]
+  );
   const { data: investmentPlans, isLoading: isLoadingPlans, forceRefetch: refetchPlans } = useCollection<InvestmentPlan>(plansQuery);
 
-  const categoriesQuery = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'plan_categories'), orderBy('createdAt', 'asc')) : null, [firestore, user]);
+  const categoriesQuery = useMemoFirebase(
+    () => firestore && user ? query(collection(firestore, 'plan_categories'), orderBy('createdAt', 'asc')) : null, 
+    [firestore, user]
+  );
   const { data: planCategories, isLoading: isLoadingCategories, forceRefetch: refetchCategories } = useCollection<PlanCategory>(categoriesQuery);
   
   const handleEditPlan = (plan: InvestmentPlan) => {
