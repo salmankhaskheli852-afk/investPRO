@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { PlanCategory } from '@/lib/data';
-import { Edit, PlusCircle, Trash2, Timer, Link as LinkIcon, Image as ImageIcon, Check } from 'lucide-react';
+import { Edit, PlusCircle, Trash2, Timer, Link as LinkIcon, Image as ImageIcon, Upload, Check } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -37,6 +37,7 @@ import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { InvestmentPlan } from '@/lib/data';
 import { collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, query, orderBy } from 'firebase/firestore';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -53,6 +54,7 @@ import {
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { Progress } from '@/components/ui/progress';
 
 const PlanFormDialog = ({
     isOpen,
@@ -77,9 +79,14 @@ const PlanFormDialog = ({
     const [period, setPeriod] = React.useState(60);
     
     // Image selection state
-    const [imageSource, setImageSource] = React.useState<'url' | 'library'>('url');
+    const [imageMode, setImageMode] = React.useState<'url' | 'library' | 'upload'>('url');
     const [imageUrl, setImageUrl] = React.useState('');
     const [selectedLibraryId, setSelectedLibraryId] = React.useState('');
+    
+    // Upload state
+    const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+    const [uploadProgress, setUploadProgress] = React.useState(0);
+    const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
 
     const [purchaseLimit, setPurchaseLimit] = React.useState(0);
     const [isSoldOut, setIsSoldOut] = React.useState(false);
@@ -107,13 +114,16 @@ const PlanFormDialog = ({
             setPurchaseLimit(planToEdit.purchaseLimit || 0);
             setIsSoldOut(planToEdit.isSoldOut || false);
             
-            // Check if URL matches something in library
+            // Determine image mode from existing URL
             const inLibrary = PlaceHolderImages.find(img => img.imageUrl === planToEdit.imageUrl);
             if (inLibrary) {
-                setImageSource('library');
+                setImageMode('library');
                 setSelectedLibraryId(inLibrary.id);
+            } else if (planToEdit.imageUrl?.includes('firebasestorage')) {
+                setImageMode('upload');
+                setPreviewUrl(planToEdit.imageUrl);
             } else {
-                setImageSource('url');
+                setImageMode('url');
             }
         } else {
             resetForm();
@@ -128,7 +138,10 @@ const PlanFormDialog = ({
         setPeriod(60);
         setImageUrl('');
         setSelectedLibraryId('');
-        setImageSource('url');
+        setImageMode('url');
+        setSelectedFile(null);
+        setUploadProgress(0);
+        setPreviewUrl(null);
         setOfferEnabled(false);
         setOfferDays(1);
         setOfferHours(0);
@@ -138,24 +151,55 @@ const PlanFormDialog = ({
         setIsSoldOut(false);
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedFile(file);
+            setPreviewUrl(URL.createObjectURL(file));
+        }
+    };
+
     const handleSavePlan = async () => {
         if (!firestore) return;
-        
-        const finalImageUrl = imageSource === 'library' 
-            ? PlaceHolderImages.find(img => img.id === selectedLibraryId)?.imageUrl 
-            : imageUrl;
-
-        if (!name || !categoryId || !price || !dailyPercentage || !period || !finalImageUrl) {
-            toast({
-                variant: 'destructive',
-                title: 'Missing Fields',
-                description: 'Please fill out all the fields, including selecting an image.',
-            });
-            return;
-        }
-
         setIsSaving(true);
+
         try {
+            let finalImageUrl = imageUrl;
+
+            // Handle Upload Mode
+            if (imageMode === 'upload' && selectedFile) {
+                const storage = getStorage();
+                const storageRef = ref(storage, `investment_plan_images/${Date.now()}_${selectedFile.name}`);
+                const uploadTask = uploadBytesResumable(storageRef, selectedFile);
+
+                const uploadPromise = new Promise<string>((resolve, reject) => {
+                    uploadTask.on('state_changed', 
+                        (snapshot) => {
+                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                            setUploadProgress(progress);
+                        }, 
+                        (error) => reject(error), 
+                        async () => {
+                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                            resolve(downloadURL);
+                        }
+                    );
+                });
+                finalImageUrl = await uploadPromise;
+            } else if (imageMode === 'library') {
+                finalImageUrl = PlaceHolderImages.find(img => img.id === selectedLibraryId)?.imageUrl || '';
+            }
+
+            if (!name || !categoryId || !price || !dailyPercentage || !period || !finalImageUrl) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Missing Fields',
+                    description: 'Please fill out all the fields, including selecting an image.',
+                });
+                setIsSaving(false);
+                return;
+            }
+
             const dailyIncome = price * (dailyPercentage / 100);
             const totalIncome = dailyIncome * period;
 
@@ -187,10 +231,7 @@ const PlanFormDialog = ({
             if (isEditMode && planToEdit) {
                 const planRef = doc(firestore, 'investment_plans', planToEdit.id);
                 await updateDoc(planRef, { ...planData, offerEndTime: offerEndTime }); 
-                toast({
-                    title: 'Plan Updated!',
-                    description: `${name} has been successfully updated.`,
-                });
+                toast({ title: 'Plan Updated!' });
             } else {
                  const newDocRef = doc(collection(firestore, 'investment_plans'));
                  await setDoc(newDocRef, { 
@@ -200,27 +241,22 @@ const PlanFormDialog = ({
                      createdAt: serverTimestamp(),
                      offerEndTime: offerEndTime
                     });
-
-                toast({
-                    title: 'Plan Created!',
-                    description: `${name} has been added to the investment plans.`,
-                });
+                toast({ title: 'Plan Created!' });
             }
             
             onSuccess();
             onOpenChange(false);
-            if (!isEditMode) {
-                resetForm();
-            }
+            if (!isEditMode) resetForm();
 
         } catch (e: any) {
             toast({
                 variant: 'destructive',
-                title: `Error ${isEditMode ? 'Updating' : 'Creating'} Plan`,
-                description: e.message || `There was an error saving the plan.`,
+                title: 'Error',
+                description: e.message,
             });
         } finally {
             setIsSaving(false);
+            setUploadProgress(0);
         }
     };
 
@@ -228,10 +264,7 @@ const PlanFormDialog = ({
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>{isEditMode ? 'Edit' : 'Add New'} Investment Plan</DialogTitle>
-                    <DialogDescription>
-                        Fill in the details for the plan. Click save when you're done.
-                    </DialogDescription>
+                    <DialogTitle>{isEditMode ? 'Edit' : 'Add New'} Plan</DialogTitle>
                 </DialogHeader>
                 <div className="grid max-h-[70vh] gap-6 overflow-y-auto py-4 pr-4">
                     <div className="space-y-2">
@@ -255,150 +288,83 @@ const PlanFormDialog = ({
                     <div className="space-y-3">
                         <Label>Plan Image</Label>
                         <div className="flex gap-2 p-1 bg-muted rounded-md w-fit">
-                            <Button 
-                                variant={imageSource === 'url' ? 'secondary' : 'ghost'} 
-                                size="sm" 
-                                className="h-8"
-                                onClick={() => setImageSource('url')}
-                            >
-                                <LinkIcon className="mr-2 h-4 w-4" />
-                                URL
-                            </Button>
-                            <Button 
-                                variant={imageSource === 'library' ? 'secondary' : 'ghost'} 
-                                size="sm" 
-                                className="h-8"
-                                onClick={() => setImageSource('library')}
-                            >
-                                <ImageIcon className="mr-2 h-4 w-4" />
-                                Library
-                            </Button>
+                            <Button variant={imageMode === 'url' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('url')}><LinkIcon className="mr-2 h-4 w-4" />URL</Button>
+                            <Button variant={imageMode === 'library' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('library')}><ImageIcon className="mr-2 h-4 w-4" />Library</Button>
+                            <Button variant={imageMode === 'upload' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('upload')}><Upload className="mr-2 h-4 w-4" />Upload</Button>
                         </div>
 
-                        {imageSource === 'url' ? (
-                            <div className="space-y-2">
-                                <Input 
-                                    placeholder="Paste Google/Image Link here..." 
-                                    value={imageUrl} 
-                                    onChange={(e) => setImageUrl(e.target.value)} 
-                                />
-                                {imageUrl && (
-                                    <div className="relative aspect-video w-full rounded-md overflow-hidden border">
-                                        <Image src={imageUrl} alt="Preview" fill className="object-cover" />
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
+                        {imageMode === 'url' && (
+                            <Input placeholder="Paste Image Link here..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
+                        )}
+
+                        {imageMode === 'library' && (
                             <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1">
-                                {PlaceHolderImages.map(img => {
-                                    const displayName = img.id.replace(/-/g, ' ').replace(/\.[^/.]+$/, "");
-                                    const isSelected = selectedLibraryId === img.id;
-                                    return (
-                                        <div 
-                                            key={img.id}
-                                            className={cn(
-                                                "relative cursor-pointer group rounded-md border-2 transition-all overflow-hidden",
-                                                isSelected ? "border-primary" : "border-transparent hover:border-muted-foreground/50"
-                                            )}
-                                            onClick={() => setSelectedLibraryId(img.id)}
-                                        >
-                                            <div className="relative aspect-video w-full">
-                                                <Image src={img.imageUrl} alt={img.description} fill className="object-cover" />
-                                                {isSelected && (
-                                                    <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                                                        <Check className="h-8 w-8 text-primary bg-white rounded-full p-1 shadow-lg" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="p-2 bg-background/90 text-[10px] uppercase font-bold text-center truncate">
-                                                {displayName}
-                                            </div>
+                                {PlaceHolderImages.map(img => (
+                                    <div 
+                                        key={img.id}
+                                        className={cn("relative cursor-pointer group rounded-md border-2", selectedLibraryId === img.id ? "border-primary" : "border-transparent")}
+                                        onClick={() => setSelectedLibraryId(img.id)}
+                                    >
+                                        <div className="relative aspect-video w-full overflow-hidden rounded-sm">
+                                            <Image src={img.imageUrl} alt={img.description} fill className="object-cover" />
                                         </div>
-                                    )
-                                })}
+                                        <div className="p-1 text-[10px] uppercase font-bold text-center truncate">
+                                            {img.id.replace(/-/g, ' ')}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {imageMode === 'upload' && (
+                            <div className="space-y-4">
+                                <Input type="file" accept="image/*" onChange={handleFileChange} />
+                                {uploadProgress > 0 && <Progress value={uploadProgress} className="h-2" />}
+                            </div>
+                        )}
+
+                        {previewUrl && (
+                            <div className="relative aspect-video w-full rounded-md overflow-hidden border">
+                                <Image src={previewUrl} alt="Preview" fill className="object-cover" />
                             </div>
                         )}
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="price">Product Price (Rs)</Label>
-                        <Input id="price" type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="daily-percentage">Daily Income (%)</Label>
-                        <Input id="daily-percentage" type="number" value={dailyPercentage} onChange={(e) => setDailyPercentage(Number(e.target.value))} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="period">Income Period (days)</Label>
-                        <Input id="period" type="number" value={period} onChange={(e) => setPeriod(Number(e.target.value))} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="purchase-limit">Purchase Limit</Label>
-                        <Input id="purchase-limit" type="number" value={purchaseLimit} onChange={(e) => setPurchaseLimit(Number(e.target.value))} />
-                        <p className="text-xs text-muted-foreground">Set to 0 for unlimited purchases.</p>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="price">Price (Rs)</Label>
+                            <Input id="price" type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="daily-percentage">Daily (%)</Label>
+                            <Input id="daily-percentage" type="number" value={dailyPercentage} onChange={(e) => setDailyPercentage(Number(e.target.value))} />
+                        </div>
                     </div>
                     
-                    <div className="mt-4 pt-4 border-t">
-                        <h4 className="text-lg font-medium">Limited-Time Offer</h4>
-                        <div className="flex items-center justify-between rounded-lg border p-3 mt-4">
-                            <Label htmlFor="offer-switch" className="flex flex-col space-y-1">
-                            <span>Enable Offer for this Plan</span>
-                            </Label>
-                            <Switch
-                            id="offer-switch"
-                            checked={offerEnabled}
-                            onCheckedChange={setOfferEnabled}
-                            />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="period">Period (Days)</Label>
+                            <Input id="period" type="number" value={period} onChange={(e) => setPeriod(Number(e.target.value))} />
                         </div>
-                        {offerEnabled && (
-                            <div className="mt-4 space-y-4">
-                                <Label>Offer Duration</Label>
-                                <div className="grid grid-cols-4 gap-2">
-                                     <div className="space-y-1">
-                                        <Label htmlFor="offer-days" className="text-xs">Days</Label>
-                                        <Input id="offer-days" type="number" value={offerDays} onChange={e => setOfferDays(Number(e.target.value))} min="0" />
-                                     </div>
-                                     <div className="space-y-1">
-                                        <Label htmlFor="offer-hours" className="text-xs">Hours</Label>
-                                        <Input id="offer-hours" type="number" value={offerHours} onChange={e => setOfferHours(Number(e.target.value))} max="23" min="0" />
-                                     </div>
-                                     <div className="space-y-1">
-                                        <Label htmlFor="offer-minutes" className="text-xs">Mins</Label>
-                                        <Input id="offer-minutes" type="number" value={offerMinutes} onChange={e => setOfferMinutes(Number(e.target.value))} max="59" min="0" />
-                                     </div>
-                                     <div className="space-y-1">
-                                        <Label htmlFor="offer-seconds" className="text-xs">Secs</Label>
-                                        <Input id="offer-seconds" type="number" value={offerSeconds} onChange={e => setOfferSeconds(Number(e.target.value))} max="59" min="0" />
-                                     </div>
-                                </div>
-                            </div>
-                        )}
+                        <div className="space-y-2">
+                            <Label htmlFor="purchase-limit">Limit</Label>
+                            <Input id="purchase-limit" type="number" value={purchaseLimit} onChange={(e) => setPurchaseLimit(Number(e.target.value))} />
+                        </div>
                     </div>
                     
-                    <div className="mt-4 pt-4 border-t">
-                        <h4 className="text-lg font-medium">Plan Status</h4>
-                         <div className="flex items-center justify-between rounded-lg border p-3 mt-4">
-                            <Label htmlFor="sold-out-switch" className="flex flex-col space-y-1">
-                                <span>Manually Mark as Sold Out</span>
-                                <span className="font-normal leading-snug text-muted-foreground">
-                                    This will override other settings and show the plan as sold out.
-                                </span>
-                            </Label>
-                            <Switch
-                                id="sold-out-switch"
-                                checked={isSoldOut}
-                                onCheckedChange={setIsSoldOut}
-                            />
-                        </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                        <Label htmlFor="offer-switch">Enable Limited Offer</Label>
+                        <Switch id="offer-switch" checked={offerEnabled} onCheckedChange={setOfferEnabled} />
                     </div>
 
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                        <Label htmlFor="sold-out-switch">Mark as Sold Out</Label>
+                        <Switch id="sold-out-switch" checked={isSoldOut} onCheckedChange={setIsSoldOut} />
+                    </div>
                 </div>
                 <DialogFooter>
-                    <DialogClose asChild>
-                        <Button variant="outline">Cancel</Button>
-                    </DialogClose>
-                    <Button type="submit" onClick={handleSavePlan} disabled={isSaving}>
-                        {isSaving ? 'Saving...' : 'Save Changes'}
+                    <Button onClick={handleSavePlan} disabled={isSaving}>
+                        {isSaving ? (uploadProgress > 0 ? `Uploading: ${Math.round(uploadProgress)}%` : 'Saving...') : 'Save Changes'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -424,11 +390,8 @@ const CategoryFormDialog = ({
   const isEditMode = categoryToEdit !== null;
 
   React.useEffect(() => {
-    if (categoryToEdit) {
-      setName(categoryToEdit.name);
-    } else {
-      setName('');
-    }
+    if (categoryToEdit) setName(categoryToEdit.name);
+    else setName('');
   }, [categoryToEdit]);
 
   const handleSave = async () => {
@@ -436,13 +399,10 @@ const CategoryFormDialog = ({
     setIsSaving(true);
     try {
       if (isEditMode && categoryToEdit) {
-        const categoryRef = doc(firestore, 'plan_categories', categoryToEdit.id);
-        await updateDoc(categoryRef, { name });
-        toast({ title: 'Category Updated' });
+        await updateDoc(doc(firestore, 'plan_categories', categoryToEdit.id), { name });
       } else {
-        const newDocRef = doc(collection(firestore, 'plan_categories'));
-        await setDoc(newDocRef, { id: newDocRef.id, name, createdAt: serverTimestamp() });
-        toast({ title: 'Category Created' });
+        const newRef = doc(collection(firestore, 'plan_categories'));
+        await setDoc(newRef, { id: newRef.id, name, createdAt: serverTimestamp() });
       }
       onSuccess();
       onOpenChange(false);
@@ -455,25 +415,19 @@ const CategoryFormDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>{isEditMode ? 'Edit' : 'Add New'} Category</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="category-name">Name</Label>
-            <Input id="category-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., High-Risk" />
-          </div>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{isEditMode ? 'Edit' : 'Add'} Category</DialogTitle></DialogHeader>
+        <div className="py-4 space-y-2">
+          <Label>Name</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., VIP" />
         </div>
         <DialogFooter>
-          <DialogClose asChild><Button variant='outline'>Cancel</Button></DialogClose>
           <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 };
-
 
 export default function AdminInvestmentsPage() {
   const firestore = useFirestore();
@@ -482,20 +436,13 @@ export default function AdminInvestmentsPage() {
 
   const [isPlanFormOpen, setIsPlanFormOpen] = React.useState(false);
   const [editingPlan, setEditingPlan] = React.useState<InvestmentPlan | null>(null);
-
   const [isCategoryFormOpen, setIsCategoryFormOpen] = React.useState(false);
   const [editingCategory, setEditingCategory] = React.useState<PlanCategory | null>(null);
 
-  const plansQuery = useMemoFirebase(
-    () => firestore && user ? query(collection(firestore, 'investment_plans'), orderBy('createdAt', 'desc')) : null,
-    [firestore, user]
-  );
+  const plansQuery = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'investment_plans'), orderBy('createdAt', 'desc')) : null, [firestore, user]);
   const { data: investmentPlans, isLoading: isLoadingPlans, forceRefetch: refetchPlans } = useCollection<InvestmentPlan>(plansQuery);
 
-  const categoriesQuery = useMemoFirebase(
-    () => firestore && user ? query(collection(firestore, 'plan_categories'), orderBy('createdAt', 'asc')) : null,
-    [firestore, user]
-  );
+  const categoriesQuery = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'plan_categories'), orderBy('createdAt', 'asc')) : null, [firestore, user]);
   const { data: planCategories, isLoading: isLoadingCategories, forceRefetch: refetchCategories } = useCollection<PlanCategory>(categoriesQuery);
   
   const handleEditPlan = (plan: InvestmentPlan) => {
@@ -507,207 +454,75 @@ export default function AdminInvestmentsPage() {
     if (!firestore) return;
     try {
       await deleteDoc(doc(firestore, 'investment_plans', plan.id));
-      toast({
-        title: 'Plan Deleted',
-        description: `${plan.name} has been removed.`,
-      });
+      toast({ title: 'Plan Deleted' });
     } catch(e: any) {
-       toast({
-        variant: 'destructive',
-        title: 'Error Deleting Plan',
-        description: e.message,
-      });
-    }
-  };
-
-  const handleEditCategory = (category: PlanCategory) => {
-    setEditingCategory(category);
-    setIsCategoryFormOpen(true);
-  };
-
-  const handleDeleteCategory = async (category: PlanCategory) => {
-    if (!firestore) return;
-    try {
-      // Add check if any plan is using this category
-      await deleteDoc(doc(firestore, 'plan_categories', category.id));
-      toast({ title: 'Category Deleted' });
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Error deleting category', description: e.message });
+       toast({ variant: 'destructive', title: 'Error', description: e.message });
     }
   };
 
   const handleAddNewPlanClick = () => {
     if (!planCategories || planCategories.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'No Categories Found',
-        description: 'Please add a category first before adding a new plan.',
-      });
+      toast({ variant: 'destructive', title: 'No Categories Found', description: 'Please add a category first.' });
       return;
     }
     setEditingPlan(null);
     setIsPlanFormOpen(true);
   };
 
-  const sortedPlans = React.useMemo(() => {
-    if (!investmentPlans) return [];
-    
-    const now = Timestamp.now();
-    
-    // Plans with active offers, sorted by creation date descending
-    const activeOfferPlans = investmentPlans
-      .filter(p => p.isOfferEnabled && p.offerEndTime && p.offerEndTime > now)
-      .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
-
-    // Regular plans (no offer or offer not enabled), sorted by creation date descending
-    const regularPlans = investmentPlans
-      .filter(p => !p.isOfferEnabled || !p.offerEndTime)
-      .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
-
-    // Closed plans, sorted by creation date descending
-    const closedPlans = investmentPlans
-      .filter(p => p.isOfferEnabled && p.offerEndTime && p.offerEndTime <= now)
-      .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
-
-    return [...activeOfferPlans, ...regularPlans, ...closedPlans];
-  }, [investmentPlans]);
-
   return (
-    <>
-      <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold font-headline">Manage Investments</h1>
-            <p className="text-muted-foreground">Add, edit, or remove investment plans and categories.</p>
-          </div>
-          <Button className="bg-accent hover:bg-accent/90" onClick={handleAddNewPlanClick}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add New Plan
-          </Button>
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold font-headline">Investments</h1>
+          <p className="text-muted-foreground">Manage your investment plans and categories.</p>
         </div>
-
-        <div className="grid gap-8 md:grid-cols-3">
-          <div className="md:col-span-2">
-            <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-              <Card className="rounded-lg">
-                  <CardHeader>
-                      <CardTitle>Investment Plans</CardTitle>
-                      <CardDescription>A list of all available investment plans.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                      {isLoadingPlans && <p>Loading plans...</p>}
-                      {sortedPlans?.map((plan) => (
-                         <div key={plan.id} className="relative group">
-                           <InvestmentPlanCard plan={plan} showPurchaseButton={false} />
-                           <div className="absolute top-2 right-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                              <Button variant="outline" size="icon" className="bg-background/80 hover:bg-background" onClick={() => handleEditPlan(plan)}>
-                                  <Edit className="h-4 w-4" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" size="icon">
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This action cannot be undone. This will permanently delete the <strong>{plan.name}</strong> plan.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDeletePlan(plan)}>Delete</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                           </div>
-                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-              </Card>
-            </div>
-          </div>
-          <div className="space-y-8">
-            <div className="rounded-lg p-0.5 bg-gradient-to-br from-blue-400 via-purple-500 to-orange-500">
-              <Card className="rounded-lg">
-                  <CardHeader>
-                      <CardTitle>Categories</CardTitle>
-                      <CardDescription>Manage investment plan categories.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                     <div className="space-y-4">
-                       <Button variant="outline" className="w-full" onClick={() => { setEditingCategory(null); setIsCategoryFormOpen(true); }}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Add Category
-                        </Button>
-                      <Table>
-                          <TableHeader>
-                              <TableRow>
-                                  <TableHead>Name</TableHead>
-                                  <TableHead className="text-right">Actions</TableHead>
-                              </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                              {isLoadingCategories && (
-                                <TableRow><TableCell colSpan={2} className="text-center">Loading...</TableCell></TableRow>
-                              )}
-                              {planCategories?.map(cat => (
-                                  <TableRow key={cat.id}>
-                                      <TableCell className="font-medium">{cat.name}</TableCell>
-                                      <TableCell className="text-right">
-                                          <div className="flex items-center justify-end gap-2">
-                                              <Button variant="ghost" size="icon" onClick={() => handleEditCategory(cat)}>
-                                                  <Edit className="h-4 w-4" />
-                                              </Button>
-                                              <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                                      <Trash2 className="h-4 w-4" />
-                                                  </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Delete {cat.name}?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            This action cannot be undone.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDeleteCategory(cat)}>Delete</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                              </AlertDialog>
-                                          </div>
-                                      </TableCell>
-                                  </TableRow>
-                              ))}
-                          </TableBody>
-                      </Table>
-                     </div>
-                  </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
+        <Button className="bg-accent hover:bg-accent/90" onClick={handleAddNewPlanClick}>
+          <PlusCircle className="mr-2 h-4 w-4" /> Add Plan
+        </Button>
       </div>
-      <PlanFormDialog 
-        isOpen={isPlanFormOpen}
-        onOpenChange={setIsPlanFormOpen}
-        planToEdit={editingPlan}
-        onSuccess={refetchPlans}
-        planCategories={planCategories || []}
-      />
-      <CategoryFormDialog
-        isOpen={isCategoryFormOpen}
-        onOpenChange={setIsCategoryFormOpen}
-        categoryToEdit={editingCategory}
-        onSuccess={refetchCategories}
-      />
-    </>
+
+      <div className="grid gap-8 md:grid-cols-3">
+        <div className="md:col-span-2">
+          <Card>
+            <CardHeader><CardTitle>Plans</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                {isLoadingPlans ? <p>Loading...</p> : investmentPlans?.map((plan) => (
+                  <div key={plan.id} className="relative group">
+                    <InvestmentPlanCard plan={plan} showPurchaseButton={false} />
+                    <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                      <Button variant="outline" size="icon" onClick={() => handleEditPlan(plan)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="destructive" size="icon" onClick={() => handleDeletePlan(plan)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Categories</CardTitle>
+            <Button variant="outline" size="sm" onClick={() => { setEditingCategory(null); setIsCategoryFormOpen(true); }}>Add</Button>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableBody>
+                {planCategories?.map(cat => (
+                  <TableRow key={cat.id}>
+                    <TableCell className="font-medium">{cat.name}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => { setEditingCategory(cat); setIsCategoryFormOpen(true); }}><Edit className="h-4 w-4" /></Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+      <PlanFormDialog isOpen={isPlanFormOpen} onOpenChange={setIsPlanFormOpen} planToEdit={editingPlan} onSuccess={refetchPlans} planCategories={planCategories || []} />
+      <CategoryFormDialog isOpen={isCategoryFormOpen} onOpenChange={setIsCategoryFormOpen} categoryToEdit={editingCategory} onSuccess={refetchCategories} />
+    </div>
   );
 }

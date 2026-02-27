@@ -8,14 +8,14 @@ service firebase.storage {
       return request.auth != null && 
              (
                 request.auth.token.email == 'salmankhaskheli885@gmail.com' ||
-                exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
+                exists(/databases/(default)/documents/roles_admin/$(request.auth.uid))
              );
     }
 
     function isAgent() {
       return request.auth != null &&
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
+             exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+             get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'agent';
     }
 
     // Allow read access to everyone for all files.
@@ -23,12 +23,11 @@ service firebase.storage {
       allow read: if true;
     }
 
-    // Allow write access for admins or agents to carousel images.
+    // Allow write access for admins or agents to specific folders.
     match /carousel_images/{allPaths=**} {
       allow write: if isAdmin() || isAgent();
     }
 
-    // Allow write access for admins or agents to investment plan images.
     match /investment_plan_images/{allPaths=**} {
       allow write: if isAdmin() || isAgent();
     }
