@@ -46,15 +46,16 @@ export function EditUserRoleDialog({ user, isOpen, onOpenChange }: EditUserRoleD
       // 1. Update the role in the user profile
       batch.update(userRef, { role: selectedRole });
 
-      // 2. Add or remove from roles_admin collection to sync security permissions
+      // 2. Sync security permissions
       if (selectedRole === 'admin') {
+        // Grant master access via dedicated collection
         batch.set(adminRoleRef, { 
             id: user.id, 
-            email: user.email, 
+            email: user.email || '', 
             grantedAt: serverTimestamp() 
         });
       } else {
-        // If they are no longer an admin, remove the admin flag document
+        // Remove master access if role is no longer admin
         batch.delete(adminRoleRef);
       }
 
@@ -62,7 +63,7 @@ export function EditUserRoleDialog({ user, isOpen, onOpenChange }: EditUserRoleD
 
       toast({
         title: 'Role Updated',
-        description: `${user.name}'s role has been changed to ${selectedRole}.`,
+        description: `${user.name || user.email}'s role has been changed to ${selectedRole}. Total permissions granted.`,
       });
       onOpenChange(false);
     } catch (e: any) {
@@ -86,9 +87,9 @@ export function EditUserRoleDialog({ user, isOpen, onOpenChange }: EditUserRoleD
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Change Role for {user.name}</DialogTitle>
+          <DialogTitle>Change Role for {user.name || user.email}</DialogTitle>
           <DialogDescription>
-            Select the new role for this user. This will change their access permissions.
+            Select the new role for this user. Giving 'Admin' role grants TOTAL permission to every part of the system.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
@@ -99,7 +100,7 @@ export function EditUserRoleDialog({ user, isOpen, onOpenChange }: EditUserRoleD
             <SelectContent>
               <SelectItem value="user">User</SelectItem>
               <SelectItem value="agent">Agent</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="admin">Admin (Total Access)</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -108,7 +109,7 @@ export function EditUserRoleDialog({ user, isOpen, onOpenChange }: EditUserRoleD
             Cancel
           </Button>
           <Button onClick={handleRoleChange} disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Role'}
+            {isSaving ? 'Saving...' : 'Save Role & Permissions'}
           </Button>
         </DialogFooter>
       </DialogContent>

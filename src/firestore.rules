@@ -6,17 +6,23 @@ service cloud.firestore {
     
     // Helper function to check if the user is a super admin by email
     // or if their UID exists in the admin roles collection.
+    // or if their profile role is 'admin'.
     function isAdmin() {
-      return request.auth != null && 
-             (
-                request.auth.token.email.lower() == 'salmankhaskheli885@gmail.com' ||
-                request.auth.token.email.lower() == 'salmankhaskheli852@gmail.com' ||
-                exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) ||
-                (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
-             );
+      let isAuth = request.auth != null;
+      let userEmail = isAuth ? request.auth.token.email.toLower() : "";
+      
+      let isSuperAdmin = isAuth && (userEmail == 'salmankhaskheli885@gmail.com' || userEmail == 'salmankhaskheli852@gmail.com');
+      
+      let hasAdminRole = isAuth && 
+                         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                         
+      let inAdminCollection = isAuth && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      
+      return isSuperAdmin || hasAdminRole || inAdminCollection;
     }
 
-    // Helper function to check if the user is an agent by their role document.
+    // Helper function to check if the user is an agent
     function isAgent() {
       return request.auth != null &&
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
