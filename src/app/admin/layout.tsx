@@ -1,17 +1,18 @@
-
 'use client';
 
 import { Sidebar, SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav, type NavItem } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
-import { LayoutDashboard, TrendingUp, Users, UserCog, Wallet, ArrowDownToLine, ArrowUpFromLine, Settings, GitBranch, KeyRound, DollarSign } from 'lucide-react';
+import { LayoutDashboard, Users, UserCog, Wallet, ArrowDownToLine, ArrowUpFromLine, Settings, GitBranch, KeyRound, DollarSign } from 'lucide-react';
 import { ModernDashboardIcon } from '@/components/modern-dashboard-icon';
+import { ModernInvestmentIcon } from '@/components/modern-investment-icon';
 
 const DashboardIconWrapper = () => <ModernDashboardIcon size={18} />;
+const InvestmentIconWrapper = () => <ModernInvestmentIcon size={18} />;
 
 const navItems: NavItem[] = [
   { href: '/admin', label: 'Dashboard', icon: DashboardIconWrapper },
-  { href: '/admin/investments', label: 'Investments', icon: TrendingUp },
+  { href: '/admin/investments', label: 'Investments', icon: InvestmentIconWrapper },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/agents', label: 'Agents', icon: UserCog },
   { href: '/admin/wallet', label: 'Wallet', icon: Wallet },

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -18,14 +17,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogClose
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlanCategory } from '@/lib/data';
-import { Edit, PlusCircle, Trash2, Link as LinkIcon, Image as ImageIcon, Upload, Check, X, FileUp, RefreshCw } from 'lucide-react';
+import { Edit, PlusCircle, Trash2, Link as LinkIcon, Image as ImageIcon, Check, X, FileUp, RefreshCw } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -40,17 +37,6 @@ import { collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timesta
 import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -89,6 +75,7 @@ const PlanFormDialog = ({
     
     const [imageMode, setImageMode] = React.useState<'url' | 'library' | 'upload'>('library');
     const [imageUrl, setImageUrl] = React.useState('');
+    const [imageHint, setImageHint] = React.useState('investment growth');
     const [selectedLibraryId, setSelectedLibraryId] = React.useState('');
     
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
@@ -152,6 +139,7 @@ const PlanFormDialog = ({
             setDailyPercentage(planToEdit.dailyIncomePercentage);
             setPeriod(planToEdit.incomePeriod);
             setImageUrl(planToEdit.imageUrl);
+            setImageHint(planToEdit.imageHint || 'investment growth');
             setOfferEnabled(planToEdit.isOfferEnabled || false);
             setPurchaseLimit(planToEdit.purchaseLimit || 0);
             setIsSoldOut(planToEdit.isSoldOut || false);
@@ -175,6 +163,7 @@ const PlanFormDialog = ({
         setDailyPercentage(5);
         setPeriod(60);
         setImageUrl('');
+        setImageHint('investment growth');
         setSelectedLibraryId('');
         setImageMode('library');
         setSelectedFile(null);
@@ -295,6 +284,7 @@ const PlanFormDialog = ({
                 dailyIncomePercentage: dailyPercentage,
                 incomePeriod: period,
                 imageUrl: finalImageUrl,
+                imageHint,
                 totalIncome,
                 isOfferEnabled: offerEnabled,
                 purchaseLimit: purchaseLimit,
@@ -414,7 +404,10 @@ const PlanFormDialog = ({
                         )}
 
                         {imageMode === 'url' && (
-                            <Input placeholder="Paste Image Link here..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
+                            <div className="space-y-2">
+                                <Input placeholder="Paste Image Link here..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
+                                <Input placeholder="Image description (Hint)" value={imageHint} onChange={(e) => setImageHint(e.target.value)} />
+                            </div>
                         )}
                     </div>
 
@@ -580,7 +573,7 @@ export default function AdminInvestmentsPage() {
           <Card>
             <CardHeader><CardTitle>Active Investment Plans</CardTitle></CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 pt-4">
                 {isLoadingPlans ? <p>Loading plans...</p> : investmentPlans?.map((plan) => (
                   <div key={plan.id} className="relative group">
                     <InvestmentPlanCard plan={plan} showPurchaseButton={false} />
