@@ -212,6 +212,7 @@ const PlanFormDialog = ({
 
             // Add to dynamic library
             const libraryRef = doc(collection(firestore, 'image_library'));
+            // Clean name: remove extension and replace underscores/hyphens with spaces
             const fileName = selectedFile.name.split('.').slice(0, -1).join('.').replace(/[_-]/g, ' ');
             
             await setDoc(libraryRef, {
