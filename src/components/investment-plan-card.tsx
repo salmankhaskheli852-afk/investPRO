@@ -1,10 +1,9 @@
-
 'use client';
 
 import Image from 'next/image';
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import type { InvestmentPlan, User, UserInvestment } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -18,9 +17,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { CheckCircle, Info, Wallet, Timer, XCircle, PackageX, Repeat, CalendarCheck, CalendarX } from 'lucide-react';
+import { Info, Wallet, Timer, XCircle, PackageX, Repeat, CalendarCheck, CalendarX } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
-import { doc, arrayUnion, writeBatch, collection, serverTimestamp, Timestamp, increment, runTransaction } from 'firebase/firestore';
+import { doc, arrayUnion, collection, serverTimestamp, Timestamp, increment, runTransaction } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 interface InvestmentPlanCardProps {
@@ -174,7 +173,7 @@ export function InvestmentPlanCard({
             const newInvestment: UserInvestment = {
               planId: plan.id,
               purchaseDate: Timestamp.now(),
-              lastPayout: Timestamp.now(), // Set initial payout to now
+              lastPayout: Timestamp.now(), 
               totalPayout: 0,
               isActive: true,
             };
@@ -183,7 +182,6 @@ export function InvestmentPlanCard({
                 investments: arrayUnion(newInvestment)
             });
 
-            // Deduct price from balance
             transaction.update(walletRef, { balance: increment(-plan.price) });
 
             const transactionRef = doc(collection(firestore, 'users', user.uid, 'wallets', 'main', 'transactions'));

@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlanCategory } from '@/lib/data';
-import { Edit, PlusCircle, Trash2, Link as LinkIcon, Image as ImageIcon, Check, X, FileUp, RefreshCw } from 'lucide-react';
+import { Edit, PlusCircle, Trash2, Link as LinkIcon, Image as ImageIcon, X, RefreshCw } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -33,22 +33,19 @@ import {
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { InvestmentPlan } from '@/lib/data';
-import { collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, query, orderBy } from 'firebase/firestore';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import { Progress } from '@/components/ui/progress';
 import { getPublicImages } from './actions';
 
 interface LibraryImage {
     id: string;
     url: string;
     name: string;
-    storagePath?: string;
-    createdAt: any;
+    isStatic?: boolean;
 }
 
 const PlanFormDialog = ({
@@ -73,36 +70,29 @@ const PlanFormDialog = ({
     const [dailyPercentage, setDailyPercentage] = React.useState(5);
     const [period, setPeriod] = React.useState(60);
     
-    const [imageMode, setImageMode] = React.useState<'url' | 'library' | 'upload'>('library');
+    const [imageMode, setImageMode] = React.useState<'url' | 'library'>('library');
     const [imageUrl, setImageUrl] = React.useState('');
     const [imageHint, setImageHint] = React.useState('investment growth');
     const [selectedLibraryId, setSelectedLibraryId] = React.useState('');
     
-    const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
-    const [uploadProgress, setUploadProgress] = React.useState(0);
-    const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
-    const [isImporting, setIsImporting] = React.useState(false);
-
     const [purchaseLimit, setPurchaseLimit] = React.useState(0);
     const [isSoldOut, setIsSoldOut] = React.useState(false);
     const [offerEnabled, setOfferEnabled] = React.useState(false);
     const [isSaving, setIsSaving] = React.useState(false);
 
-    // Dynamic library state including public folder scans
     const [publicImages, setPublicImages] = React.useState<any[]>([]);
     const [isScanning, setIsScanning] = React.useState(false);
 
-    const libraryQuery = useMemoFirebase(
-        () => (firestore ? query(collection(firestore, 'image_library'), orderBy('createdAt', 'desc')) : null),
-        [firestore]
-    );
-    const { data: dbLibraryImages } = useCollection<LibraryImage>(libraryQuery);
-
     const scanPublicFolder = React.useCallback(async () => {
         setIsScanning(true);
-        const images = await getPublicImages();
-        setPublicImages(images);
-        setIsScanning(false);
+        try {
+            const images = await getPublicImages();
+            setPublicImages(images);
+        } catch (err) {
+            console.error("Scanning failed", err);
+        } finally {
+            setIsScanning(false);
+        }
     }, []);
 
     React.useEffect(() => {
@@ -114,20 +104,11 @@ const PlanFormDialog = ({
             id: img.id,
             url: img.imageUrl,
             name: img.id.replace(/-/g, ' '),
-            isStatic: true,
-            storagePath: undefined
+            isStatic: true
         }));
         
-        const dynamicImgs = dbLibraryImages?.map(img => ({
-            id: img.id,
-            url: img.url,
-            name: img.name,
-            isStatic: false,
-            storagePath: img.storagePath
-        })) || [];
-
-        return [...dynamicImgs, ...publicImages, ...staticImgs];
-    }, [dbLibraryImages, publicImages]);
+        return [...publicImages, ...staticImgs];
+    }, [publicImages]);
 
     const isEditMode = planToEdit !== null;
 
@@ -166,93 +147,10 @@ const PlanFormDialog = ({
         setImageHint('investment growth');
         setSelectedLibraryId('');
         setImageMode('library');
-        setSelectedFile(null);
-        setUploadProgress(0);
-        setPreviewUrl(null);
         setOfferEnabled(false);
         setPurchaseLimit(0);
         setIsSoldOut(false);
     };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setSelectedFile(file);
-            setPreviewUrl(URL.createObjectURL(file));
-        }
-    };
-
-    const handleImportImage = async () => {
-        if (!firestore || !selectedFile) {
-            toast({ variant: 'destructive', title: 'Select a file first' });
-            return;
-        }
-
-        setIsImporting(true);
-        try {
-            const storage = getStorage();
-            const storagePath = `investment_plan_images/${Date.now()}_${selectedFile.name}`;
-            const storageRef = ref(storage, storagePath);
-            const uploadTask = uploadBytesResumable(storageRef, selectedFile);
-
-            const uploadPromise = new Promise<string>((resolve, reject) => {
-                uploadTask.on('state_changed', 
-                    (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        setUploadProgress(progress);
-                    }, 
-                    (error) => reject(error), 
-                    async () => {
-                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                        resolve(downloadURL);
-                    }
-                );
-            });
-
-            const finalUrl = await uploadPromise;
-
-            const libraryRef = doc(collection(firestore, 'image_library'));
-            const fileName = selectedFile.name.split('.').slice(0, -1).join('.').replace(/[_-]/g, ' ');
-            
-            await setDoc(libraryRef, {
-                id: libraryRef.id,
-                url: finalUrl,
-                name: fileName,
-                storagePath: storagePath,
-                createdAt: serverTimestamp()
-            });
-
-            toast({ title: 'Image Imported!', description: 'Saved to website files.' });
-            setSelectedFile(null);
-            setPreviewUrl(null);
-            setUploadProgress(0);
-            setImageMode('library');
-            setSelectedLibraryId(libraryRef.id);
-
-        } catch (err: any) {
-            toast({ variant: 'destructive', title: 'Import failed', description: err.message });
-        } finally {
-            setIsImporting(false);
-        }
-    };
-
-    const handleDeleteLibraryImage = async (e: React.MouseEvent, img: any) => {
-        e.stopPropagation();
-        if (!firestore || img.isStatic) return;
-
-        try {
-            await deleteDoc(doc(firestore, 'image_library', img.id));
-            if (img.storagePath) {
-                const storage = getStorage();
-                const storageRef = ref(storage, img.storagePath);
-                await deleteObject(storageRef).catch(() => {});
-            }
-            toast({ title: 'Removed from files' });
-            if (selectedLibraryId === img.id) setSelectedLibraryId('');
-        } catch (err: any) {
-            toast({ variant: 'destructive', title: 'Delete failed' });
-        }
-    }
 
     const handleSavePlan = async () => {
         if (!firestore) return;
@@ -354,7 +252,6 @@ const PlanFormDialog = ({
                         </div>
                         <div className="flex gap-2 p-1 bg-muted rounded-md w-fit">
                             <Button variant={imageMode === 'library' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('library')}><ImageIcon className="mr-2 h-4 w-4" />Library</Button>
-                            <Button variant={imageMode === 'upload' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('upload')}><FileUp className="mr-2 h-4 w-4" />Import New</Button>
                             <Button variant={imageMode === 'url' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('url')}><LinkIcon className="mr-2 h-4 w-4" />URL</Button>
                         </div>
 
@@ -372,34 +269,8 @@ const PlanFormDialog = ({
                                         <div className="p-1 text-[10px] uppercase font-bold text-center truncate bg-background/80">
                                             {img.name}
                                         </div>
-                                        {!img.isStatic && (
-                                            <Button 
-                                                variant="destructive" 
-                                                size="icon" 
-                                                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                                onClick={(e) => handleDeleteLibraryImage(e, img)}
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </Button>
-                                        )}
                                     </div>
                                 ))}
-                            </div>
-                        )}
-
-                        {imageMode === 'upload' && (
-                            <div className="space-y-4 p-4 border rounded-md bg-muted/20">
-                                <Label className="text-xs text-muted-foreground">Select a file to import into website files</Label>
-                                <Input type="file" accept="image/*" onChange={handleFileChange} className="bg-background" />
-                                {previewUrl && (
-                                    <div className="relative aspect-video w-full rounded-md overflow-hidden border shadow-sm">
-                                        <Image src={previewUrl} alt="Preview" fill className="object-cover" />
-                                    </div>
-                                )}
-                                <Button onClick={handleImportImage} disabled={isImporting || !selectedFile} className="w-full">
-                                    {isImporting ? `Importing ${Math.round(uploadProgress)}%` : 'Import to Library'}
-                                </Button>
-                                {uploadProgress > 0 && <Progress value={uploadProgress} className="h-1" />}
                             </div>
                         )}
 
@@ -444,7 +315,7 @@ const PlanFormDialog = ({
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button onClick={handleSavePlan} disabled={isSaving || isImporting} className="w-full sm:w-auto">
+                    <Button onClick={handleSavePlan} disabled={isSaving} className="w-full sm:w-auto">
                         {isSaving ? 'Saving Plan...' : 'Save Plan'}
                     </Button>
                 </DialogFooter>
