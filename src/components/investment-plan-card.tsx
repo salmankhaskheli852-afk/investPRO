@@ -1,3 +1,4 @@
+
 'use client';
 
 import Image from 'next/image';
@@ -69,9 +70,9 @@ function CountdownTimer({ endTime }: { endTime: { seconds: number; nanoseconds: 
   }, [endTime]);
 
   return (
-    <div className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm text-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1.5 z-10">
-      <Timer className="w-4 h-4 text-primary" />
-      <div className="flex items-center gap-0.5 font-mono text-sm font-bold">
+    <div className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm text-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 z-10">
+      <Timer className="w-3 h-3 text-primary" />
+      <div className="flex items-center gap-0.5 font-mono">
         <span>{timeLeft.days}</span>d:
         <span>{timeLeft.hours}</span>h:
         <span>{timeLeft.minutes}</span>m:
@@ -281,11 +282,11 @@ export function InvestmentPlanCard({
                 <>
                     <div className="flex justify-between text-xs pt-1">
                         <span className="text-muted-foreground flex items-center gap-1"><CalendarCheck className="w-3 h-3" /> Purchased</span>
-                        <span className="font-medium text-foreground">{format(purchaseDate.toDate(), 'dd MMM, yy, p')}</span>
+                        <span className="font-medium text-foreground text-[10px]">{format(purchaseDate.toDate(), 'dd MMM, yy')}</span>
                     </div>
                      <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground flex items-center gap-1"><CalendarX className="w-3 h-3" /> Expires</span>
-                        <span className="font-medium text-foreground">{format(expiryDate, 'dd MMM, yy, p')}</span>
+                        <span className="font-medium text-foreground text-[10px]">{format(expiryDate, 'dd MMM, yy')}</span>
                     </div>
                 </>
              )}
@@ -293,9 +294,9 @@ export function InvestmentPlanCard({
         </div>
         
         {(plan.purchaseLimit && plan.purchaseLimit > 0) && !isPurchased && (
-            <div className="relative pt-1">
+            <div className="relative pt-1 px-1">
                 <Progress value={progress} className="h-1.5" />
-                <div className="absolute -top-0 right-1 text-[10px] font-bold text-gray-600">
+                <div className="absolute -top-0 right-2 text-[10px] font-bold text-gray-600">
                     {Math.round(progress)}%
                 </div>
             </div>
@@ -304,11 +305,11 @@ export function InvestmentPlanCard({
         {showPurchaseButton && (
           <DialogTrigger asChild>
             <Button
-              className="w-full mt-1 flex items-center gap-2"
+              className="w-full mt-1 flex items-center gap-2 h-8 text-xs"
               size="sm"
               disabled={buttonState.disabled}
             >
-              {buttonState.icon && <buttonState.icon className="w-4 h-4" />}
+              {buttonState.icon && <buttonState.icon className="w-3.5 h-3.5" />}
               {buttonState.text}
             </Button>
           </DialogTrigger>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -17,12 +18,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlanCategory } from '@/lib/data';
-import { Edit, PlusCircle, Trash2, Link as LinkIcon, Image as ImageIcon, X, RefreshCw } from 'lucide-react';
+import { Edit, PlusCircle, Trash2, Link as LinkIcon, Image as ImageIcon, X, RefreshCw, Upload, Check } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -34,18 +36,18 @@ import { InvestmentPlanCard } from '@/components/investment-plan-card';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { InvestmentPlan } from '@/lib/data';
 import { collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getStorage } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import { getPublicImages } from './actions';
 
 interface LibraryImage {
     id: string;
     url: string;
     name: string;
-    isStatic?: boolean;
 }
 
 const PlanFormDialog = ({
@@ -62,6 +64,7 @@ const PlanFormDialog = ({
     planCategories: PlanCategory[];
 }) => {
     const firestore = useFirestore();
+    const { user } = useUser();
     const { toast } = useToast();
 
     const [name, setName] = React.useState('');
@@ -70,7 +73,7 @@ const PlanFormDialog = ({
     const [dailyPercentage, setDailyPercentage] = React.useState(5);
     const [period, setPeriod] = React.useState(60);
     
-    const [imageMode, setImageMode] = React.useState<'url' | 'library'>('library');
+    const [imageMode, setImageMode] = React.useState<'url' | 'library' | 'upload'>('library');
     const [imageUrl, setImageUrl] = React.useState('');
     const [imageHint, setImageHint] = React.useState('investment growth');
     const [selectedLibraryId, setSelectedLibraryId] = React.useState('');
@@ -79,36 +82,25 @@ const PlanFormDialog = ({
     const [isSoldOut, setIsSoldOut] = React.useState(false);
     const [offerEnabled, setOfferEnabled] = React.useState(false);
     const [isSaving, setIsSaving] = React.useState(false);
+    const [isUploading, setIsUploading] = React.useState(false);
 
-    const [publicImages, setPublicImages] = React.useState<any[]>([]);
-    const [isScanning, setIsScanning] = React.useState(false);
-
-    const scanPublicFolder = React.useCallback(async () => {
-        setIsScanning(true);
-        try {
-            const images = await getPublicImages();
-            setPublicImages(images);
-        } catch (err) {
-            console.error("Scanning failed", err);
-        } finally {
-            setIsScanning(false);
-        }
-    }, []);
-
-    React.useEffect(() => {
-        if (isOpen) scanPublicFolder();
-    }, [isOpen, scanPublicFolder]);
+    // Fetch Custom Library from Firestore (Persistent for Online Website)
+    const libraryQuery = useMemoFirebase(
+        () => firestore && user ? collection(firestore, 'image_library') : null,
+        [firestore, user]
+    );
+    const { data: dbLibraryImages, isLoading: isLoadingLib } = useCollection<LibraryImage>(libraryQuery);
 
     const mergedLibrary = React.useMemo(() => {
         const staticImgs = PlaceHolderImages.map(img => ({
             id: img.id,
             url: img.imageUrl,
             name: img.id.replace(/-/g, ' '),
-            isStatic: true
         }));
         
-        return [...publicImages, ...staticImgs];
-    }, [publicImages]);
+        const dbImgs = dbLibraryImages || [];
+        return [...dbImgs, ...staticImgs];
+    }, [dbLibraryImages]);
 
     const isEditMode = planToEdit !== null;
 
@@ -150,6 +142,51 @@ const PlanFormDialog = ({
         setOfferEnabled(false);
         setPurchaseLimit(0);
         setIsSoldOut(false);
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !firestore) return;
+
+        setIsUploading(true);
+        const storage = getStorage();
+        const fileName = `${Date.now()}_${file.name}`;
+        const storageRef = ref(storage, `investment_plan_images/${fileName}`);
+
+        try {
+            const snapshot = await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(snapshot.ref);
+            
+            // Add to Firestore Image Library automatically
+            const libRef = doc(collection(firestore, 'image_library'));
+            const cleanName = file.name.split('.').slice(0, -1).join('.').replace(/[_-]/g, ' ');
+            await setDoc(libRef, {
+                id: libRef.id,
+                url: downloadURL,
+                name: cleanName,
+                createdAt: serverTimestamp()
+            });
+
+            setImageUrl(downloadURL);
+            setSelectedLibraryId(libRef.id);
+            setImageMode('library');
+            toast({ title: 'Success', description: 'Image imported to library.' });
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleDeleteFromLibrary = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!firestore) return;
+        try {
+            await deleteDoc(doc(firestore, 'image_library', id));
+            toast({ title: 'Deleted', description: 'Image removed from library.' });
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Error', description: err.message });
+        }
     };
 
     const handleSavePlan = async () => {
@@ -224,7 +261,7 @@ const PlanFormDialog = ({
                 <div className="grid max-h-[70vh] gap-6 overflow-y-auto py-4 pr-4">
                     <div className="space-y-2">
                         <Label htmlFor="name">Name</Label>
-                        <input id="name" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2 border rounded-md" />
+                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="category">Category</Label>
@@ -243,21 +280,18 @@ const PlanFormDialog = ({
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <Label>Plan Image (Website Files)</Label>
-                            {imageMode === 'library' && (
-                                <Button variant="ghost" size="sm" onClick={scanPublicFolder} disabled={isScanning}>
-                                    <RefreshCw className={cn("h-3 w-3 mr-1", isScanning && "animate-spin")} />
-                                    Scan /public/plan
-                                </Button>
-                            )}
                         </div>
                         <div className="flex gap-2 p-1 bg-muted rounded-md w-fit">
                             <Button variant={imageMode === 'library' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('library')}><ImageIcon className="mr-2 h-4 w-4" />Library</Button>
+                            <Button variant={imageMode === 'upload' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('upload')}><Upload className="mr-2 h-4 w-4" />Import New</Button>
                             <Button variant={imageMode === 'url' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('url')}><LinkIcon className="mr-2 h-4 w-4" />URL</Button>
                         </div>
 
                         {imageMode === 'library' && (
                             <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 border rounded-md">
-                                {mergedLibrary.map(img => (
+                                {mergedLibrary.length === 0 ? (
+                                    <p className="col-span-2 text-center text-xs text-muted-foreground py-4">Library is empty. Import some images!</p>
+                                ) : mergedLibrary.map(img => (
                                     <div 
                                         key={img.id}
                                         className={cn("relative cursor-pointer group rounded-md border-2 overflow-hidden", selectedLibraryId === img.id ? "border-primary" : "border-transparent")}
@@ -265,6 +299,14 @@ const PlanFormDialog = ({
                                     >
                                         <div className="relative aspect-video w-full overflow-hidden rounded-sm">
                                             <Image src={img.url} alt={img.name} fill className="object-cover" />
+                                            <Button 
+                                                variant="destructive" 
+                                                size="icon" 
+                                                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={(e) => handleDeleteFromLibrary(e, img.id)}
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </Button>
                                         </div>
                                         <div className="p-1 text-[10px] uppercase font-bold text-center truncate bg-background/80">
                                             {img.name}
@@ -274,9 +316,31 @@ const PlanFormDialog = ({
                             </div>
                         )}
 
+                        {imageMode === 'upload' && (
+                            <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-8 space-y-4">
+                                <Upload className="h-10 w-10 text-muted-foreground" />
+                                <div className="text-center">
+                                    <p className="text-sm font-medium">Select a file from your device</p>
+                                    <p className="text-xs text-muted-foreground">It will be imported to your library automatically.</p>
+                                </div>
+                                <Input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="hidden" 
+                                    id="file-upload" 
+                                    onChange={handleFileUpload} 
+                                />
+                                <Button asChild variant="outline" disabled={isUploading}>
+                                    <label htmlFor="file-upload" className="cursor-pointer">
+                                        {isUploading ? 'Importing...' : 'Select Image'}
+                                    </label>
+                                </Button>
+                            </div>
+                        )}
+
                         {imageMode === 'url' && (
                             <div className="space-y-2">
-                                <Input placeholder="Paste Image Link here..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
+                                <Input placeholder="Paste Google Image Link here..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
                                 <Input placeholder="Image description (Hint)" value={imageHint} onChange={(e) => setImageHint(e.target.value)} />
                             </div>
                         )}
