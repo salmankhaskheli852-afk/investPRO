@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -18,11 +19,12 @@ import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { ModernDashboardIcon } from '../modern-dashboard-icon';
 
 export type NavItem = {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: React.ComponentType<any>;
 };
 
 interface SidebarNavProps {
@@ -43,8 +45,8 @@ export function SidebarNav({ navItems }: SidebarNavProps) {
   return (
     <>
       <SidebarHeader>
-        <Link href="/auth/sign-up" className="flex items-center gap-2">
-          <Image src="/logo.png" alt="investPro Logo" width={32} height={32} />
+        <Link href="/auth/sign-up" className="flex items-center gap-3 p-2">
+          <ModernDashboardIcon size={32} />
           <span className="font-headline text-2xl font-semibold text-primary group-data-[collapsible=icon]:hidden">
             investPro
           </span>

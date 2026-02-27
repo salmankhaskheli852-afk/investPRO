@@ -10,6 +10,9 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import type { User, AppSettings } from '@/lib/data';
 import { doc } from 'firebase/firestore';
 import { MaintenancePage } from '@/components/maintenance-page';
+import { ModernDashboardIcon } from '@/components/modern-dashboard-icon';
+
+const DashboardIconWrapper = () => <ModernDashboardIcon size={18} />;
 
 function AgentNav() {
   const { user } = useUser();
@@ -23,7 +26,7 @@ function AgentNav() {
 
   const navItems = React.useMemo(() => {
     const items: NavItem[] = [
-      { href: '/agent', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/agent', label: 'Dashboard', icon: DashboardIconWrapper },
       { href: '/agent/users', label: 'My Users', icon: Users },
     ];
 

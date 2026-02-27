@@ -5,15 +5,16 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, TrendingUp, Users, User, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ModernDashboardIcon } from '../modern-dashboard-icon';
 
 type NavItem = {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: React.ComponentType<any>;
 };
 
 const navItems: NavItem[] = [
-  { href: '/user', label: 'Home', icon: Home },
+  { href: '/user', label: 'Home', icon: (props) => <ModernDashboardIcon size={24} {...props} /> },
   { href: '/user/investments', label: 'Invest', icon: TrendingUp },
   { href: '/user/invitation', label: 'Team', icon: Users },
   { href: '/user/me', label: 'Me', icon: User },

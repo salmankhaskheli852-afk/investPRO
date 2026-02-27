@@ -23,6 +23,7 @@ import type { AppSettings, User } from '@/lib/data';
 import { Skeleton } from '../ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
+import { ModernDashboardIcon } from '../modern-dashboard-icon';
 
 
 export function Header() {
@@ -112,8 +113,8 @@ export function Header() {
     <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b bg-login-gradient px-4 sm:px-6">
       <div className="flex items-center gap-2">
         {showSidebarTrigger && <SidebarTrigger className="md:hidden text-white hover:bg-white/20" />}
-        <Link href="/auth/sign-up" className="flex items-center gap-2">
-           <Image src="/logo.png" alt="investPro Logo" width={48} height={48} />
+        <Link href="/auth/sign-up" className="flex items-center gap-3">
+          <ModernDashboardIcon size={40} />
           <span className="font-headline text-2xl font-semibold text-white">investPro</span>
         </Link>
       </div>
