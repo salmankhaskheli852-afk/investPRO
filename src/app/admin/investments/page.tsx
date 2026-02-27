@@ -56,6 +56,13 @@ import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { Progress } from '@/components/ui/progress';
 
+interface LibraryImage {
+    id: string;
+    url: string;
+    name: string;
+    createdAt: any;
+}
+
 const PlanFormDialog = ({
     isOpen,
     onOpenChange,
@@ -100,6 +107,29 @@ const PlanFormDialog = ({
     
     const [isSaving, setIsSaving] = React.useState(false);
 
+    // Dynamic Library from Firestore
+    const libraryQuery = useMemoFirebase(
+        () => (firestore ? query(collection(firestore, 'image_library'), orderBy('createdAt', 'desc')) : null),
+        [firestore]
+    );
+    const { data: dbLibraryImages } = useCollection<LibraryImage>(libraryQuery);
+
+    const mergedLibrary = React.useMemo(() => {
+        const staticImgs = PlaceHolderImages.map(img => ({
+            id: img.id,
+            url: img.imageUrl,
+            name: img.id.replace(/-/g, ' '),
+            isStatic: true
+        }));
+        const dynamicImgs = dbLibraryImages?.map(img => ({
+            id: img.id,
+            url: img.url,
+            name: img.name,
+            isStatic: false
+        })) || [];
+        return [...dynamicImgs, ...staticImgs];
+    }, [dbLibraryImages]);
+
     const isEditMode = planToEdit !== null;
 
     React.useEffect(() => {
@@ -115,7 +145,7 @@ const PlanFormDialog = ({
             setIsSoldOut(planToEdit.isSoldOut || false);
             
             // Determine image mode from existing URL
-            const inLibrary = PlaceHolderImages.find(img => img.imageUrl === planToEdit.imageUrl);
+            const inLibrary = mergedLibrary.find(img => img.url === planToEdit.imageUrl);
             if (inLibrary) {
                 setImageMode('library');
                 setSelectedLibraryId(inLibrary.id);
@@ -128,7 +158,7 @@ const PlanFormDialog = ({
         } else {
             resetForm();
         }
-    }, [planToEdit]);
+    }, [planToEdit, mergedLibrary.length]); // mergedLibrary.length to trigger when images load
 
     const resetForm = () => {
         setName('New Plan');
@@ -186,8 +216,18 @@ const PlanFormDialog = ({
                     );
                 });
                 finalImageUrl = await uploadPromise;
+
+                // AUTOMATICALLY SAVE TO LIBRARY
+                const libraryRef = doc(collection(firestore, 'image_library'));
+                const fileName = selectedFile.name.split('.').slice(0, -1).join('.').replace(/[_-]/g, ' ');
+                await setDoc(libraryRef, {
+                    id: libraryRef.id,
+                    url: finalImageUrl,
+                    name: fileName,
+                    createdAt: serverTimestamp()
+                });
             } else if (imageMode === 'library') {
-                finalImageUrl = PlaceHolderImages.find(img => img.id === selectedLibraryId)?.imageUrl || '';
+                finalImageUrl = mergedLibrary.find(img => img.id === selectedLibraryId)?.url || '';
             }
 
             if (!name || !categoryId || !price || !dailyPercentage || !period || !finalImageUrl) {
@@ -299,17 +339,17 @@ const PlanFormDialog = ({
 
                         {imageMode === 'library' && (
                             <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1">
-                                {PlaceHolderImages.map(img => (
+                                {mergedLibrary.map(img => (
                                     <div 
                                         key={img.id}
                                         className={cn("relative cursor-pointer group rounded-md border-2", selectedLibraryId === img.id ? "border-primary" : "border-transparent")}
                                         onClick={() => setSelectedLibraryId(img.id)}
                                     >
                                         <div className="relative aspect-video w-full overflow-hidden rounded-sm">
-                                            <Image src={img.imageUrl} alt={img.description} fill className="object-cover" />
+                                            <Image src={img.url} alt={img.name} fill className="object-cover" />
                                         </div>
                                         <div className="p-1 text-[10px] uppercase font-bold text-center truncate">
-                                            {img.id.replace(/-/g, ' ')}
+                                            {img.name}
                                         </div>
                                     </div>
                                 ))}
@@ -319,7 +359,12 @@ const PlanFormDialog = ({
                         {imageMode === 'upload' && (
                             <div className="space-y-4">
                                 <Input type="file" accept="image/*" onChange={handleFileChange} />
-                                {uploadProgress > 0 && <Progress value={uploadProgress} className="h-2" />}
+                                {uploadProgress > 0 && (
+                                    <div className="space-y-1">
+                                        <Progress value={uploadProgress} className="h-2" />
+                                        <p className="text-[10px] text-center font-medium">Uploading: {Math.round(uploadProgress)}%</p>
+                                    </div>
+                                )}
                             </div>
                         )}
 
