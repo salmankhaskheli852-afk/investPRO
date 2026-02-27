@@ -1,12 +1,12 @@
 
 'use client';
 
-import React, { useState, useEffect, Suspense, useRef } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, increment, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, Timestamp } from 'firebase/firestore';
 import type { User as AppUser, Wallet, AppSettings } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -16,7 +16,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
 } from 'firebase/auth';
-import { ShieldCheck, ArrowLeft, Smartphone, Lock, Heart } from 'lucide-react';
+import { ShieldCheck, Smartphone, Lock, Heart } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
@@ -112,16 +112,10 @@ function LoginPageContent() {
     setIsProcessing(true);
     const provider = new GoogleAuthProvider();
     try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      const userRef = doc(firestore, 'users', user.uid);
-      const userDoc = await getDoc(userRef);
-
-      if (!userDoc.exists()) {
-        const ref = searchParams.get('ref');
-        await createUserProfile(user, ref, null);
-      }
+      await signInWithPopup(auth, provider);
+      // Logic for redirection is handled by useEffect
     } catch (error: any) {
+      setIsProcessing(false);
       if (error.code !== 'auth/popup-closed-by-user') {
         toast({
           variant: 'destructive',
@@ -129,8 +123,6 @@ function LoginPageContent() {
           description: error.message,
         });
       }
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -163,6 +155,7 @@ function LoginPageContent() {
       const newUser = userCredential.user;
       await createUserProfile(newUser, invitationCode, `+92${phone.replace(/\D/g, '').slice(-10)}`);
     } catch (error: any) {
+      setIsProcessing(false);
       setCaptchaText(generateCaptcha());
       if (error.code === 'auth/email-already-in-use') {
         toast({ variant: 'destructive', title: 'Registration Failed', description: 'This phone number is already registered.' });
@@ -172,8 +165,6 @@ function LoginPageContent() {
       else {
         toast({ variant: 'destructive', title: 'Registration Failed', description: error.message });
       }
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -193,9 +184,8 @@ function LoginPageContent() {
     try {
       await signInWithEmailAndPassword(auth, email, loginPassword);
     } catch (error: any) {
+       setIsProcessing(false);
        toast({ variant: 'destructive', title: 'Login Failed', description: 'Invalid phone number or password.' });
-    } finally {
-      setIsProcessing(false);
     }
   }
 
@@ -266,34 +256,52 @@ function LoginPageContent() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      const userDocRef = doc(firestore, 'users', user.uid);
-      getDoc(userDocRef).then(docSnap => {
-        if (docSnap.exists()) {
-          const userData = docSnap.data() as AppUser;
-          if (userData.role === 'admin') {
-            router.push('/admin');
-          } else if (userData.role === 'agent') {
-            router.push('/agent');
+      const handleRedirect = async () => {
+        try {
+          const userDocRef = doc(firestore, 'users', user.uid);
+          const docSnap = await getDoc(userDocRef);
+
+          if (docSnap.exists()) {
+            const userData = docSnap.data() as AppUser;
+            if (userData.role === 'admin') {
+              router.push('/admin');
+            } else if (userData.role === 'agent') {
+              router.push('/agent');
+            } else {
+              router.push('/user/me');
+            }
           } else {
+            // New user case (e.g. Google Sign-In)
+            const ref = searchParams.get('ref');
+            await createUserProfile(user, ref, user.phoneNumber);
             router.push('/user/me');
           }
-        } else {
-           // This can happen if profile creation fails after registration
-           // or if a user signs in with Google for the first time
-           const ref = searchParams.get('ref');
-           createUserProfile(user, ref, user.phoneNumber).catch(() => {
-             // Handle profile creation error on first Google sign-in
-             toast({ variant: 'destructive', title: 'Setup Failed', description: 'Could not create your user profile. Please try again.' });
-           });
+        } catch (error) {
+          console.error("Redirect logic error:", error);
+          setIsProcessing(false); // Stop loading if error
         }
-      });
+      };
+
+      handleRedirect();
     }
-  }, [user, isUserLoading, firestore, auth, router, searchParams, toast]);
+  }, [user, isUserLoading, firestore, router, searchParams]);
   
-  if (isUserLoading || user) {
+  if (isUserLoading || (user && !isProcessing)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-login-gradient">
         <p>Loading...</p>
+      </div>
+    );
+  }
+
+  // If user exists and isProcessing is true, we are in the middle of redirection
+  if (user && isProcessing) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-login-gradient">
+        <div className="text-center space-y-4">
+            <p className="text-xl font-bold">Setting up your profile...</p>
+            <p className="text-muted-foreground">Please wait a moment.</p>
+        </div>
       </div>
     );
   }
