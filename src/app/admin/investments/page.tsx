@@ -292,7 +292,7 @@ const PlanFormDialog = ({
                                                 alt={img.name} 
                                                 fill 
                                                 className="object-cover" 
-                                                unoptimized={img.url.startsWith('/')} 
+                                                unoptimized={true} 
                                             />
                                             {!img.isStatic && (
                                                 <Button 
@@ -471,7 +471,7 @@ export default function AdminInvestmentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold font-headline">Investment Management</h1>
-          <p className="text-muted-foreground">Manage your plans and assets directly from the project folders.</p>
+          <p className="text-muted-foreground">Manage your plans and assets with total permissions.</p>
         </div>
         <Button className="bg-accent hover:bg-accent/90" onClick={handleAddNewPlanClick}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add New Plan

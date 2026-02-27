@@ -263,6 +263,7 @@ export function InvestmentPlanCard({
         <h3 className="font-bold text-sm text-foreground px-1">{plan.name}</h3>
 
         <div className="flex flex-row gap-4 items-center">
+          {/* Image size barha kar w-[35%] kar diya gaya hai (25% increase) */}
           <div className="relative w-[35%] aspect-square">
             <Image
               src={plan.imageUrl}

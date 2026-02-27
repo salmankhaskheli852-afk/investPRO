@@ -52,7 +52,8 @@ export default function AdminLayout({
       if (!user) {
         router.push('/auth/sign-up');
       } else {
-        const isSuperAdmin = user.email && ADMIN_EMAILS.includes(user.email);
+        const userEmail = user.email?.toLowerCase() || '';
+        const isSuperAdmin = ADMIN_EMAILS.some(email => email.toLowerCase() === userEmail);
         const hasAdminRole = userData && userData.role === 'admin';
         
         if (!isSuperAdmin && !hasAdminRole) {
@@ -71,7 +72,8 @@ export default function AdminLayout({
     );
   }
 
-  const isSuperAdmin = user?.email && ADMIN_EMAILS.includes(user.email);
+  const userEmail = user?.email?.toLowerCase() || '';
+  const isSuperAdmin = ADMIN_EMAILS.some(email => email.toLowerCase() === userEmail);
   const hasAdminRole = userData && userData.role === 'admin';
 
   // Only render children if user is an admin
@@ -88,7 +90,9 @@ export default function AdminLayout({
         <div className="flex min-h-screen flex-col">
           <Header />
           <main className="flex-1 bg-login-gradient p-4 sm:p-6 lg:p-8">
-            {children}
+            <div className="w-full max-w-none mx-auto">
+              {children}
+            </div>
           </main>
         </div>
       </SidebarInset>
