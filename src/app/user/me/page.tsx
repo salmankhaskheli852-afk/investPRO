@@ -344,7 +344,7 @@ export default function UserDashboardPage() {
             </CardHeader>
             <div>
               {activeInvestments.length > 0 ? (
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {activeInvestments.map((investment, index) => {
                     const plan = allPlans?.find(p => p.id === investment.planId);
                     if (!plan) return null;

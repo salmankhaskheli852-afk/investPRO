@@ -244,8 +244,8 @@ export function InvestmentPlanCard({
       >
         <h3 className="font-bold text-sm text-foreground px-1">{plan.name}</h3>
 
-        <div className="flex flex-row gap-3">
-          <div className="relative w-1/4 aspect-square">
+        <div className="flex flex-row gap-4 items-center">
+          <div className="relative w-[32%] aspect-square">
             <Image
               src={plan.imageUrl}
               alt={plan.name}
