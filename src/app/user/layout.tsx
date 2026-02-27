@@ -53,11 +53,11 @@ export default function UserLayout({
   const showVerificationPopup = appSettings?.isVerificationEnabled && userData && !userData.isVerified;
 
   return (
-    <div className="bg-background min-h-screen">
+    <div className="bg-background min-h-screen w-full">
       <div className="relative mx-auto w-full min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 w-full">
-          <div className="max-w-7xl mx-auto w-full">
+          <div className="w-full mx-auto">
             {showVerificationPopup && <VerificationPopup />}
             <ReferralRequestManager />
             {children}

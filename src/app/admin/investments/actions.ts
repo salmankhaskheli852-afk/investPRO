@@ -6,6 +6,7 @@ import path from 'path';
 
 /**
  * Scans the public directory and its 'plan' subfolder for images.
+ * Returns an array of image objects with URLs relative to the root.
  */
 export async function getPublicImages() {
   const publicDir = path.join(process.cwd(), 'public');
@@ -42,7 +43,7 @@ export async function getPublicImages() {
           allImages.push({
             id: `plan-${file}`,
             url: `/plan/${file}`,
-            name: `plan: ${name}`,
+            name: name, // Clean name without path
             isStatic: true,
           });
         }

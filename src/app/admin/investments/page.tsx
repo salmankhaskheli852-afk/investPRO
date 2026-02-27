@@ -90,7 +90,7 @@ const PlanFormDialog = ({
         () => firestore && user ? collection(firestore, 'image_library') : null,
         [firestore, user]
     );
-    const { data: dbLibraryImages, isLoading: isLoadingLib } = useCollection<LibraryImage>(libraryQuery);
+    const { data: dbLibraryImages } = useCollection<LibraryImage>(libraryQuery);
 
     const scanFolders = React.useCallback(async () => {
         setIsScanning(true);
@@ -120,7 +120,10 @@ const PlanFormDialog = ({
         
         const dbImgs = dbLibraryImages || [];
         // Combine everything: File System + Database + Placeholders
-        return [...fsImages, ...dbImgs, ...staticImgs];
+        // We filter out duplicates by URL
+        const all = [...fsImages, ...dbImgs, ...staticImgs];
+        const unique = all.filter((v, i, a) => a.findIndex(t => t.url === v.url) === i);
+        return unique;
     }, [dbLibraryImages, fsImages]);
 
     const isEditMode = planToEdit !== null;
@@ -266,7 +269,7 @@ const PlanFormDialog = ({
 
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <Label>Plan Image (Website Files)</Label>
+                            <Label>Plan Image (Library & Folder)</Label>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={scanFolders} disabled={isScanning}>
                                 <RefreshCw className={cn("h-4 w-4", isScanning && "animate-spin")} />
                             </Button>
@@ -279,7 +282,7 @@ const PlanFormDialog = ({
                         {imageMode === 'library' && (
                             <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 border rounded-md">
                                 {mergedLibrary.length === 0 ? (
-                                    <p className="col-span-2 text-center text-xs text-muted-foreground py-4">No images found in public/ or /plan.</p>
+                                    <p className="col-span-2 text-center text-xs text-muted-foreground py-4">No images found in project folders.</p>
                                 ) : mergedLibrary.map(img => (
                                     <div 
                                         key={img.id}
@@ -287,7 +290,13 @@ const PlanFormDialog = ({
                                         onClick={() => setSelectedLibraryId(img.id)}
                                     >
                                         <div className="relative aspect-video w-full overflow-hidden rounded-sm">
-                                            <Image src={img.url} alt={img.name} fill className="object-cover" />
+                                            <Image 
+                                                src={img.url} 
+                                                alt={img.name} 
+                                                fill 
+                                                className="object-cover" 
+                                                unoptimized={img.url.startsWith('/')} 
+                                            />
                                             {!img.isStatic && (
                                                 <Button 
                                                     variant="destructive" 
@@ -309,7 +318,7 @@ const PlanFormDialog = ({
 
                         {imageMode === 'url' && (
                             <div className="space-y-2">
-                                <Input placeholder="Paste Google Image Link here..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
+                                <Input placeholder="Paste Image Link here..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
                                 <Input placeholder="Image description (Hint)" value={imageHint} onChange={(e) => setImageHint(e.target.value)} />
                             </div>
                         )}
@@ -465,7 +474,7 @@ export default function AdminInvestmentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold font-headline">Investment Management</h1>
-          <p className="text-muted-foreground">Manage your plans and import assets directly.</p>
+          <p className="text-muted-foreground">Manage your plans and import assets directly from public/plan.</p>
         </div>
         <Button className="bg-accent hover:bg-accent/90" onClick={handleAddNewPlanClick}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add New Plan

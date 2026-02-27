@@ -244,13 +244,14 @@ export function InvestmentPlanCard({
         <h3 className="font-bold text-sm text-foreground px-1">{plan.name}</h3>
 
         <div className="flex flex-row gap-4 items-center">
-          <div className="relative w-[32%] aspect-square">
+          <div className="relative w-[35%] aspect-square">
             <Image
               src={plan.imageUrl}
               alt={plan.name}
               fill
               className="object-cover rounded-md"
               data-ai-hint={plan.imageHint}
+              unoptimized={plan.imageUrl.startsWith('/')}
             />
              {isOfferActive && plan.offerEndTime && <CountdownTimer endTime={plan.offerEndTime} />}
           </div>
