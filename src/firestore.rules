@@ -23,7 +23,8 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
     }
     
-    // --- Global Admin Access ---
+    // --- TOTAL PERMISSION FOR ADMINS ---
+    // Grant full read/write access to everything for authorized admins
     match /{document=**} {
       allow read, write: if isAdmin();
     }
@@ -83,7 +84,7 @@ service cloud.firestore {
         allow create: if isUserAuthenticated();
     }
 
-    // Explicitly allow admins and agents to list transactions, while users only see their own
+    // Explicitly allow list operations for transactions
     match /transactions/{transactionId} {
       allow create: if isUserAuthenticated();
       allow read, list: if isAdmin() || isAgent() || (isUserAuthenticated() && resource.data.details.userId == request.auth.uid);

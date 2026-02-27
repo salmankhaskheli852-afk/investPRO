@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Info, Wallet, Timer, XCircle, PackageX, Repeat, CalendarCheck, CalendarX } from 'lucide-material';
+import { Info, Wallet, Timer, XCircle, PackageX, Repeat, CalendarCheck, CalendarX } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, arrayUnion, collection, serverTimestamp, Timestamp, increment, runTransaction } from 'firebase/firestore';
 import { format } from 'date-fns';
