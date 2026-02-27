@@ -358,7 +358,7 @@ const PlanFormDialog = ({
                             {imageMode === 'library' && (
                                 <Button variant="ghost" size="sm" onClick={scanPublicFolder} disabled={isScanning}>
                                     <RefreshCw className={cn("h-3 w-3 mr-1", isScanning && "animate-spin")} />
-                                    Scan Public Folder
+                                    Scan /public/plan
                                 </Button>
                             )}
                         </div>
