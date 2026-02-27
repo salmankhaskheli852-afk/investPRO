@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { PlanCategory } from '@/lib/data';
-import { Edit, PlusCircle, Trash2, Timer, Link as LinkIcon, Image as ImageIcon, Upload, Check, X } from 'lucide-react';
+import { Edit, PlusCircle, Trash2, Timer, Link as LinkIcon, Image as ImageIcon, Upload, Check, X, FileUp } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -87,7 +87,7 @@ const PlanFormDialog = ({
     const [period, setPeriod] = React.useState(60);
     
     // Image selection state
-    const [imageMode, setImageMode] = React.useState<'url' | 'library' | 'upload'>('url');
+    const [imageMode, setImageMode] = React.useState<'url' | 'library' | 'upload'>('library');
     const [imageUrl, setImageUrl] = React.useState('');
     const [selectedLibraryId, setSelectedLibraryId] = React.useState('');
     
@@ -95,16 +95,13 @@ const PlanFormDialog = ({
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = React.useState(0);
     const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+    const [isImporting, setIsImporting] = React.useState(false);
 
     const [purchaseLimit, setPurchaseLimit] = React.useState(0);
     const [isSoldOut, setIsSoldOut] = React.useState(false);
 
     // Offer state
     const [offerEnabled, setOfferEnabled] = React.useState(false);
-    const [offerDays, setOfferDays] = React.useState(1);
-    const [offerHours, setOfferHours] = React.useState(0);
-    const [offerMinutes, setOfferMinutes] = React.useState(0);
-    const [offerSeconds, setOfferSeconds] = React.useState(0);
     
     const [isSaving, setIsSaving] = React.useState(false);
 
@@ -147,14 +144,10 @@ const PlanFormDialog = ({
             setPurchaseLimit(planToEdit.purchaseLimit || 0);
             setIsSoldOut(planToEdit.isSoldOut || false);
             
-            // Determine image mode from existing URL
             const inLibrary = mergedLibrary.find(img => img.url === planToEdit.imageUrl);
             if (inLibrary) {
                 setImageMode('library');
                 setSelectedLibraryId(inLibrary.id);
-            } else if (planToEdit.imageUrl?.includes('firebasestorage')) {
-                setImageMode('upload');
-                setPreviewUrl(planToEdit.imageUrl);
             } else {
                 setImageMode('url');
             }
@@ -171,15 +164,11 @@ const PlanFormDialog = ({
         setPeriod(60);
         setImageUrl('');
         setSelectedLibraryId('');
-        setImageMode('url');
+        setImageMode('library');
         setSelectedFile(null);
         setUploadProgress(0);
         setPreviewUrl(null);
         setOfferEnabled(false);
-        setOfferDays(1);
-        setOfferHours(0);
-        setOfferMinutes(0);
-        setOfferSeconds(0);
         setPurchaseLimit(0);
         setIsSoldOut(false);
     };
@@ -192,27 +181,78 @@ const PlanFormDialog = ({
         }
     };
 
+    const handleImportImage = async () => {
+        if (!firestore || !selectedFile) {
+            toast({ variant: 'destructive', title: 'Select a file first' });
+            return;
+        }
+
+        setIsImporting(true);
+        try {
+            const storage = getStorage();
+            const storagePath = `app_files/${Date.now()}_${selectedFile.name}`;
+            const storageRef = ref(storage, storagePath);
+            const uploadTask = uploadBytesResumable(storageRef, selectedFile);
+
+            const uploadPromise = new Promise<string>((resolve, reject) => {
+                uploadTask.on('state_changed', 
+                    (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        setUploadProgress(progress);
+                    }, 
+                    (error) => reject(error), 
+                    async () => {
+                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                        resolve(downloadURL);
+                    }
+                );
+            });
+
+            const finalUrl = await uploadPromise;
+
+            // Add to dynamic library
+            const libraryRef = doc(collection(firestore, 'image_library'));
+            const fileName = selectedFile.name.split('.').slice(0, -1).join('.').replace(/[_-]/g, ' ');
+            
+            await setDoc(libraryRef, {
+                id: libraryRef.id,
+                url: finalUrl,
+                name: fileName,
+                storagePath: storagePath,
+                createdAt: serverTimestamp()
+            });
+
+            toast({ title: 'Image Imported!', description: 'Saved to website files.' });
+            
+            // Cleanup and switch to library to select it
+            setSelectedFile(null);
+            setPreviewUrl(null);
+            setUploadProgress(0);
+            setImageMode('library');
+            setSelectedLibraryId(libraryRef.id);
+
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Import failed', description: err.message });
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
     const handleDeleteLibraryImage = async (e: React.MouseEvent, img: any) => {
         e.stopPropagation();
         if (!firestore) return;
 
         try {
-            // 1. Delete from Firestore
             await deleteDoc(doc(firestore, 'image_library', img.id));
-
-            // 2. Delete from Storage if path exists
             if (img.storagePath) {
                 const storage = getStorage();
                 const storageRef = ref(storage, img.storagePath);
-                await deleteObject(storageRef).catch(err => console.warn("Storage delete failed or file not found:", err));
+                await deleteObject(storageRef).catch(() => {});
             }
-
-            toast({ title: 'Image removed from library' });
-            if (selectedLibraryId === img.id) {
-                setSelectedLibraryId('');
-            }
+            toast({ title: 'Removed from files' });
+            if (selectedLibraryId === img.id) setSelectedLibraryId('');
         } catch (err: any) {
-            toast({ variant: 'destructive', title: 'Delete failed', description: err.message });
+            toast({ variant: 'destructive', title: 'Delete failed' });
         }
     }
 
@@ -222,40 +262,7 @@ const PlanFormDialog = ({
 
         try {
             let finalImageUrl = imageUrl;
-
-            // Handle Upload Mode
-            if (imageMode === 'upload' && selectedFile) {
-                const storage = getStorage();
-                const storagePath = `investment_plan_images/${Date.now()}_${selectedFile.name}`;
-                const storageRef = ref(storage, storagePath);
-                const uploadTask = uploadBytesResumable(storageRef, selectedFile);
-
-                const uploadPromise = new Promise<string>((resolve, reject) => {
-                    uploadTask.on('state_changed', 
-                        (snapshot) => {
-                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                            setUploadProgress(progress);
-                        }, 
-                        (error) => reject(error), 
-                        async () => {
-                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                            resolve(downloadURL);
-                        }
-                    );
-                });
-                finalImageUrl = await uploadPromise;
-
-                // SAVE TO LIBRARY
-                const libraryRef = doc(collection(firestore, 'image_library'));
-                const fileName = selectedFile.name.split('.').slice(0, -1).join('.').replace(/[_-]/g, ' ');
-                await setDoc(libraryRef, {
-                    id: libraryRef.id,
-                    url: finalImageUrl,
-                    name: fileName,
-                    storagePath: storagePath,
-                    createdAt: serverTimestamp()
-                });
-            } else if (imageMode === 'library') {
+            if (imageMode === 'library') {
                 finalImageUrl = mergedLibrary.find(img => img.id === selectedLibraryId)?.url || '';
             }
 
@@ -263,7 +270,7 @@ const PlanFormDialog = ({
                 toast({
                     variant: 'destructive',
                     title: 'Missing Fields',
-                    description: 'Please fill out all the fields, including selecting an image.',
+                    description: 'Please fill all fields and select a file from library.',
                 });
                 setIsSaving(false);
                 return;
@@ -271,18 +278,6 @@ const PlanFormDialog = ({
 
             const dailyIncome = price * (dailyPercentage / 100);
             const totalIncome = dailyIncome * period;
-
-            let offerEndTime: Timestamp | null = null;
-            if (offerEnabled) {
-                const totalMilliseconds = (offerDays * 24 * 60 * 60 * 1000) +
-                                          (offerHours * 60 * 60 * 1000) +
-                                          (offerMinutes * 60 * 1000) +
-                                          (offerSeconds * 1000);
-                if (totalMilliseconds > 0) {
-                    const now = new Date();
-                    offerEndTime = Timestamp.fromDate(new Date(now.getTime() + totalMilliseconds));
-                }
-            }
 
             const planData: Partial<InvestmentPlan> = {
                 name,
@@ -299,7 +294,7 @@ const PlanFormDialog = ({
 
             if (isEditMode && planToEdit) {
                 const planRef = doc(firestore, 'investment_plans', planToEdit.id);
-                await updateDoc(planRef, { ...planData, offerEndTime: offerEndTime }); 
+                await updateDoc(planRef, planData); 
                 toast({ title: 'Plan Updated!' });
             } else {
                  const newDocRef = doc(collection(firestore, 'investment_plans'));
@@ -307,8 +302,7 @@ const PlanFormDialog = ({
                      ...planData, 
                      id: newDocRef.id,
                      purchaseCount: 0,
-                     createdAt: serverTimestamp(),
-                     offerEndTime: offerEndTime
+                     createdAt: serverTimestamp()
                     });
                 toast({ title: 'Plan Created!' });
             }
@@ -318,14 +312,9 @@ const PlanFormDialog = ({
             if (!isEditMode) resetForm();
 
         } catch (e: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: e.message,
-            });
+            toast({ variant: 'destructive', title: 'Error', description: e.message });
         } finally {
             setIsSaving(false);
-            setUploadProgress(0);
         }
     };
 
@@ -338,7 +327,7 @@ const PlanFormDialog = ({
                 <div className="grid max-h-[70vh] gap-6 overflow-y-auto py-4 pr-4">
                     <div className="space-y-2">
                         <Label htmlFor="name">Name</Label>
-                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                        <input id="name" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2 border rounded-md" />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="category">Category</Label>
@@ -355,19 +344,15 @@ const PlanFormDialog = ({
                     </div>
 
                     <div className="space-y-3">
-                        <Label>Plan Image</Label>
+                        <Label>Plan Image (Website Files)</Label>
                         <div className="flex gap-2 p-1 bg-muted rounded-md w-fit">
-                            <Button variant={imageMode === 'url' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('url')}><LinkIcon className="mr-2 h-4 w-4" />URL</Button>
                             <Button variant={imageMode === 'library' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('library')}><ImageIcon className="mr-2 h-4 w-4" />Library</Button>
-                            <Button variant={imageMode === 'upload' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('upload')}><Upload className="mr-2 h-4 w-4" />Upload</Button>
+                            <Button variant={imageMode === 'upload' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('upload')}><FileUp className="mr-2 h-4 w-4" />Import New</Button>
+                            <Button variant={imageMode === 'url' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('url')}><LinkIcon className="mr-2 h-4 w-4" />URL</Button>
                         </div>
 
-                        {imageMode === 'url' && (
-                            <Input placeholder="Paste Image Link here..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
-                        )}
-
                         {imageMode === 'library' && (
-                            <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1">
+                            <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 border rounded-md">
                                 {mergedLibrary.map(img => (
                                     <div 
                                         key={img.id}
@@ -377,7 +362,7 @@ const PlanFormDialog = ({
                                         <div className="relative aspect-video w-full overflow-hidden rounded-sm">
                                             <Image src={img.url} alt={img.name} fill className="object-cover" />
                                         </div>
-                                        <div className="p-1 text-[10px] uppercase font-bold text-center truncate">
+                                        <div className="p-1 text-[10px] uppercase font-bold text-center truncate bg-background/80">
                                             {img.name}
                                         </div>
                                         {!img.isStatic && (
@@ -396,21 +381,23 @@ const PlanFormDialog = ({
                         )}
 
                         {imageMode === 'upload' && (
-                            <div className="space-y-4">
-                                <Input type="file" accept="image/*" onChange={handleFileChange} />
-                                {uploadProgress > 0 && (
-                                    <div className="space-y-1">
-                                        <Progress value={uploadProgress} className="h-2" />
-                                        <p className="text-[10px] text-center font-medium">Uploading: {Math.round(uploadProgress)}%</p>
+                            <div className="space-y-4 p-4 border rounded-md bg-muted/20">
+                                <Label className="text-xs text-muted-foreground">Select a file to import into website files</Label>
+                                <Input type="file" accept="image/*" onChange={handleFileChange} className="bg-background" />
+                                {previewUrl && (
+                                    <div className="relative aspect-video w-full rounded-md overflow-hidden border shadow-sm">
+                                        <Image src={previewUrl} alt="Preview" fill className="object-cover" />
                                     </div>
                                 )}
+                                <Button onClick={handleImportImage} disabled={isImporting || !selectedFile} className="w-full">
+                                    {isImporting ? `Importing ${Math.round(uploadProgress)}%` : 'Import to Library'}
+                                </Button>
+                                {uploadProgress > 0 && <Progress value={uploadProgress} className="h-1" />}
                             </div>
                         )}
 
-                        {previewUrl && (
-                            <div className="relative aspect-video w-full rounded-md overflow-hidden border">
-                                <Image src={previewUrl} alt="Preview" fill className="object-cover" />
-                            </div>
+                        {imageMode === 'url' && (
+                            <Input placeholder="Paste Image Link here..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
                         )}
                     </div>
 
@@ -437,7 +424,7 @@ const PlanFormDialog = ({
                     </div>
                     
                     <div className="flex items-center justify-between rounded-lg border p-3">
-                        <Label htmlFor="offer-switch">Enable Limited Offer</Label>
+                        <Label htmlFor="offer-switch">Limited Time Offer</Label>
                         <Switch id="offer-switch" checked={offerEnabled} onCheckedChange={setOfferEnabled} />
                     </div>
 
@@ -447,8 +434,8 @@ const PlanFormDialog = ({
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button onClick={handleSavePlan} disabled={isSaving}>
-                        {isSaving ? (uploadProgress > 0 ? `Uploading: ${Math.round(uploadProgress)}%` : 'Saving...') : 'Save Changes'}
+                    <Button onClick={handleSavePlan} disabled={isSaving || isImporting} className="w-full sm:w-auto">
+                        {isSaving ? 'Saving Plan...' : 'Save Plan'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -502,11 +489,11 @@ const CategoryFormDialog = ({
       <DialogContent>
         <DialogHeader><DialogTitle>{isEditMode ? 'Edit' : 'Add'} Category</DialogTitle></DialogHeader>
         <div className="py-4 space-y-2">
-          <Label>Name</Label>
+          <Label>Category Name</Label>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., VIP" />
         </div>
         <DialogFooter>
-          <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save'}</Button>
+          <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Category'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -563,25 +550,25 @@ export default function AdminInvestmentsPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold font-headline">Investments</h1>
-          <p className="text-muted-foreground">Manage your investment plans and categories.</p>
+          <h1 className="text-3xl font-bold font-headline">Investment Management</h1>
+          <p className="text-muted-foreground">Manage your plans and import assets directly.</p>
         </div>
         <Button className="bg-accent hover:bg-accent/90" onClick={handleAddNewPlanClick}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Plan
+          <PlusCircle className="mr-2 h-4 w-4" /> Add New Plan
         </Button>
       </div>
 
       <div className="grid gap-8 md:grid-cols-3">
         <div className="md:col-span-2">
           <Card>
-            <CardHeader><CardTitle>Plans</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Active Investment Plans</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                {isLoadingPlans ? <p>Loading...</p> : investmentPlans?.map((plan) => (
+                {isLoadingPlans ? <p>Loading plans...</p> : investmentPlans?.map((plan) => (
                   <div key={plan.id} className="relative group">
                     <InvestmentPlanCard plan={plan} showPurchaseButton={false} />
                     <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                      <Button variant="outline" size="icon" onClick={() => handleEditPlan(plan)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="outline" size="icon" className="bg-background/80" onClick={() => handleEditPlan(plan)}><Edit className="h-4 w-4" /></Button>
                       <Button variant="destructive" size="icon" onClick={() => handleDeletePlan(plan)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>
@@ -591,14 +578,14 @@ export default function AdminInvestmentsPage() {
           </Card>
         </div>
         <Card>
-          <CardHeader>
-            <CardTitle>Categories</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Plan Categories</CardTitle>
             <Button variant="outline" size="sm" onClick={() => { setEditingCategory(null); setIsCategoryFormOpen(true); }}>Add</Button>
           </CardHeader>
           <CardContent>
             <Table>
               <TableBody>
-                {planCategories?.map(cat => (
+                {isLoadingCategories ? <TableRow><TableCell>Loading...</TableCell></TableRow> : planCategories?.map(cat => (
                   <TableRow key={cat.id}>
                     <TableCell className="font-medium">{cat.name}</TableCell>
                     <TableCell className="text-right">

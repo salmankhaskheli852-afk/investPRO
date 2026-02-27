@@ -56,7 +56,7 @@ export default function UserLayout({
     <div className="bg-background min-h-screen">
       <div className="relative mx-auto w-full min-h-screen flex flex-col">
         <Header />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 max-w-6xl mx-auto w-full">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 max-w-7xl mx-auto w-full">
           {showVerificationPopup && <VerificationPopup />}
           <ReferralRequestManager />
           {children}
