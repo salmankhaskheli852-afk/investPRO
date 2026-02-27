@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -24,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { PlanCategory } from '@/lib/data';
-import { Edit, PlusCircle, Trash2, Timer } from 'lucide-react';
+import { Edit, PlusCircle, Trash2, Timer, Link as LinkIcon, Image as ImageIcon, Check } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -33,9 +34,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { InvestmentPlanCard } from '@/components/investment-plan-card';
-import { useCollection, useFirestore, useMemoFirebase, useUser, useFirebaseApp } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { InvestmentPlan } from '@/lib/data';
-import { collection, addDoc, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, query, orderBy } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -49,6 +50,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 const PlanFormDialog = ({
     isOpen,
@@ -71,8 +75,11 @@ const PlanFormDialog = ({
     const [price, setPrice] = React.useState(1000);
     const [dailyPercentage, setDailyPercentage] = React.useState(5);
     const [period, setPeriod] = React.useState(60);
-    const [imageUrl, setImageUrl] = React.useState('https://picsum.photos/seed/105/600/400');
-    const [imageHint, setImageHint] = React.useState('investment growth');
+    
+    // Image selection state
+    const [imageSource, setImageSource] = React.useState<'url' | 'library'>('url');
+    const [imageUrl, setImageUrl] = React.useState('');
+    const [selectedLibraryId, setSelectedLibraryId] = React.useState('');
 
     const [purchaseLimit, setPurchaseLimit] = React.useState(0);
     const [isSoldOut, setIsSoldOut] = React.useState(false);
@@ -96,14 +103,18 @@ const PlanFormDialog = ({
             setDailyPercentage(planToEdit.dailyIncomePercentage);
             setPeriod(planToEdit.incomePeriod);
             setImageUrl(planToEdit.imageUrl);
-            setImageHint(planToEdit.imageHint || '');
             setOfferEnabled(planToEdit.isOfferEnabled || false);
             setPurchaseLimit(planToEdit.purchaseLimit || 0);
             setIsSoldOut(planToEdit.isSoldOut || false);
-            setOfferDays(1);
-            setOfferHours(0);
-            setOfferMinutes(0);
-            setOfferSeconds(0);
+            
+            // Check if URL matches something in library
+            const inLibrary = PlaceHolderImages.find(img => img.imageUrl === planToEdit.imageUrl);
+            if (inLibrary) {
+                setImageSource('library');
+                setSelectedLibraryId(inLibrary.id);
+            } else {
+                setImageSource('url');
+            }
         } else {
             resetForm();
         }
@@ -115,8 +126,9 @@ const PlanFormDialog = ({
         setPrice(1000);
         setDailyPercentage(5);
         setPeriod(60);
-        setImageUrl('https://picsum.photos/seed/105/600/400');
-        setImageHint('investment growth');
+        setImageUrl('');
+        setSelectedLibraryId('');
+        setImageSource('url');
         setOfferEnabled(false);
         setOfferDays(1);
         setOfferHours(0);
@@ -128,11 +140,16 @@ const PlanFormDialog = ({
 
     const handleSavePlan = async () => {
         if (!firestore) return;
-        if (!name || !categoryId || !price || !dailyPercentage || !period || !imageUrl) {
+        
+        const finalImageUrl = imageSource === 'library' 
+            ? PlaceHolderImages.find(img => img.id === selectedLibraryId)?.imageUrl 
+            : imageUrl;
+
+        if (!name || !categoryId || !price || !dailyPercentage || !period || !finalImageUrl) {
             toast({
                 variant: 'destructive',
                 title: 'Missing Fields',
-                description: 'Please fill out all the fields to create a plan.',
+                description: 'Please fill out all the fields, including selecting an image.',
             });
             return;
         }
@@ -160,8 +177,7 @@ const PlanFormDialog = ({
                 price,
                 dailyIncomePercentage: dailyPercentage,
                 incomePeriod: period,
-                imageUrl,
-                imageHint,
+                imageUrl: finalImageUrl,
                 totalIncome,
                 isOfferEnabled: offerEnabled,
                 purchaseLimit: purchaseLimit,
@@ -235,14 +251,75 @@ const PlanFormDialog = ({
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="image">Image URL</Label>
-                        <Input id="image" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
+
+                    <div className="space-y-3">
+                        <Label>Plan Image</Label>
+                        <div className="flex gap-2 p-1 bg-muted rounded-md w-fit">
+                            <Button 
+                                variant={imageSource === 'url' ? 'secondary' : 'ghost'} 
+                                size="sm" 
+                                className="h-8"
+                                onClick={() => setImageSource('url')}
+                            >
+                                <LinkIcon className="mr-2 h-4 w-4" />
+                                URL
+                            </Button>
+                            <Button 
+                                variant={imageSource === 'library' ? 'secondary' : 'ghost'} 
+                                size="sm" 
+                                className="h-8"
+                                onClick={() => setImageSource('library')}
+                            >
+                                <ImageIcon className="mr-2 h-4 w-4" />
+                                Library
+                            </Button>
+                        </div>
+
+                        {imageSource === 'url' ? (
+                            <div className="space-y-2">
+                                <Input 
+                                    placeholder="Paste Google/Image Link here..." 
+                                    value={imageUrl} 
+                                    onChange={(e) => setImageUrl(e.target.value)} 
+                                />
+                                {imageUrl && (
+                                    <div className="relative aspect-video w-full rounded-md overflow-hidden border">
+                                        <Image src={imageUrl} alt="Preview" fill className="object-cover" />
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1">
+                                {PlaceHolderImages.map(img => {
+                                    const displayName = img.id.replace(/-/g, ' ').replace(/\.[^/.]+$/, "");
+                                    const isSelected = selectedLibraryId === img.id;
+                                    return (
+                                        <div 
+                                            key={img.id}
+                                            className={cn(
+                                                "relative cursor-pointer group rounded-md border-2 transition-all overflow-hidden",
+                                                isSelected ? "border-primary" : "border-transparent hover:border-muted-foreground/50"
+                                            )}
+                                            onClick={() => setSelectedLibraryId(img.id)}
+                                        >
+                                            <div className="relative aspect-video w-full">
+                                                <Image src={img.imageUrl} alt={img.description} fill className="object-cover" />
+                                                {isSelected && (
+                                                    <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                                        <Check className="h-8 w-8 text-primary bg-white rounded-full p-1 shadow-lg" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="p-2 bg-background/90 text-[10px] uppercase font-bold text-center truncate">
+                                                {displayName}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="image-hint">Image Hint</Label>
-                        <Input id="image-hint" value={imageHint} onChange={(e) => setImageHint(e.target.value)} />
-                    </div>
+
                     <div className="space-y-2">
                         <Label htmlFor="price">Product Price (Rs)</Label>
                         <Input id="price" type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} />
