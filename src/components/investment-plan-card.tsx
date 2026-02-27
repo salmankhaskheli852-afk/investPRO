@@ -251,7 +251,7 @@ export function InvestmentPlanCard({
               fill
               className="object-cover rounded-md"
               data-ai-hint={plan.imageHint}
-              unoptimized={plan.imageUrl.startsWith('/')}
+              unoptimized={true}
             />
              {isOfferActive && plan.offerEndTime && <CountdownTimer endTime={plan.offerEndTime} />}
           </div>

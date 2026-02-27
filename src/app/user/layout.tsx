@@ -57,8 +57,8 @@ export default function UserLayout({
       <div className="relative mx-auto w-full min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 w-full">
-          {/* Removed max-width constraints to allow full landscape view on desktop */}
-          <div className="w-full mx-auto">
+          {/* Use w-full and max-w-none to allow full landscape view on desktop */}
+          <div className="w-full max-w-none mx-auto">
             {showVerificationPopup && <VerificationPopup />}
             <ReferralRequestManager />
             {children}
