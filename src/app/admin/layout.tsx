@@ -1,11 +1,17 @@
+
 'use client';
 
+import React, { useEffect } from 'react';
 import { Sidebar, SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav, type NavItem } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
-import { LayoutDashboard, Users, UserCog, Wallet, ArrowDownToLine, ArrowUpFromLine, Settings, GitBranch, KeyRound, DollarSign } from 'lucide-react';
+import { Users, UserCog, Wallet, ArrowDownToLine, ArrowUpFromLine, Settings, GitBranch, KeyRound, DollarSign } from 'lucide-react';
 import { ModernDashboardIcon } from '@/components/modern-dashboard-icon';
 import { ModernInvestmentIcon } from '@/components/modern-investment-icon';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
+import type { User } from '@/lib/data';
 
 const DashboardIconWrapper = () => <ModernDashboardIcon size={18} />;
 const InvestmentIconWrapper = () => <ModernInvestmentIcon size={18} />;
@@ -29,6 +35,40 @@ export default function AdminLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const router = useRouter();
+
+  const userDocRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user]
+  );
+  const { data: userData, isLoading: isDocLoading } = useDoc<User>(userDocRef);
+
+  useEffect(() => {
+    if (!isUserLoading && !isDocLoading) {
+      if (!user) {
+        router.push('/auth/sign-up');
+      } else if (userData && userData.role !== 'admin') {
+        // Redirect non-admin users to their dashboard
+        router.push('/user/me');
+      }
+    }
+  }, [user, isUserLoading, userData, isDocLoading, router]);
+
+  if (isUserLoading || isDocLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Verifying admin access...</p>
+      </div>
+    );
+  }
+
+  // Only render children if user is an admin
+  if (!userData || userData.role !== 'admin') {
+    return null;
+  }
+
   return (
     <SidebarProvider>
       <Sidebar variant='inset'>

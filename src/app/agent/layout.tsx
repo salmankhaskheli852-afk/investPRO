@@ -1,16 +1,17 @@
 
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Sidebar, SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav, type NavItem } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
-import { LayoutDashboard, Users, ArrowDownToLine, ArrowUpFromLine, MessageSquare, History, MessageCircle } from 'lucide-react';
+import { Users, ArrowDownToLine, ArrowUpFromLine, MessageCircle } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import type { User, AppSettings } from '@/lib/data';
 import { doc } from 'firebase/firestore';
 import { MaintenancePage } from '@/components/maintenance-page';
 import { ModernDashboardIcon } from '@/components/modern-dashboard-icon';
+import { useRouter } from 'next/navigation';
 
 const DashboardIconWrapper = () => <ModernDashboardIcon size={18} />;
 
@@ -53,16 +54,35 @@ export default function AgentLayout({
   children: React.ReactNode;
 }>) {
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
   const settingsRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'app_config', 'app_settings') : null),
     [firestore, user]
   );
-  const { data: appSettings, isLoading } = useDoc<AppSettings>(settingsRef);
+  const { data: appSettings, isLoading: isSettingsLoading } = useDoc<AppSettings>(settingsRef);
 
-  if (isLoading) {
+  const userDocRef = useMemoFirebase(
+    () => (user && firestore ? doc(firestore, 'users', user.uid) : null),
+    [user, firestore]
+  );
+  const { data: agentData, isLoading: isAgentLoading } = useDoc<User>(userDocRef);
+
+  useEffect(() => {
+    if (!isUserLoading && !isAgentLoading) {
+      if (!user) {
+        router.push('/auth/sign-up');
+      } else if (agentData && agentData.role !== 'agent') {
+        // Redirect non-agent users
+        router.push('/user/me');
+      }
+    }
+  }, [user, isUserLoading, agentData, isAgentLoading, router]);
+
+  if (isUserLoading || isSettingsLoading || isAgentLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-muted">
         <p>Loading...</p>
       </div>
     );
@@ -74,6 +94,10 @@ export default function AgentLayout({
         message={appSettings.agentMaintenanceMessage || 'The agent panel is currently under maintenance. We will be back shortly.'}
       />
     );
+  }
+
+  if (!agentData || agentData.role !== 'agent') {
+    return null;
   }
   
   return (
