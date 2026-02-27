@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { PlanCategory } from '@/lib/data';
-import { Edit, PlusCircle, Trash2, Link as LinkIcon, Image as ImageIcon, Upload, Check, X, FileUp } from 'lucide-react';
+import { Edit, PlusCircle, Trash2, Link as LinkIcon, Image as ImageIcon, Upload, Check, X, FileUp, RefreshCw } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -55,6 +55,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { Progress } from '@/components/ui/progress';
+import { getPublicImages } from './actions';
 
 interface LibraryImage {
     id: string;
@@ -86,12 +87,10 @@ const PlanFormDialog = ({
     const [dailyPercentage, setDailyPercentage] = React.useState(5);
     const [period, setPeriod] = React.useState(60);
     
-    // Image selection state
     const [imageMode, setImageMode] = React.useState<'url' | 'library' | 'upload'>('library');
     const [imageUrl, setImageUrl] = React.useState('');
     const [selectedLibraryId, setSelectedLibraryId] = React.useState('');
     
-    // Upload state
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = React.useState(0);
     const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
@@ -99,18 +98,29 @@ const PlanFormDialog = ({
 
     const [purchaseLimit, setPurchaseLimit] = React.useState(0);
     const [isSoldOut, setIsSoldOut] = React.useState(false);
-
-    // Offer state
     const [offerEnabled, setOfferEnabled] = React.useState(false);
-    
     const [isSaving, setIsSaving] = React.useState(false);
 
-    // Dynamic Library from Firestore
+    // Dynamic library state including public folder scans
+    const [publicImages, setPublicImages] = React.useState<any[]>([]);
+    const [isScanning, setIsScanning] = React.useState(false);
+
     const libraryQuery = useMemoFirebase(
         () => (firestore ? query(collection(firestore, 'image_library'), orderBy('createdAt', 'desc')) : null),
         [firestore]
     );
     const { data: dbLibraryImages } = useCollection<LibraryImage>(libraryQuery);
+
+    const scanPublicFolder = React.useCallback(async () => {
+        setIsScanning(true);
+        const images = await getPublicImages();
+        setPublicImages(images);
+        setIsScanning(false);
+    }, []);
+
+    React.useEffect(() => {
+        if (isOpen) scanPublicFolder();
+    }, [isOpen, scanPublicFolder]);
 
     const mergedLibrary = React.useMemo(() => {
         const staticImgs = PlaceHolderImages.map(img => ({
@@ -120,6 +130,7 @@ const PlanFormDialog = ({
             isStatic: true,
             storagePath: undefined
         }));
+        
         const dynamicImgs = dbLibraryImages?.map(img => ({
             id: img.id,
             url: img.url,
@@ -127,8 +138,9 @@ const PlanFormDialog = ({
             isStatic: false,
             storagePath: img.storagePath
         })) || [];
-        return [...dynamicImgs, ...staticImgs];
-    }, [dbLibraryImages]);
+
+        return [...dynamicImgs, ...publicImages, ...staticImgs];
+    }, [dbLibraryImages, publicImages]);
 
     const isEditMode = planToEdit !== null;
 
@@ -190,7 +202,7 @@ const PlanFormDialog = ({
         setIsImporting(true);
         try {
             const storage = getStorage();
-            const storagePath = `app_files/${Date.now()}_${selectedFile.name}`;
+            const storagePath = `investment_plan_images/${Date.now()}_${selectedFile.name}`;
             const storageRef = ref(storage, storagePath);
             const uploadTask = uploadBytesResumable(storageRef, selectedFile);
 
@@ -210,9 +222,7 @@ const PlanFormDialog = ({
 
             const finalUrl = await uploadPromise;
 
-            // Add to dynamic library
             const libraryRef = doc(collection(firestore, 'image_library'));
-            // Clean name: remove extension and replace underscores/hyphens with spaces
             const fileName = selectedFile.name.split('.').slice(0, -1).join('.').replace(/[_-]/g, ' ');
             
             await setDoc(libraryRef, {
@@ -224,8 +234,6 @@ const PlanFormDialog = ({
             });
 
             toast({ title: 'Image Imported!', description: 'Saved to website files.' });
-            
-            // Cleanup and switch to library to select it
             setSelectedFile(null);
             setPreviewUrl(null);
             setUploadProgress(0);
@@ -241,7 +249,7 @@ const PlanFormDialog = ({
 
     const handleDeleteLibraryImage = async (e: React.MouseEvent, img: any) => {
         e.stopPropagation();
-        if (!firestore) return;
+        if (!firestore || img.isStatic) return;
 
         try {
             await deleteDoc(doc(firestore, 'image_library', img.id));
@@ -345,7 +353,15 @@ const PlanFormDialog = ({
                     </div>
 
                     <div className="space-y-3">
-                        <Label>Plan Image (Website Files)</Label>
+                        <div className="flex items-center justify-between">
+                            <Label>Plan Image (Website Files)</Label>
+                            {imageMode === 'library' && (
+                                <Button variant="ghost" size="sm" onClick={scanPublicFolder} disabled={isScanning}>
+                                    <RefreshCw className={cn("h-3 w-3 mr-1", isScanning && "animate-spin")} />
+                                    Scan Public Folder
+                                </Button>
+                            )}
+                        </div>
                         <div className="flex gap-2 p-1 bg-muted rounded-md w-fit">
                             <Button variant={imageMode === 'library' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('library')}><ImageIcon className="mr-2 h-4 w-4" />Library</Button>
                             <Button variant={imageMode === 'upload' ? 'secondary' : 'ghost'} size="sm" onClick={() => setImageMode('upload')}><FileUp className="mr-2 h-4 w-4" />Import New</Button>
