@@ -11,7 +11,8 @@ service cloud.firestore {
              (
                 request.auth.token.email == 'salmankhaskheli885@gmail.com' ||
                 request.auth.token.email == 'salmankhaskheli852@gmail.com' ||
-                exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
+                exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) ||
+                (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
              );
     }
 
@@ -85,7 +86,7 @@ service cloud.firestore {
     // Explicitly allow admins and agents to list transactions, while users only see their own
     match /transactions/{transactionId} {
       allow create: if isUserAuthenticated();
-      allow read, list: if isAdmin() || isAgent() || (isUserAuthenticated() && request.query.limit <= 100 && resource.data.details.userId == request.auth.uid);
+      allow read, list: if isAdmin() || isAgent() || (isUserAuthenticated() && resource.data.details.userId == request.auth.uid);
     }
     
     match /referral_requests/{requestId} {

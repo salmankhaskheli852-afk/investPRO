@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Info, Wallet, Timer, XCircle, PackageX, Repeat, CalendarCheck, CalendarX } from 'lucide-react';
+import { Info, Wallet, Timer, XCircle, PackageX, Repeat, CalendarCheck, CalendarX } from 'lucide-material';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, arrayUnion, collection, serverTimestamp, Timestamp, increment, runTransaction } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -193,10 +193,29 @@ export function InvestmentPlanCard({
                 date: serverTimestamp(),
                 details: {
                     planId: plan.id,
-                    planName: plan.name
+                    planName: plan.name,
+                    userId: user.uid
                 },
                 id: transactionRef.id,
                 walletId: 'main'
+            });
+
+            // Also add to global transactions for admin tracking
+            const globalTxRef = doc(firestore, 'transactions', transactionRef.id);
+            transaction.set(globalTxRef, {
+                id: transactionRef.id,
+                type: 'investment',
+                amount: plan.price,
+                status: 'completed',
+                date: serverTimestamp(),
+                walletId: 'main',
+                details: {
+                    planId: plan.id,
+                    planName: plan.name,
+                    userId: user.uid,
+                    userName: currentUserData.name,
+                    userEmail: currentUserData.email
+                }
             });
         });
 

@@ -30,6 +30,8 @@ const navItems: NavItem[] = [
   { href: '/admin/settings', label: 'App Settings', icon: Settings },
 ];
 
+const ADMIN_EMAILS = ['salmankhaskheli885@gmail.com', 'salmankhaskheli852@gmail.com'];
+
 export default function AdminLayout({
   children,
 }: Readonly<{
@@ -49,9 +51,14 @@ export default function AdminLayout({
     if (!isUserLoading && !isDocLoading) {
       if (!user) {
         router.push('/auth/sign-up');
-      } else if (userData && userData.role !== 'admin') {
-        // Redirect non-admin users to their dashboard
-        router.push('/user/me');
+      } else {
+        const isSuperAdmin = user.email && ADMIN_EMAILS.includes(user.email);
+        const hasAdminRole = userData && userData.role === 'admin';
+        
+        if (!isSuperAdmin && !hasAdminRole) {
+          // Redirect non-admin users to their dashboard
+          router.push('/user/me');
+        }
       }
     }
   }, [user, isUserLoading, userData, isDocLoading, router]);
@@ -64,8 +71,11 @@ export default function AdminLayout({
     );
   }
 
+  const isSuperAdmin = user?.email && ADMIN_EMAILS.includes(user.email);
+  const hasAdminRole = userData && userData.role === 'admin';
+
   // Only render children if user is an admin
-  if (!userData || userData.role !== 'admin') {
+  if (!isSuperAdmin && !hasAdminRole) {
     return null;
   }
 
