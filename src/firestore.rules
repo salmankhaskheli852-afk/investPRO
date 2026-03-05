@@ -6,31 +6,22 @@ service cloud.firestore {
     
     // Helper function to check if the user is a super admin by email
     // or if their UID exists in the admin roles collection.
-    // or if their profile role is 'admin'.
     function isAdmin() {
-      let isAuth = request.auth != null;
-      let userEmail = isAuth ? request.auth.token.email.toLower() : "";
-      
-      let isSuperAdmin = isAuth && (userEmail == 'salmankhaskheli885@gmail.com' || userEmail == 'salmankhaskheli852@gmail.com');
-      
-      let hasAdminRole = isAuth && 
-                         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-                         
-      let inAdminCollection = isAuth && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
-      
-      return isSuperAdmin || hasAdminRole || inAdminCollection;
+      return request.auth != null && (
+        request.auth.token.email.lower() == 'salmankhaskheli885@gmail.com' ||
+        request.auth.token.email.lower() == 'salmankhaskheli852@gmail.com' ||
+        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
+      );
     }
 
-    // Helper function to check if the user is an agent
+    // Helper function to check if the user is an agent by their role document.
     function isAgent() {
       return request.auth != null &&
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
     }
     
-    // --- TOTAL PERMISSION FOR ADMINS ---
-    // Grant full read/write access to everything for authorized admins
+    // --- MASTER RULE: TOTAL PERMISSION FOR ADMINS ---
     match /{document=**} {
       allow read, write: if isAdmin();
     }
@@ -41,12 +32,13 @@ service cloud.firestore {
                                  collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests', 'image_library'];
     }
     
-    // Allow agents to manage user subcollections
-    match /users/{userId}/{document=**} {
-        allow read, write: if isAgent();
+    // --- image_library for agents/admin ---
+    match /image_library/{imgId} {
+        allow read: if request.auth != null;
+        allow write: if isAdmin() || isAgent();
     }
 
-    // --- Regular User Rules ---
+    // --- Rules for regular authenticated users ---
     function isUserAuthenticated() {
       return request.auth != null;
     }
@@ -62,16 +54,19 @@ service cloud.firestore {
     }
     
     match /users/{userId}/{document=**} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isOwner(userId) || isAgent() || isAdmin();
     }
 
+    // --- General Public/Authenticated Read Rules ---
     match /investment_plans/{planId} {
         allow read: if true;
         allow update: if isUserAuthenticated();
+        allow create, delete: if isAdmin() || isAgent();
     }
 
     match /plan_categories/{categoryId} {
         allow read: if true;
+        allow create, update, delete: if isAdmin() || isAgent();
     }
     
     match /admin_wallets/{walletId} {
@@ -88,9 +83,9 @@ service cloud.firestore {
     
     match /password_reset_requests/{requestId} {
         allow create: if isUserAuthenticated();
+        allow read, write: if isAdmin() || isAgent();
     }
 
-    // Explicitly allow list operations for transactions
     match /transactions/{transactionId} {
       allow create: if isUserAuthenticated();
       allow read, list: if isAdmin() || isAgent() || (isUserAuthenticated() && resource.data.details.userId == request.auth.uid);

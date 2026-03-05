@@ -7,11 +7,11 @@ service cloud.firestore {
     // Helper function to check if the user is a super admin by email
     // or if their UID exists in the admin roles collection.
     function isAdmin() {
-      return request.auth != null && 
-             (
-                request.auth.token.email == 'salmankhaskheli885@gmail.com' ||
-                exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
-             );
+      return request.auth != null && (
+        request.auth.token.email.lower() == 'salmankhaskheli885@gmail.com' ||
+        request.auth.token.email.lower() == 'salmankhaskheli852@gmail.com' ||
+        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
+      );
     }
 
     // Helper function to check if the user is an agent by their role document.
@@ -21,12 +21,12 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
     }
     
-    // --- Admin and Agent Rules ---
-
+    // --- MASTER RULE: TOTAL PERMISSION FOR ADMINS ---
     match /{document=**} {
       allow read, write: if isAdmin();
     }
 
+    // --- Agent Rules ---
     match /{collection}/{docId} {
       allow read, write, list: if isAgent() && 
                                  collection in ['users', 'investment_plans', 'plan_categories', 'transactions', 'admin_wallets', 'withdrawal_methods', 'password_reset_requests', 'image_library'];
@@ -39,7 +39,6 @@ service cloud.firestore {
     }
 
     // --- Rules for regular authenticated users ---
-
     function isUserAuthenticated() {
       return request.auth != null;
     }
@@ -55,11 +54,10 @@ service cloud.firestore {
     }
     
     match /users/{userId}/{document=**} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isOwner(userId) || isAgent() || isAdmin();
     }
 
     // --- General Public/Authenticated Read Rules ---
-
     match /investment_plans/{planId} {
         allow read: if true;
         allow update: if isUserAuthenticated();
@@ -90,7 +88,7 @@ service cloud.firestore {
 
     match /transactions/{transactionId} {
       allow create: if isUserAuthenticated();
-      allow read: if isUserAuthenticated() && request.auth.uid == get(/databases/$(database)/documents/transactions/$(transactionId)).data.details.userId;
+      allow read, list: if isAdmin() || isAgent() || (isUserAuthenticated() && resource.data.details.userId == request.auth.uid);
     }
     
     match /referral_requests/{requestId} {
