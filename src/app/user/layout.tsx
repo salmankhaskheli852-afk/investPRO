@@ -57,7 +57,7 @@ export default function UserLayout({
       <div className="mx-auto w-full min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 w-full">
-          {/* Poori screen (Landscape) view ke liye max-width ki limit khatam kar di gayi hai */}
+          {/* Layout is now full width for Landscape view on Desktop */}
           <div className="w-full mx-auto">
             {showVerificationPopup && <VerificationPopup />}
             <ReferralRequestManager />

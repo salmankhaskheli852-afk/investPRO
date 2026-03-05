@@ -48,10 +48,10 @@ export function EditUserRoleDialog({ user, isOpen, onOpenChange }: EditUserRoleD
 
       // 2. Sync security permissions
       if (selectedRole === 'admin') {
-        // Grant master access via dedicated collection
+        // Grant master access via dedicated collection for Security Rules
         batch.set(adminRoleRef, { 
             id: user.id, 
-            email: user.email || '', 
+            email: user.email?.toLowerCase() || '', 
             grantedAt: serverTimestamp() 
         });
       } else {
@@ -89,7 +89,7 @@ export function EditUserRoleDialog({ user, isOpen, onOpenChange }: EditUserRoleD
         <DialogHeader>
           <DialogTitle>Change Role for {user.name || user.email}</DialogTitle>
           <DialogDescription>
-            Select the new role for this user. Giving 'Admin' role grants TOTAL permission to every part of the system.
+            Select the new role for this user. Giving 'Admin' role grants TOTAL permission to every part of the system, making them a Real Admin.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">

@@ -263,7 +263,7 @@ export function InvestmentPlanCard({
         <h3 className="font-bold text-sm text-foreground px-1">{plan.name}</h3>
 
         <div className="flex flex-row gap-4 items-center">
-          {/* Image size is maintained at 35% width for visibility */}
+          {/* Images are 25% larger (w-[35%]) and unoptimized for production stability */}
           <div className="relative w-[35%] aspect-square">
             <Image
               src={plan.imageUrl}

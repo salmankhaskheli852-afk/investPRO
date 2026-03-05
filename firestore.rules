@@ -5,12 +5,13 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // Helper function to check if the user is a super admin by email
-    // or if their UID exists in the admin roles collection.
+    // or if their UID exists in the admin roles collection, or if their document says admin.
     function isAdmin() {
       return request.auth != null && (
         request.auth.token.email.lower() == 'salmankhaskheli885@gmail.com' ||
         request.auth.token.email.lower() == 'salmankhaskheli852@gmail.com' ||
-        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
+        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
     }
 
@@ -21,7 +22,8 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'agent';
     }
     
-    // --- MASTER RULE: TOTAL PERMISSION FOR ADMINS ---
+    // --- MASTER RULE: TOTAL PERMISSION FOR ALL ADMINS ---
+    // This makes every admin a "Real Admin" with full power.
     match /{document=**} {
       allow read, write: if isAdmin();
     }

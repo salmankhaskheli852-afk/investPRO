@@ -76,7 +76,7 @@ export default function AdminLayout({
   const isSuperAdmin = ADMIN_EMAILS.some(email => email.toLowerCase() === userEmail);
   const hasAdminRole = userData && userData.role === 'admin';
 
-  // Only render children if user is an admin
+  // Only render children if user is an admin or super admin
   if (!isSuperAdmin && !hasAdminRole) {
     return null;
   }
