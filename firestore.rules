@@ -8,8 +8,8 @@ service cloud.firestore {
     // or if their UID exists in the admin roles collection, or if their document says admin.
     function isAdmin() {
       return request.auth != null && (
-        request.auth.token.email.lower() == 'salmankhaskheli885@gmail.com' ||
-        request.auth.token.email.lower() == 'salmankhaskheli852@gmail.com' ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'salmankhaskheli885@gmail.com') ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'salmankhaskheli852@gmail.com') ||
         exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );

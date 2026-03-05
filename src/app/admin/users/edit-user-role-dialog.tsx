@@ -49,6 +49,7 @@ export function EditUserRoleDialog({ user, isOpen, onOpenChange }: EditUserRoleD
       // 2. Sync security permissions
       if (selectedRole === 'admin') {
         // Grant master access via dedicated collection for Security Rules
+        // This makes the admin role permanent and real in Firestore's eyes.
         batch.set(adminRoleRef, { 
             id: user.id, 
             email: user.email?.toLowerCase() || '', 
